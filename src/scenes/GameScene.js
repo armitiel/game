@@ -55,6 +55,9 @@ export default class GameScene extends Phaser.Scene {
     this.trashCans = [];
     this.createTrashCans();
 
+    // === Touch controls (mobile) — must be created before Player ===
+    this.touch = new TouchControls(this);
+
     // === Player ===
     this.player = new Player(this, this.checkpointX, this.checkpointY, this.touch);
     this.player.setDepth(5);
@@ -164,9 +167,6 @@ export default class GameScene extends Phaser.Scene {
         this.interactablePaintSpot = spot;
       }
     });
-
-    // === Touch controls (mobile) ===
-    this.touch = new TouchControls(this);
 
     // === HUD ===
     this.createHUD();

@@ -22,7 +22,7 @@ const config = {
   scene: [BootScene, MenuScene, LevelSelectScene, GameScene, WinScene],
   pixelArt: true,
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.ENVELOP,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
   input: {
