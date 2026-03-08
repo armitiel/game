@@ -455,7 +455,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const spread = 10 + impact * 20;           // wider spread on hard landing
     const maxSize = 3 + impact * 5;            // bigger particles on hard landing
 
-    const feetY = this.y + this.body.halfHeight; // bottom of physics body (feet)
+    const feetY = this.body.y + this.body.height; // actual bottom edge of physics body
     for (let i = 0; i < count; i++) {
       const dust = this.scene.add.circle(
         this.x + Phaser.Math.Between(-spread, spread),
