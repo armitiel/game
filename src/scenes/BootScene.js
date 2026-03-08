@@ -62,6 +62,7 @@ export default class BootScene extends Phaser.Scene {
     // === Load paint-by-numbers painting data ===
     this.load.json('painting_heart', 'assets/paintings/heart_mural.json');
     this.load.json('painting_star', 'assets/paintings/star_mural.json');
+    this.load.json('painting_mural_big', 'assets/paintings/pikachu_mural.json');
 
     // === Generate other textures procedurally ===
     this.generateOtherTextures();

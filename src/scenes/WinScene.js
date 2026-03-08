@@ -63,7 +63,7 @@ export default class WinScene extends Phaser.Scene {
     });
 
     this.input.keyboard.once('keydown-SPACE', () => {
-      this.scene.start('GameScene');
+      this.scene.start('LevelSelectScene');
     });
 
     this.input.keyboard.once('keydown-M', () => {
@@ -71,7 +71,7 @@ export default class WinScene extends Phaser.Scene {
     });
 
     this.input.once('pointerdown', () => {
-      this.scene.start('GameScene');
+      this.scene.start('LevelSelectScene');
     });
   }
 }

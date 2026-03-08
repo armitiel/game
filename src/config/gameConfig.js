@@ -12,8 +12,8 @@ export const PLAYER = {
   JUMP_VELOCITY: -350,
   CLIMB_SPEED: 100,
   // Unified sprite sheet — all animations in one sheet at same frame size
-  FRAME_W: 64,
-  FRAME_H: 104,
+  FRAME_W: 96,
+  FRAME_H: 144,
   // Frame ranges in combined sheet:
   // idle: 0-17, walk: 18-41, jump: 42-61, push: 62-85, climb: 86-104, climb2: 105-124, paint: 125-149
   TOTAL_IDLE_FRAMES: 18,
@@ -34,8 +34,8 @@ export const PLAYER = {
   // Physics body (smaller than visual, centered at feet)
   BODY_W: 20,
   BODY_H: 60,
-  BODY_OFFSET_X: 22,  // (64 - 20) / 2
-  BODY_OFFSET_Y: 41,  // feet at Y=101 in 104px frame, body top at 101-60=41
+  BODY_OFFSET_X: 38,  // (96 - 20) / 2
+  BODY_OFFSET_Y: 81,  // feet at Y=141 in 144px frame, body top at 141-60=81
   // Sprite sheet path
   SHEET_PATH: 'assets/sprites/player_combined_sheet.png'
 };

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME, PLAYER, PAINT, SHADOW } from '../config/gameConfig.js';
+import { LEVELS } from '../config/levels.js';
 import Player from '../entities/Player.js';
 import Cop from '../entities/Cop.js';
 import PaintCan from '../entities/PaintCan.js';
@@ -14,19 +15,25 @@ export default class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
+  init(data) {
+    this.levelIndex = (data && data.levelIndex != null) ? data.levelIndex : 0;
+    this.levelData = LEVELS[this.levelIndex] || LEVELS[0];
+  }
+
   create() {
     this.sfx = new SynthSFX();
 
+    const ld = this.levelData;
     this.cameras.main.setBackgroundColor(GAME.BACKGROUND_COLOR);
     this.cameras.main.setZoom(1.3);
-    this.cameras.main.setBounds(0, 0, GAME.WIDTH, GAME.HEIGHT);
+    this.cameras.main.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
 
     // === World bounds ===
-    this.physics.world.setBounds(0, 0, GAME.WIDTH, GAME.HEIGHT);
+    this.physics.world.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
 
     // === Checkpoint ===
-    this.checkpointX = 60;
-    this.checkpointY = GAME.HEIGHT - 80;
+    this.checkpointX = ld.checkpoint.x;
+    this.checkpointY = ld.checkpoint.y;
 
     // Track painted spots
     this.totalSpots = 0;
@@ -178,31 +185,35 @@ export default class GameScene extends Phaser.Scene {
   // === LEVEL BUILDING ===
 
   createBackground() {
+    const ld = this.levelData;
+    const ww = ld.worldWidth;
+    const wh = ld.worldHeight;
     const bg = this.add.graphics();
     bg.setDepth(0);
 
-    // Night sky gradient
+    // Night sky
     bg.fillStyle(0x0a0a1a, 1);
-    bg.fillRect(0, 0, GAME.WIDTH, GAME.HEIGHT);
+    bg.fillRect(0, 0, ww, wh);
 
     // Stars
-    for (let i = 0; i < 40; i++) {
-      const sx = Phaser.Math.Between(0, GAME.WIDTH);
-      const sy = Phaser.Math.Between(0, GAME.HEIGHT / 3);
+    const starCount = Math.floor(40 * (wh / GAME.HEIGHT));
+    for (let i = 0; i < starCount; i++) {
+      const sx = Phaser.Math.Between(0, ww);
+      const sy = Phaser.Math.Between(0, wh / 3);
       const size = Math.random() > 0.8 ? 2 : 1;
       bg.fillStyle(0xffffff, Math.random() * 0.5 + 0.2);
       bg.fillRect(sx, sy, size, size);
     }
 
-    // Distant buildings (parallax feel)
+    // Distant buildings
+    const buildingCount = Math.ceil(ww / 110);
     bg.fillStyle(0x0d0d20, 1);
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < buildingCount; i++) {
       const bw = Phaser.Math.Between(50, 100);
-      const bh = Phaser.Math.Between(80, 250);
-      bg.fillRect(i * 110 - 20, GAME.HEIGHT - bh, bw, bh);
-      // Windows
+      const bh = Phaser.Math.Between(80, Math.min(wh * 0.4, 400));
+      bg.fillRect(i * 110 - 20, wh - bh, bw, bh);
       bg.fillStyle(0x223344, 0.4);
-      for (let wy = GAME.HEIGHT - bh + 15; wy < GAME.HEIGHT - 10; wy += 25) {
+      for (let wy = wh - bh + 15; wy < wh - 10; wy += 25) {
         for (let wx = i * 110 - 10; wx < i * 110 - 20 + bw - 10; wx += 18) {
           if (Math.random() > 0.3) {
             bg.fillRect(wx, wy, 8, 12);
@@ -214,18 +225,16 @@ export default class GameScene extends Phaser.Scene {
 
     // Moon
     bg.fillStyle(0xddeeff, 0.8);
-    bg.fillCircle(680, 60, 25);
+    bg.fillCircle(ww - 100, 60, 25);
     bg.fillStyle(0x0a0a1a, 1);
-    bg.fillCircle(690, 55, 22); // crescent effect
+    bg.fillCircle(ww - 90, 55, 22);
   }
 
   createPlatforms() {
     this.platforms = this.physics.add.staticGroup();
     this.ground = this.physics.add.staticGroup();
 
-    const BLOCK_H = 32; // display height for platform collision
-
-    // Helper: create a TileSprite platform with blok.png texture + static physics
+    const BLOCK_H = 32;
     const addPlatform = (group, x, y, width) => {
       const tile = this.add.tileSprite(x + width / 2, y + BLOCK_H / 2, width, BLOCK_H, 'platform_block');
       tile.setDepth(3);
@@ -233,69 +242,45 @@ export default class GameScene extends Phaser.Scene {
       group.add(tile);
     };
 
-    // Ground floor (separate group — always solid, never pass-through)
-    addPlatform(this.ground, 0, GAME.HEIGHT - 32, GAME.WIDTH);
-
-    // Platform 1 (low-left)
-    addPlatform(this.platforms, 0, GAME.HEIGHT - 156, 256);
-
-    // Platform 2 (mid-right)
-    addPlatform(this.platforms, 300, GAME.HEIGHT - 286, 300);
-
-    // Platform 3 (top-left)
-    addPlatform(this.platforms, 50, GAME.HEIGHT - 416, 300);
-
-    // Small platform (high-right)
-    addPlatform(this.platforms, 600, GAME.HEIGHT - 436, 170);
+    const ld = this.levelData;
+    ld.ground.forEach(g => addPlatform(this.ground, g.x, g.y, g.w));
+    ld.platforms.forEach(p => addPlatform(this.platforms, p.x, p.y, p.w));
   }
 
   createLadders() {
     this.ladderZones = this.physics.add.staticGroup();
     this.ladderVisuals = this.add.group();
-    this.ladderData = []; // array of {visual, zone, topY, bottomY, height, minX, maxX}
+    this.ladderData = [];
 
-    const LADDER_DISPLAY_W = 34; // display width of ladder
+    const LADDER_DISPLAY_W = 34;
     const ZONE_WIDTH = 36;
     const ZONE_EXTEND_TOP = 40;
     const ZONE_EXTEND_BOTTOM = 16;
+    const ld = this.levelData;
 
     const addLadder = (x, topY, bottomY, minX, maxX) => {
       const height = bottomY - topY;
-
-      // TileSprite tiling drabinka.png vertically, scaled to LADDER_DISPLAY_W
-      // Image is 51x21; scale X to fit width, tile height uses same scale for proper proportions
       const ladderScale = LADDER_DISPLAY_W / 51;
-      const tileH = height / ladderScale; // tile height in source pixels so display = height
+      const tileH = height / ladderScale;
       const visual = this.add.tileSprite(x, topY + height / 2, 51, tileH, 'ladder_tile');
       visual.setScale(ladderScale);
       visual.setDepth(4);
       this.ladderVisuals.add(visual);
 
-      // Collider zone
       const zone = this.add.zone(
-        x - ZONE_WIDTH / 2,
-        topY - ZONE_EXTEND_TOP,
-        ZONE_WIDTH,
-        height + ZONE_EXTEND_TOP + ZONE_EXTEND_BOTTOM
+        x - ZONE_WIDTH / 2, topY - ZONE_EXTEND_TOP,
+        ZONE_WIDTH, height + ZONE_EXTEND_TOP + ZONE_EXTEND_BOTTOM
       ).setOrigin(0, 0);
       this.physics.add.existing(zone, true);
       zone.setData('ladderTopY', topY);
       this.ladderZones.add(zone);
 
-      // Store paired data for ladder pushing
-      const ladderInfo = { visual, zone, topY, bottomY, height, minX: minX || 40, maxX: maxX || GAME.WIDTH - 40 };
+      const ladderInfo = { visual, zone, topY, bottomY, height, minX: minX || 40, maxX: maxX || ld.worldWidth - 40 };
       zone.setData('ladderInfo', ladderInfo);
       this.ladderData.push(ladderInfo);
     };
 
-    // Ladder 1: ground to platform 1 (can slide within platform width)
-    addLadder(200, GAME.HEIGHT - 140, GAME.HEIGHT - 32, 30, 240);
-
-    // Ladder 2: platform 2 to platform 3
-    addLadder(340, GAME.HEIGHT - 400, GAME.HEIGHT - 270, 310, 590);
-
-    // Ladder 3: ground to platform 2 (right side)
-    addLadder(500, GAME.HEIGHT - 270, GAME.HEIGHT - 32, 310, 590);
+    ld.ladders.forEach(l => addLadder(l.x, l.topY, l.bottomY, l.minX, l.maxX));
   }
 
   createShadowZones() {
@@ -303,47 +288,28 @@ export default class GameScene extends Phaser.Scene {
     this.shadowVisuals = this.add.group();
 
     const addShadow = (x, y, w, h) => {
-      // Visual (dark overlay)
       const visual = this.add.graphics();
       visual.fillStyle(SHADOW.COLOR, SHADOW.ALPHA);
       visual.fillRect(x, y, w, h);
-      // Subtle edge glow
       visual.lineStyle(1, 0x001122, 0.3);
       visual.strokeRect(x, y, w, h);
       visual.setDepth(2);
       this.shadowVisuals.add(visual);
 
-      // Collider zone
       const zone = this.add.zone(x, y, w, h).setOrigin(0, 0);
       this.physics.add.existing(zone, true);
       this.shadowZones.add(zone);
     };
 
-    // Shadow 1: under platform 1 (alcove)
-    addShadow(80, GAME.HEIGHT - 135, 60, 100);
-
-    // Shadow 2: corner on platform 2
-    addShadow(540, GAME.HEIGHT - 310, 50, 40);
+    this.levelData.shadows.forEach(s => addShadow(s.x, s.y, s.w, s.h));
   }
 
   createPaintCans() {
     this.paintCans = this.physics.add.group();
-
-    // Red paint can on platform 1
-    const can1 = new PaintCan(this, 120, GAME.HEIGHT - 170, 'red');
-    this.paintCans.add(can1);
-
-    // Blue paint can on platform 3
-    const can2 = new PaintCan(this, 250, GAME.HEIGHT - 430, 'blue');
-    this.paintCans.add(can2);
-
-    // Yellow paint can on platform 2 (right side)
-    const can3 = new PaintCan(this, 550, GAME.HEIGHT - 300, 'yellow');
-    this.paintCans.add(can3);
-
-    // Green paint can on high-right platform
-    const can4 = new PaintCan(this, 650, GAME.HEIGHT - 450, 'green');
-    this.paintCans.add(can4);
+    this.levelData.paintCans.forEach(c => {
+      const can = new PaintCan(this, c.x, c.y, c.color);
+      this.paintCans.add(can);
+    });
   }
 
   createPaintSpots() {
@@ -384,39 +350,30 @@ export default class GameScene extends Phaser.Scene {
       this.totalSpots++;
     };
 
-    // Heart mural on platform 2 wall
-    addSpot(450, GAME.HEIGHT - 175, 140, 190, 'painting_heart');
-
-    // Star mural on high-right platform wall
-    addSpot(700, GAME.HEIGHT - 240, 140, 200, 'painting_star');
+    this.levelData.paintSpots.forEach(s => addSpot(s.x, s.y, s.w, s.h, s.paintingKey));
   }
 
   createTrashCans() {
-    // Trash cans on the ground floor — player can push and jump on them
-    const addTrash = (x, y) => {
-      const trash = new Trash(this, x, y);
+    this.levelData.trashCans.forEach(t => {
+      const trash = new Trash(this, t.x, t.y);
       this.trashCans.push(trash);
-    };
-
-    // Two trash cans on ground level (spawned above ground — gravity drops them)
-    addTrash(170, GAME.HEIGHT - 32 - 18);   // left side — in front of ladder 1
-    addTrash(850, GAME.HEIGHT - 32 - 18);   // right side
+    });
   }
 
   createCops() {
-    // Cop patrolling ground floor
-    const cop1 = new Cop(this, 400, GAME.HEIGHT - 55,
-      300, GAME.WIDTH - 40);
-    this.cops.push(cop1);
+    this.levelData.cops.forEach(c => {
+      const cop = new Cop(this, c.x, c.y, c.minX, c.maxX);
+      this.cops.push(cop);
+    });
   }
 
   createForeground() {
     const fg = this.add.graphics();
-    fg.setDepth(8); // above player
-
-    // Wire/cable
-    fg.lineStyle(1, 0x334455, 0.4);
-    fg.lineBetween(0, GAME.HEIGHT - 350, GAME.WIDTH, GAME.HEIGHT - 380);
+    fg.setDepth(8);
+    (this.levelData.foregroundWires || []).forEach(w => {
+      fg.lineStyle(1, 0x334455, 0.4);
+      fg.lineBetween(w.x1, w.y1, w.x2, w.y2);
+    });
   }
 
   // === HUD ===
