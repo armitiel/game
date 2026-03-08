@@ -48,6 +48,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // Dust particles on landing
     this.wasInAir = false;
+    this.fallVelocity = 0; // track velocity at moment of landing
 
     // Controls
     this.cursors = scene.input.keyboard.createCursorKeys();
@@ -170,8 +171,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // === Landing detection (dust effect) ===
     if (onGround && this.wasInAir) {
-      this.spawnLandingDust();
-      if (this.scene.sfx) this.scene.sfx.land();
+      const impact = Math.min(this.fallVelocity / 400, 1); // 0-1 intensity based on fall speed
+      this.spawnLandingDust(impact);
+      if (this.scene.sfx) this.scene.sfx.land(impact);
+    }
+    if (!onGround && !this.isClimbing) {
+      this.fallVelocity = Math.max(this.fallVelocity, this.body.velocity.y);
+    } else {
+      this.fallVelocity = 0;
     }
     this.wasInAir = !onGround && !this.isClimbing;
 
@@ -442,23 +449,27 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  spawnLandingDust() {
-    for (let i = 0; i < 5; i++) {
+  spawnLandingDust(impact = 0.3) {
+    const count = Math.floor(3 + impact * 12); // 3-15 particles based on impact
+    const spread = 10 + impact * 20;           // wider spread on hard landing
+    const maxSize = 3 + impact * 5;            // bigger particles on hard landing
+
+    for (let i = 0; i < count; i++) {
       const dust = this.scene.add.circle(
-        this.x + Phaser.Math.Between(-10, 10),
+        this.x + Phaser.Math.Between(-spread, spread),
         this.y + 22,
-        Phaser.Math.Between(2, 5),
-        0x888899, 0.6
+        Phaser.Math.Between(2, maxSize),
+        0x888899, 0.4 + impact * 0.4
       ).setDepth(4);
 
       this.scene.tweens.add({
         targets: dust,
-        y: dust.y - Phaser.Math.Between(3, 10),
-        x: dust.x + Phaser.Math.Between(-15, 15),
+        y: dust.y - Phaser.Math.Between(3, 8 + impact * 15),
+        x: dust.x + Phaser.Math.Between(-spread, spread),
         alpha: 0,
         scaleX: 0.2,
         scaleY: 0.2,
-        duration: 500,
+        duration: 400 + impact * 300,
         onComplete: () => dust.destroy()
       });
     }

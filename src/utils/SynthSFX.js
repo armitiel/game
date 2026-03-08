@@ -142,21 +142,41 @@ export default class SynthSFX {
     osc.stop(t + 0.2);
   }
 
-  /** Land — soft thud */
-  land() {
+  /** Land — thud scaled by impact (0=soft, 1=heavy) */
+  land(impact = 0.3) {
     this.ensure();
     const t = this.ctx.currentTime;
+    const vol = this.volume * (0.1 + impact * 0.4);
+    const dur = 0.08 + impact * 0.15;
+
+    // Low thud
     const gain = this.ctx.createGain();
     gain.connect(this.ctx.destination);
-    gain.gain.setValueAtTime(this.volume * 0.2, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
 
     const osc = this.ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(120, t);
-    osc.frequency.exponentialRampToValueAtTime(60, t + 0.1);
+    osc.frequency.setValueAtTime(80 + impact * 60, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t + dur);
     osc.connect(gain);
     osc.start(t);
-    osc.stop(t + 0.1);
+    osc.stop(t + dur);
+
+    // Heavy landing: add noise-like crunch
+    if (impact > 0.4) {
+      const noiseGain = this.ctx.createGain();
+      noiseGain.connect(this.ctx.destination);
+      noiseGain.gain.setValueAtTime(vol * 0.6, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.7);
+
+      const noise = this.ctx.createOscillator();
+      noise.type = 'square';
+      noise.frequency.setValueAtTime(50 + impact * 30, t);
+      noise.frequency.exponentialRampToValueAtTime(25, t + dur * 0.7);
+      noise.connect(noiseGain);
+      noise.start(t);
+      noise.stop(t + dur * 0.7);
+    }
   }
 }
