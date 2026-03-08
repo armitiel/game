@@ -508,6 +508,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Auto-ignore any future objects added to the scene (unless marked as HUD)
     this.events.on('addedtoscene', (obj) => {
+      if (this._addingHud) return; // skip when adding HUD elements
       if (this.uiCam && !this._hudElements.has(obj)) {
         this.uiCam.ignore(obj);
       }
@@ -691,6 +692,8 @@ export default class GameScene extends Phaser.Scene {
     // Color selector HUD — touch buttons on mobile, world-space boxes on desktop
     const isMobileDevice = this.touch && this.touch.enabled;
     if (isMobileDevice) {
+      // Flag prevents addedtoscene handler from ignoring these on uiCam
+      this._addingHud = true;
       this.touch.createColorButtons(this, (colorIdx) => {
         if (this.pbn) {
           this.pbn.setSelectedColor(colorIdx);
@@ -698,13 +701,18 @@ export default class GameScene extends Phaser.Scene {
           this.updateTouchColorHighlight();
         }
       }, this.pbn.colorMap);
-      // Register color buttons as HUD so they show on UI cam, not main cam
-      if (this.touch.colorButtons && this._hudElements) {
+      this._addingHud = false;
+      // Hide from main cam (they render on uiCam only)
+      if (this.touch.colorButtons) {
+        const allColorEls = [];
         this.touch.colorButtons.forEach(btn => {
-          this._hudElements.add(btn.bg);
-          this._hudElements.add(btn.text);
-          this.cameras.main.ignore([btn.bg, btn.text]);
+          allColorEls.push(btn.bg, btn.text);
+          if (this._hudElements) {
+            this._hudElements.add(btn.bg);
+            this._hudElements.add(btn.text);
+          }
         });
+        this.cameras.main.ignore(allColorEls);
       }
     } else {
       this.createColorSelector(bounds);
