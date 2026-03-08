@@ -136,8 +136,8 @@ export const LEVEL_2 = {
     { x: 500, y: L2_H - 1970, color: 'green' },
   ],
   paintSpots: [
-    // One big mural — placeholder, will be updated when image is provided
-    { x: L2_W - 80, y: L2_H - 1000, w: 140, h: 1800, paintingKey: 'painting_mural_big' },
+    // Pikachu mural — 20x24 grid, 8px cells → 160x192, proper proportions
+    { x: L2_W / 2, y: L2_H - 600, w: 160, h: 192, paintingKey: 'painting_mural_big' },
   ],
   trashCans: [
     { x: 500, y: L2_H - 32 - 18 },
