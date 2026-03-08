@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { GAME } from '../config/gameConfig.js';
 import { LEVELS } from '../config/levels.js';
 
 export default class LevelSelectScene extends Phaser.Scene {
@@ -8,7 +7,7 @@ export default class LevelSelectScene extends Phaser.Scene {
   }
 
   create() {
-    const cx = GAME.WIDTH / 2;
+    const cx = this.sys.game.config.width / 2;
 
     this.cameras.main.setBackgroundColor('#0a0a1a');
 
@@ -19,7 +18,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       const bw = Phaser.Math.Between(40, 80);
       const bh = Phaser.Math.Between(100, 300);
       const bx = i * 70 + Phaser.Math.Between(-10, 10);
-      bg.fillRect(bx, GAME.HEIGHT - bh, bw, bh);
+      bg.fillRect(bx, this.sys.game.config.height - bh, bw, bh);
     }
 
     // Title
@@ -34,7 +33,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     const gap = 40;
     const totalW = LEVELS.length * cardW + (LEVELS.length - 1) * gap;
     const startX = cx - totalW / 2 + cardW / 2;
-    const cardY = GAME.HEIGHT / 2 - 10;
+    const cardY = this.sys.game.config.height / 2 - 10;
 
     for (let i = 0; i < LEVELS.length; i++) {
       const level = LEVELS[i];
@@ -106,7 +105,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     }
 
     // Back hint
-    this.add.text(cx, GAME.HEIGHT - 40, '[ Kliknij level lub nacisnij 1-2 ]', {
+    this.add.text(cx, this.sys.game.config.height - 40, '[ Kliknij level lub nacisnij 1-2 ]', {
       font: '12px monospace',
       fill: '#445566'
     }).setOrigin(0.5);

@@ -25,7 +25,8 @@ export default class GameScene extends Phaser.Scene {
 
     const ld = this.levelData;
     this.cameras.main.setBackgroundColor(GAME.BACKGROUND_COLOR);
-    this.cameras.main.setZoom(1.3);
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    this.cameras.main.setZoom(isMobile ? 1.8 : 1.3);
     this.cameras.main.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
 
     // === World bounds ===
@@ -411,7 +412,9 @@ export default class GameScene extends Phaser.Scene {
   createHUD() {
     // HUD uses a dedicated scene overlay to avoid zoom issues
     // We add a second camera just for UI, with zoom=1
-    this.uiCam = this.cameras.add(0, 0, GAME.WIDTH, GAME.HEIGHT);
+    const gw = this.sys.game.config.width;
+    const gh = this.sys.game.config.height;
+    this.uiCam = this.cameras.add(0, 0, gw, gh);
     this.uiCam.setZoom(1);
     this.uiCam.setScroll(0, 0);
     this.uiCam.setName('ui');
@@ -450,7 +453,7 @@ export default class GameScene extends Phaser.Scene {
     }).setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
 
     // Status text
-    this.statusText = this.add.text(GAME.WIDTH / 2, 10, '', {
+    this.statusText = this.add.text(gw / 2, 10, '', {
       font: '12px monospace',
       fill: '#00ff88',
       backgroundColor: '#000000aa',
@@ -462,7 +465,7 @@ export default class GameScene extends Phaser.Scene {
     this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
     this.bgm.play();
 
-    this.muteBtn = this.add.text(GAME.WIDTH - 40, 10, '\u266B', {
+    this.muteBtn = this.add.text(gw - 40, 10, '\u266B', {
       font: 'bold 20px monospace',
       fill: '#00ff88',
       backgroundColor: '#000000aa',
@@ -984,7 +987,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // 2b. E key — unified: ladder push OR trash push based on what's nearby
-    const eJustPressed = Phaser.Input.Keyboard.JustDown(this.player.grabKey);
+    const eJustPressed = Phaser.Input.Keyboard.JustDown(this.player.grabKey) ||
+      (this.touch && this.touch.eJustPressed);
     if (eJustPressed && !this.player.isPainting) {
       if (this.player.isPushingTrash) {
         // Already pushing trash → exit

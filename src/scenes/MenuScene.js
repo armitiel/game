@@ -7,8 +7,8 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    const cx = GAME.WIDTH / 2;
-    const cy = GAME.HEIGHT / 2;
+    const cx = this.sys.game.config.width / 2;
+    const cy = this.sys.game.config.height / 2;
 
     // Background
     this.cameras.main.setBackgroundColor('#0a0a1a');
@@ -20,7 +20,7 @@ export default class MenuScene extends Phaser.Scene {
       const bw = Phaser.Math.Between(40, 80);
       const bh = Phaser.Math.Between(100, 300);
       const bx = i * 70 + Phaser.Math.Between(-10, 10);
-      bg.fillRect(bx, GAME.HEIGHT - bh, bw, bh);
+      bg.fillRect(bx, this.sys.game.config.height - bh, bw, bh);
     }
 
     // Logo
@@ -56,17 +56,17 @@ export default class MenuScene extends Phaser.Scene {
 
     // Controls info
     if (isMobile) {
-      this.add.text(cx, GAME.HEIGHT - 65, 'D-pad: ruch   JUMP: skok   ACT: maluj   E: interakcja', {
+      this.add.text(cx, this.sys.game.config.height - 65, 'D-pad: ruch   JUMP: skok   ACT: maluj   E: interakcja', {
         font: '12px monospace',
         fill: '#445566'
       }).setOrigin(0.5);
     } else {
-      this.add.text(cx, GAME.HEIGHT - 80, 'ARROWS: Move   SPACE: Jump   E: Paint/Pickup', {
+      this.add.text(cx, this.sys.game.config.height - 80, 'ARROWS: Move   SPACE: Jump   E: Paint/Pickup', {
         font: '12px monospace',
         fill: '#445566'
       }).setOrigin(0.5);
 
-      this.add.text(cx, GAME.HEIGHT - 55, 'UP/DOWN on ladder   Hide in shadows to avoid cops', {
+      this.add.text(cx, this.sys.game.config.height - 55, 'UP/DOWN on ladder   Hide in shadows to avoid cops', {
         font: '12px monospace',
         fill: '#445566'
       }).setOrigin(0.5);

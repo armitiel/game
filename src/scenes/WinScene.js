@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { GAME } from '../config/gameConfig.js';
 
 export default class WinScene extends Phaser.Scene {
   constructor() {
@@ -7,8 +6,10 @@ export default class WinScene extends Phaser.Scene {
   }
 
   create() {
-    const cx = GAME.WIDTH / 2;
-    const cy = GAME.HEIGHT / 2;
+    const cx = this.sys.game.config.width / 2;
+    const cy = this.sys.game.config.height / 2;
+    const gw = this.sys.game.config.width;
+    const gh = this.sys.game.config.height;
 
     this.cameras.main.setBackgroundColor('#0a0a1a');
 
@@ -19,8 +20,8 @@ export default class WinScene extends Phaser.Scene {
       const color = Phaser.Utils.Array.GetRandom(colors);
       gfx.fillStyle(color, Math.random() * 0.3 + 0.1);
       gfx.fillRect(
-        Phaser.Math.Between(0, GAME.WIDTH),
-        Phaser.Math.Between(0, GAME.HEIGHT),
+        Phaser.Math.Between(0, gw),
+        Phaser.Math.Between(0, gh),
         Phaser.Math.Between(20, 80),
         Phaser.Math.Between(5, 15)
       );
