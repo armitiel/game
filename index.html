@@ -12,7 +12,7 @@
     html, body {
       background: #0a0a0a;
       width: 100%;
-      height: 100%;
+      height: 100dvh; /* dynamic viewport height — accounts for mobile browser chrome */
       overflow: hidden;
       touch-action: none;
     }
@@ -21,15 +21,11 @@
       justify-content: center;
       align-items: center;
     }
-    canvas { display: block; }
-
-    /* On mobile landscape: stretch canvas to fill screen */
-    @media (pointer: coarse) and (orientation: landscape) {
-      #game-container, #game-container canvas {
-        width: 100vw !important;
-        height: 100vh !important;
-      }
+    #game-container {
+      width: 100%;
+      height: 100%;
     }
+    canvas { display: block; }
 
     /* "Rotate your phone" overlay — visible only in portrait on touch devices */
     #rotate-overlay {

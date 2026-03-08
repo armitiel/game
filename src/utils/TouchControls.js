@@ -63,11 +63,11 @@ export default class TouchControls {
     const cam = scene.cameras.main;
     const size = 56;
 
-    // JUMP button (right side, lower)
+    // JUMP button (right side, lower) — only triggers jump, NOT up direction
     this.addButton(scene, cam.width - 80, cam.height - 80, size, size, 'JUMP', {
       alpha: 0.25, activeAlpha: 0.5, color: 0x00ff88
-    }, () => { this._jumpJustPressed = true; this.up = true; },
-       () => { this.up = false; });
+    }, () => { this._jumpJustPressed = true; },
+       () => {});
 
     // ACTION button (right side, upper — SPACE for paint)
     this.addButton(scene, cam.width - 160, cam.height - 80, size, size, 'ACT', {
