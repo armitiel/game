@@ -226,7 +226,7 @@ export default class TouchControls {
     const gap = 10;
     // Vertical stack above E button
     const x = this.eButtonX || (scene.cameras.main.width - 90);
-    const eTop = (this.eButtonY || (scene.cameras.main.height - 195)) - 46 - gap;
+    const eTop = (this.eButtonY || (scene.cameras.main.height - 195)) - 46 - gap - 30;
 
     for (let i = 0; i < numColors; i++) {
       // Bottom color = index 0, stack upward

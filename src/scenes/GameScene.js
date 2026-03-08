@@ -467,14 +467,20 @@ export default class GameScene extends Phaser.Scene {
     this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
     this.bgm.play();
 
-    this.muteBtn = this.add.text(gw - Math.round(40 * uiScale), 10, '\u266B', {
+    const muteBtnSize = Math.round(44 * uiScale);
+    const muteBtnX = gw - Math.round(40 * uiScale);
+    const muteBtnY = 10;
+    // Invisible hit area for easier tapping on mobile
+    this.muteBtnHit = this.add.rectangle(muteBtnX + muteBtnSize / 2 - 4, muteBtnY + muteBtnSize / 2, muteBtnSize, muteBtnSize, 0x000000, 0)
+      .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
+    this.muteBtn = this.add.text(muteBtnX, muteBtnY, '\u266B', {
       font: `bold ${Math.round(20 * uiScale)}px monospace`,
       fill: '#00ff88',
       backgroundColor: '#000000aa',
       padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
-    }).setDepth(100).setScrollFactor(0).setInteractive({ useHandCursor: true });
+    }).setDepth(100).setScrollFactor(0);
 
-    this.muteBtn.on('pointerdown', () => {
+    this.muteBtnHit.on('pointerdown', () => {
       this.musicOn = !this.musicOn;
       if (this.musicOn) {
         this.bgm.resume();
@@ -492,7 +498,7 @@ export default class GameScene extends Phaser.Scene {
     this.hudSlots.forEach(s => slotElements.push(s.empty, s.filled, s.count));
 
     // Main camera ignores HUD + touch controls, UI camera ignores everything else
-    const hudElements = [this.hudBg, this.hudCountText, this.statusText, this.muteBtn,
+    const hudElements = [this.hudBg, this.hudCountText, this.statusText, this.muteBtn, this.muteBtnHit,
       ...slotElements, ...this.touch.getElements()];
     this.cameras.main.ignore(hudElements);
 
