@@ -42,12 +42,10 @@ export default class BootScene extends Phaser.Scene {
     // === Load platform/environment textures ===
     this.load.image('platform_block', 'assets/sprites/elementy/blok.png');
     this.load.image('ladder_tile', 'assets/sprites/elementy/drabinka.png');
-    this.load.image('paint_can_sprite_red', 'assets/sprites/elementy/red.png');
-    this.load.image('paint_can_sprite_blue', 'assets/sprites/elementy/blue.png');
-    this.load.image('paint_can_sprite_green', 'assets/sprites/elementy/green.png');
-    // Yellow uses procedural texture (no sprite file yet)
-    // paint_can_sprite_yellow generated in generateOtherTextures()
+    // Paint can sprites are all generated procedurally in generateOtherTextures()
+    // Colors are defined in PAINT.COLORS — no PNG files needed
     this.load.image('trash', 'assets/sprites/elementy/trash.png');
+    this.load.image('trash2', 'assets/sprites/elementy/trash2.png');
 
     // === Load paint arm assets ===
     this.load.image('paint_hand', 'assets/sprites/hand.png');
@@ -107,30 +105,39 @@ export default class BootScene extends Phaser.Scene {
     shadowGfx.generateTexture('shadow_zone', 64, 64);
     shadowGfx.destroy();
 
-    // Paint cans (per color) — procedural fallback textures
+    // Paint cans — ALL colors generated procedurally (mini icon + world sprite)
     Object.entries(PAINT.COLORS).forEach(([name, color]) => {
+      const key = name.toLowerCase();
+
+      // Mini icon (16x16) for UI
       const canGfx = this.make.graphics({ add: false });
       canGfx.fillStyle(color, 1);
       canGfx.fillRect(2, 4, 12, 12);
       canGfx.fillStyle(0xcccccc, 1);
       canGfx.fillRect(4, 0, 8, 4);
-      canGfx.generateTexture(`paint_can_${name.toLowerCase()}`, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
+      canGfx.generateTexture(`paint_can_${key}`, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
       canGfx.destroy();
-    });
 
-    // Generate procedural sprite textures for colors without a loaded PNG (e.g. yellow)
-    ['YELLOW'].forEach(name => {
-      const key = `paint_can_sprite_${name.toLowerCase()}`;
-      if (!this.textures.exists(key)) {
-        const gfx = this.make.graphics({ add: false });
-        const color = PAINT.COLORS[name];
-        gfx.fillStyle(color, 1);
-        gfx.fillRect(4, 8, 24, 24);
-        gfx.fillStyle(0xcccccc, 1);
-        gfx.fillRect(8, 0, 16, 8);
-        gfx.generateTexture(key, 32, 32);
-        gfx.destroy();
-      }
+      // World sprite (18x34) for in-game pickup — matches original PNG proportions
+      const SW = 18, SH = 34;
+      const sprGfx = this.make.graphics({ add: false });
+      // Can body
+      sprGfx.fillStyle(color, 1);
+      sprGfx.fillRoundedRect(1, 10, SW - 2, SH - 12, 2);
+      // Lid / rim
+      sprGfx.fillStyle(0xcccccc, 1);
+      sprGfx.fillRect(3, 6, SW - 6, 6);
+      // Handle
+      sprGfx.lineStyle(1.5, 0xaaaaaa, 1);
+      sprGfx.strokeCircle(SW / 2, 4, 4);
+      // Color highlight
+      sprGfx.fillStyle(0xffffff, 0.25);
+      sprGfx.fillRect(3, 12, 6, 2);
+      // Label stripe
+      sprGfx.fillStyle(0x000000, 0.15);
+      sprGfx.fillRect(2, 20, SW - 4, 4);
+      sprGfx.generateTexture(`paint_can_sprite_${key}`, SW, SH);
+      sprGfx.destroy();
     });
 
     // HUD paint can icons — grey outline (empty slot) + colored filled versions
@@ -335,6 +342,82 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
+    // TWIST: idle fidget animation (plays after 5s of no input)
+    const TW = PLAYER.TWIST_FRAME_START;
+    const TWN = PLAYER.TOTAL_TWIST_FRAMES;
+    this.anims.create({
+      key: 'player_twist',
+      frames: this.anims.generateFrameNumbers('player_sheet', { start: TW, end: TW + TWN - 1 }),
+      frameRate: 11,
+      repeat: 0  // play once, then return to idle
+    });
+
+    // === Register palette colors from painting JSONs ===
+    this.registerPaintingPalettes();
+
     this.scene.start('MenuScene');
+  }
+
+  /**
+   * Scan all loaded painting JSONs for `palette` field.
+   * Auto-register new colors in PAINT.COLORS and generate textures.
+   */
+  registerPaintingPalettes() {
+    const paintingKeys = ['painting_heart', 'painting_star', 'painting_mural_big'];
+
+    for (const key of paintingKeys) {
+      const data = this.cache.json.get(key);
+      if (!data || !data.palette) continue;
+
+      for (const [name, hex] of Object.entries(data.palette)) {
+        // Skip if already registered
+        if (PAINT.COLORS[name]) continue;
+
+        // Register color: "#ff3344" → 0xff3344
+        const colorHex = parseInt(hex.replace('#', ''), 16);
+        PAINT.COLORS[name] = colorHex;
+
+        // Generate world sprite (18x34) for paint can pickup
+        const SW = 18, SH = 34;
+        const sprGfx = this.make.graphics({ add: false });
+        sprGfx.fillStyle(colorHex, 1);
+        sprGfx.fillRoundedRect(1, 10, SW - 2, SH - 12, 2);
+        sprGfx.fillStyle(0xcccccc, 1);
+        sprGfx.fillRect(3, 6, SW - 6, 6);
+        sprGfx.lineStyle(1.5, 0xaaaaaa, 1);
+        sprGfx.strokeCircle(SW / 2, 4, 4);
+        sprGfx.fillStyle(0xffffff, 0.25);
+        sprGfx.fillRect(3, 12, 6, 2);
+        sprGfx.fillStyle(0x000000, 0.15);
+        sprGfx.fillRect(2, 20, SW - 4, 4);
+        sprGfx.generateTexture(`paint_can_sprite_${name.toLowerCase()}`, SW, SH);
+        sprGfx.destroy();
+
+        // Generate mini icon (16x16)
+        const canGfx = this.make.graphics({ add: false });
+        canGfx.fillStyle(colorHex, 1);
+        canGfx.fillRect(2, 4, 12, 12);
+        canGfx.fillStyle(0xcccccc, 1);
+        canGfx.fillRect(4, 0, 8, 4);
+        canGfx.generateTexture(`paint_can_${name.toLowerCase()}`, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
+        canGfx.destroy();
+
+        // Generate HUD filled icon (24x28)
+        const hudGfx = this.make.graphics({ add: false });
+        hudGfx.fillStyle(colorHex, 0.9);
+        hudGfx.fillRoundedRect(3, 8, 18, 18, 2);
+        hudGfx.fillStyle(colorHex, 0.9);
+        hudGfx.fillRect(6, 4, 12, 5);
+        hudGfx.lineStyle(1.5, 0xffffff, 0.7);
+        hudGfx.strokeCircle(12, 4, 4);
+        hudGfx.lineStyle(1, 0xffffff, 0.7);
+        hudGfx.strokeRoundedRect(3, 8, 18, 18, 2);
+        hudGfx.strokeRect(6, 4, 12, 5);
+        hudGfx.fillStyle(0xffffff, 0.25);
+        hudGfx.fillRect(6, 9, 12, 3);
+        hudGfx.generateTexture(`hud_can_${name.toLowerCase()}`, 24, 28);
+        hudGfx.destroy();
+      }
+    }
   }
 }

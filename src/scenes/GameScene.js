@@ -39,6 +39,9 @@ export default class GameScene extends Phaser.Scene {
     this.totalSpots = 0;
     this.paintedSpots = 0;
 
+    // === Derive colors from paintings ===
+    this.deriveLevelColors();
+
     // === Build Level ===
     this.createBackground();
     this.createPlatforms();
@@ -99,6 +102,10 @@ export default class GameScene extends Phaser.Scene {
         // Track contact
         this.collidingTrash = t;
         this.nearbyTrash = t;
+        // Detect landing on top — player's bottom touching trash's top
+        if (player.body.touching.down && t.body.touching.up) {
+          t.onPlayerOnTop();
+        }
       }, (player, t) => {
         // In push mode: trash stays immovable (wall), we move it manually in update
         if (this.player.isPushingTrash) {
@@ -183,6 +190,25 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // === LEVEL BUILDING ===
+
+  /**
+   * Auto-derive required colors from level's painting JSONs.
+   * No need to manually specify colors per level — they come from the paintings.
+   */
+  deriveLevelColors() {
+    const colorSet = new Set();
+    const paintings = this.levelData.paintings || [];
+    paintings.forEach(key => {
+      const data = this.cache.json.get(key);
+      if (data && data.colors) {
+        data.colors.forEach(c => colorSet.add(c.toLowerCase()));
+      }
+    });
+    // Fallback if no paintings found
+    this.levelColors = colorSet.size > 0
+      ? [...colorSet]
+      : (this.levelData.colors || ['red', 'blue', 'yellow']);
+  }
 
   createBackground() {
     const ld = this.levelData;
@@ -306,8 +332,11 @@ export default class GameScene extends Phaser.Scene {
 
   createPaintCans() {
     this.paintCans = this.physics.add.group();
-    this.levelData.paintCans.forEach(c => {
-      const can = new PaintCan(this, c.x, c.y, c.color);
+    const colors = this.levelColors;
+    this.levelData.paintCans.forEach((c, i) => {
+      // Use explicit color if specified, otherwise auto-assign round-robin from painting colors
+      const color = c.color || colors[i % colors.length];
+      const can = new PaintCan(this, c.x, c.y, color);
       this.paintCans.add(can);
     });
   }
@@ -336,8 +365,9 @@ export default class GameScene extends Phaser.Scene {
       visual.lineStyle(2, 0xffdd33, 0.6);
       visual.strokeRect(x - w / 2 + 2, y - h / 2 + 2, w - 4, h - 4);
 
-      // Interaction zone
-      const zone = this.add.zone(x - w / 2, y - h / 2, w, h).setOrigin(0, 0);
+      // Interaction zone — wider than visual to allow painting from ladders nearby
+      const interactPad = 30;  // extra reach on each side
+      const zone = this.add.zone(x - w / 2 - interactPad, y - h / 2, w + interactPad * 2, h).setOrigin(0, 0);
       this.physics.add.existing(zone, true);
       zone.setData('painted', false);
       zone.setData('visual', visual);
@@ -386,8 +416,8 @@ export default class GameScene extends Phaser.Scene {
     this.uiCam.setScroll(0, 0);
     this.uiCam.setName('ui');
 
-    // Paint inventory — 4 fixed slots with grey outline cans + count labels
-    const slotColors = ['red', 'blue', 'yellow', 'green'];
+    // Paint inventory — slots auto-derived from level's paintings
+    const slotColors = this.levelColors;
     const slotStartX = 22;
     const slotY = 26;
     const slotSpacing = 32;
@@ -494,7 +524,7 @@ export default class GameScene extends Phaser.Scene {
     this.hudCountText.setText(`${this.paintedSpots}/${this.totalSpots}`);
 
     if (this.player.isPainting) {
-      const colorInfo = this.pbn ? ` | Kolor: ${this.pbn.getSelectedColorName()} (1-4)` : '';
+      const colorInfo = this.pbn ? ` | Kolor: ${this.pbn.getSelectedColorName()} (1-${this.pbn.colorMap.length})` : '';
       this.statusText.setText(`[ MALOWANIE${colorInfo} — SPACE anuluj ]`);
       this.statusText.setStyle({ fill: '#ffdd33' });
     } else if (this.player.isPushingLadder) {
@@ -533,7 +563,7 @@ export default class GameScene extends Phaser.Scene {
       const onGround = this.player.body.blocked.down || this.player.body.touching.down;
       let nearLadderBottom = false;
       if (onGround && this.playerOnLadderThisFrame && this.currentLadderInfo) {
-        const playerFeetY = this.player.y + 16;
+        const playerFeetY = this.player.body.y + this.player.body.height;
         nearLadderBottom = playerFeetY >= this.currentLadderInfo.bottomY - 40;
       }
 
@@ -556,6 +586,22 @@ export default class GameScene extends Phaser.Scene {
 
   tryPaint() {
     if (!this.interactablePaintSpot) return;
+
+    // Player must be standing on something or on a ladder to paint (not mid-air)
+    const onGround = this.player.body.blocked.down || this.player.body.touching.down;
+    const onLadder = this.player.isClimbing || this.player.onLadder;
+    if (!onGround && !onLadder) return;
+
+    // Remember if player was on ladder before painting
+    this._paintedFromLadder = this.player.isClimbing || this.player.onLadder;
+
+    // Exit climbing state now that we confirmed painting is valid
+    if (this.player.isClimbing) {
+      this.player.isClimbing = false;
+      this.player.onLadder = false;
+      this.player.body.allowGravity = false; // keep floating while painting
+      this.player.setVelocity(0, 0);
+    }
 
     const spot = this.interactablePaintSpot;
     const paintingKey = spot.getData('paintingKey');
@@ -588,14 +634,24 @@ export default class GameScene extends Phaser.Scene {
 
     const spotW = spot.getData('spotW');
     const spotH = spot.getData('spotH');
+    const spotX = spot.getData('spotX');  // center X of mural
+    const spotY = spot.getData('spotY');  // center Y of mural
     const bounds = {
-      x: spot.x,
-      y: spot.y,
+      x: spotX - spotW / 2,   // top-left X
+      y: spotY - spotH / 2,   // top-left Y
       w: spotW,
       h: spotH
     };
 
     this.activePaintSpot = spot;
+
+    // Auto-flip player to face the mural (center of paint area)
+    const muralCenterX = bounds.x + bounds.w / 2;
+    if (muralCenterX < this.player.x) {
+      this.player.setFlipX(true);   // mural is to the left
+    } else {
+      this.player.setFlipX(false);  // mural is to the right
+    }
 
     // Reuse existing PBN instance (saved on cancel) or create new one
     const savedPBN = spot.getData('pbnInstance');
@@ -607,9 +663,9 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Set initial selected color to first available paint the player has
-    const colorNames = ['RED', 'BLUE', 'YELLOW', 'GREEN'];
-    for (let i = 0; i < colorNames.length; i++) {
-      if (this.player.hasPaint(colorNames[i].toLowerCase())) {
+    const paintingColors = gridData.colors || ['RED', 'BLUE', 'YELLOW'];
+    for (let i = 0; i < paintingColors.length; i++) {
+      if (this.player.hasPaint(paintingColors[i].toLowerCase())) {
         this.pbn.setSelectedColor(i);
         break;
       }
@@ -627,13 +683,15 @@ export default class GameScene extends Phaser.Scene {
     // Color selector HUD
     this.createColorSelector(bounds);
 
-    // Color switch keys (1-4)
-    this.colorKeys = [
-      this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE),
-      this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO),
-      this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE),
-      this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR),
+    // Color switch keys (1-3 or 1-4 depending on painting colors)
+    const keyCodes = [
+      Phaser.Input.Keyboard.KeyCodes.ONE,
+      Phaser.Input.Keyboard.KeyCodes.TWO,
+      Phaser.Input.Keyboard.KeyCodes.THREE,
+      Phaser.Input.Keyboard.KeyCodes.FOUR,
     ];
+    const numPaintColors = this.pbn.colorMap.length;
+    this.colorKeys = keyCodes.slice(0, numPaintColors).map(k => this.input.keyboard.addKey(k));
 
     // Create touch color buttons if mobile
     if (this.touch && this.touch.createColorButtons) {
@@ -660,17 +718,18 @@ export default class GameScene extends Phaser.Scene {
 
   createColorSelector(bounds) {
     this.colorSelectorElements = [];
-    const colorNames = ['RED', 'BLUE', 'YELLOW', 'GREEN'];
-    const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88];
+    // Use the painting's own color list
+    const colorNames = this.pbn.colorMap;
     const selectorY = bounds.y + bounds.h + 12;
     const selectorStartX = bounds.x + bounds.w / 2 - (colorNames.length * 18) / 2;
 
     for (let i = 0; i < colorNames.length; i++) {
       const sx = selectorStartX + i * 18;
+      const hex = PAINT.COLORS[colorNames[i]] || 0xffffff;
       const hasColor = this.player.hasPaint(colorNames[i].toLowerCase());
       const alpha = hasColor ? 0.9 : 0.2;
 
-      const box = this.add.rectangle(sx + 7, selectorY + 7, 14, 14, colorHexes[i], alpha)
+      const box = this.add.rectangle(sx + 7, selectorY + 7, 14, 14, hex, alpha)
         .setDepth(15).setStrokeStyle(1, 0xffffff, 0.5);
       const num = this.add.text(sx + 7, selectorY + 7, String(i + 1), {
         font: 'bold 7px monospace', fill: '#000000'
@@ -685,7 +744,8 @@ export default class GameScene extends Phaser.Scene {
   updateColorSelectorHighlight() {
     if (!this.colorSelectorElements || !this.pbn) return;
     const sel = this.pbn.selectedColorIndex;
-    for (let i = 0; i < 4; i++) {
+    const numColors = this.pbn.colorMap.length;
+    for (let i = 0; i < numColors; i++) {
       const box = this.colorSelectorElements[i * 2];
       if (!box) continue;
       if (i === sel) {
@@ -698,6 +758,10 @@ export default class GameScene extends Phaser.Scene {
 
   onPaintMove(handX, handY) {
     if (!this.pbn) return;
+
+    // Block painting if player doesn't have the selected color
+    const selectedColorName = this.pbn.getSelectedColorName().toLowerCase();
+    if (!this.player.hasPaint(selectedColorName)) return;
 
     const result = this.pbn.tryFillCell(handX, handY);
 
@@ -724,7 +788,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Consume all required paint colors
     if (this.pbn) {
-      const usedColors = this.pbn.usedColors;
+      const usedColors = this.pbn.colorMap;
       usedColors.forEach(colorName => {
         this.player.usePaint(colorName.toLowerCase());
       });
@@ -775,7 +839,17 @@ export default class GameScene extends Phaser.Scene {
       this.activePaintSpot.setData('pbnInstance', this.pbn);
       this.pbn.hide(); // hides template+numbers, keeps painted cells visible
     }
+
     this.cleanupPaintState(false); // don't destroy PBN — it's saved on the spot
+
+    // Restore ladder state if player was painting from a ladder
+    if (this._paintedFromLadder) {
+      this.player.isClimbing = true;
+      this.player.onLadder = true;
+      this.player.body.allowGravity = false;
+      this.player.setVelocity(0, 0);
+      this._paintedFromLadder = false;
+    }
   }
 
   cleanupPaintState(destroyPBN = true) {
@@ -812,6 +886,7 @@ export default class GameScene extends Phaser.Scene {
   exitTrashPush() {
     this.player.isPushingTrash = false;
     this.trashCans.forEach(t => {
+      if (!t.body) return;
       t.body.immovable = true;
       t.body.setVelocityX(0);
       t.isBeingPushed = false;
@@ -851,13 +926,61 @@ export default class GameScene extends Phaser.Scene {
     this.player.setOnLadder(this.playerOnLadderThisFrame, this.ladderCenterX, this.ladderTopY, this.currentLadderInfo);
     this.player.setHidden(this.playerInShadow);
 
-    // 2. Check paint input (SPACE or touch ACT) — player must physically touch the spot
-    if (this.interactablePaintSpot && !this.player.isPainting && !this.player.isPushingLadder) {
+    // 2. Check paint input (SPACE or touch ACT)
+    // Allowed when: on solid ground OR on ladder (not mid-air)
+    const onSolidGround = this.player.body.blocked.down;
+    const onLadder = this.player.isClimbing || this.player.onLadder;
+    const canPaint = (onSolidGround || onLadder);
+
+    // On ladder: ALWAYS check distance to paint spots (physics overlap may not reach)
+    if (onLadder) {
+      const px = this.player.x;
+      const py = this.player.y;
+      const LADDER_PAINT_RANGE = 200;
+      let bestDist = Infinity;
+      let bestSpot = null;
+      this.paintSpotZones.getChildren().forEach(spot => {
+        if (spot.getData('painted')) return;
+        const sx = spot.getData('spotX');
+        const sy = spot.getData('spotY');
+        const sw = spot.getData('spotW');
+        const sh = spot.getData('spotH');
+        const dx = Math.abs(px - sx);
+        const inRangeX = dx < sw / 2 + LADDER_PAINT_RANGE;
+        const inRangeY = py > sy - sh / 2 - 120 && py < sy + sh / 2 + 120;
+        if (inRangeX && inRangeY && dx < bestDist) {
+          bestDist = dx;
+          bestSpot = spot;
+        }
+      });
+      if (bestSpot) {
+        this.interactablePaintSpot = bestSpot;
+      }
+    }
+
+    // Tell player if near paint spot (so ladder SPACE doesn't jump but paints instead)
+    this.player.nearPaintSpot = !!(this.interactablePaintSpot && canPaint);
+
+    if (this.interactablePaintSpot && !this.player.isPainting && !this.player.isPushingLadder && canPaint) {
       const paintPressed = Phaser.Input.Keyboard.JustDown(this.paintKeySpace) ||
         (this.touch && this.touch.actionJustPressed);
       if (paintPressed) {
+        // DON'T clear isClimbing/onLadder here — tryPaint() needs them
+        // to pass its own onLadder check. tryPaint() handles the exit internally.
         this.tryPaint();
       }
+    }
+
+    // CRITICAL: After paint check, consume SPACE from player's cursors too.
+    // paintKeySpace and cursors.space may be separate Phaser Key objects for the same
+    // physical key — both get _justDown independently. We must consume the player's
+    // copy so Player.update() doesn't also process SPACE as a ladder jump-off.
+    if (this.player.nearPaintSpot) {
+      if (this.player.cursors.space !== this.paintKeySpace) {
+        // Different Key objects — consume player's copy separately
+        Phaser.Input.Keyboard.JustDown(this.player.cursors.space);
+      }
+      // If same Key object, JustDown was already consumed above (or not pressed)
     }
 
     // 2b. E key — unified: ladder push OR trash push based on what's nearby
@@ -875,7 +998,7 @@ export default class GameScene extends Phaser.Scene {
         const onGround = this.player.body.blocked.down || this.player.body.touching.down;
         let grabbedLadder = false;
         if (onGround && this.playerOnLadderThisFrame && this.currentLadderInfo) {
-          const playerFeetY = this.player.y + 16;
+          const playerFeetY = this.player.body.y + this.player.body.height;
           const nearBottom = playerFeetY >= this.currentLadderInfo.bottomY - 40;
           if (nearBottom) {
             this.player.nearbyLadderInfo = this.currentLadderInfo;
@@ -936,9 +1059,12 @@ export default class GameScene extends Phaser.Scene {
       if (this.colorKeys && this.pbn) {
         for (let i = 0; i < this.colorKeys.length; i++) {
           if (Phaser.Input.Keyboard.JustDown(this.colorKeys[i])) {
-            this.pbn.setSelectedColor(i);
-            this.player.paintColor = this.pbn.getSelectedColorHex();
-            this.updateColorSelectorHighlight();
+            const colorName = this.pbn.colorMap[i];
+            if (colorName && this.player.hasPaint(colorName.toLowerCase())) {
+              this.pbn.setSelectedColor(i);
+              this.player.paintColor = this.pbn.getSelectedColorHex();
+              this.updateColorSelectorHighlight();
+            }
           }
         }
       }
@@ -981,13 +1107,18 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // Sync trash proximity zones with trash positions
+    // Sync trash proximity zones + detect player leaving top
     this.trashCans.forEach(t => {
+      if (!t.body) return;
       if (t._proximityZone) {
         t._proximityZone.x = t.x;
         t._proximityZone.y = t.y;
         t._proximityZone.body.x = t.x - 40;
         t._proximityZone.body.y = t.y - 30;
+      }
+      // Reset onTop flag when player is not touching this trash's top
+      if (!(this.player.body.touching.down && t.body.touching.up)) {
+        t.onPlayerOffTop();
       }
     });
 

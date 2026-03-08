@@ -9,8 +9,8 @@ import { PAINT } from '../config/gameConfig.js';
  * Player must select the correct color to fill each cell.
  */
 
-// Map color index → game color name
-const COLOR_INDEX_TO_NAME = ['RED', 'BLUE', 'YELLOW', 'GREEN'];
+// Fallback map if painting JSON has no colors array
+const DEFAULT_COLOR_MAP = ['RED', 'BLUE', 'YELLOW', 'GREEN'];
 
 export default class PaintByNumbers {
   /**
@@ -23,8 +23,8 @@ export default class PaintByNumbers {
     this.bounds = bounds;
     this.cols = gridData.cols;
     this.rows = gridData.rows;
-    this.targetGrid = gridData.grid;         // 2D: [row][col] → color index (0-3) or -1
-    this.usedColors = gridData.colors || [];  // e.g. ["RED", "BLUE"]
+    this.targetGrid = gridData.grid;         // 2D: [row][col] → color index or -1
+    this.colorMap = gridData.colors || DEFAULT_COLOR_MAP;  // painting's own color list
 
     this.cellW = bounds.w / this.cols;
     this.cellH = bounds.h / this.rows;
@@ -41,7 +41,7 @@ export default class PaintByNumbers {
       }
     }
 
-    // Currently selected color (index into COLOR_INDEX_TO_NAME)
+    // Currently selected color (index into this.colorMap)
     this.selectedColorIndex = 0;
 
     // Graphics layers
@@ -73,7 +73,7 @@ export default class PaintByNumbers {
 
         if (ci >= 0) {
           // Light tint of the target color (hint)
-          const hex = PAINT.COLORS[COLOR_INDEX_TO_NAME[ci]] || 0xffffff;
+          const hex = PAINT.COLORS[this.colorMap[ci]] || 0xffffff;
           g.fillStyle(hex, 0.12);
           g.fillRect(cx, cy, this.cellW, this.cellH);
 
@@ -135,7 +135,7 @@ export default class PaintByNumbers {
 
     const cx = b.x + col * this.cellW;
     const cy = b.y + row * this.cellH;
-    const hex = PAINT.COLORS[COLOR_INDEX_TO_NAME[targetColor]] || 0xff3344;
+    const hex = PAINT.COLORS[this.colorMap[targetColor]] || 0xff3344;
 
     // Draw filled cell
     const alpha = Phaser.Math.FloatBetween(0.65, 0.9);
@@ -190,7 +190,7 @@ export default class PaintByNumbers {
         this.filledGrid[r][c] = true;
         const cx = b.x + c * this.cellW;
         const cy = b.y + r * this.cellH;
-        const hex = PAINT.COLORS[COLOR_INDEX_TO_NAME[ci]] || 0xff3344;
+        const hex = PAINT.COLORS[this.colorMap[ci]] || 0xff3344;
         this.paintGfx.fillStyle(hex, 0.5);
         this.paintGfx.fillRect(cx, cy, this.cellW, this.cellH);
 
@@ -212,11 +212,11 @@ export default class PaintByNumbers {
   }
 
   setSelectedColor(index) {
-    this.selectedColorIndex = Phaser.Math.Clamp(index, 0, 3);
+    this.selectedColorIndex = Phaser.Math.Clamp(index, 0, this.colorMap.length - 1);
   }
 
   getSelectedColorName() {
-    return COLOR_INDEX_TO_NAME[this.selectedColorIndex];
+    return this.colorMap[this.selectedColorIndex];
   }
 
   getSelectedColorHex() {
@@ -253,7 +253,7 @@ export default class PaintByNumbers {
 
         const cx = b.x + c * this.cellW;
         const cy = b.y + r * this.cellH;
-        const hex = PAINT.COLORS[COLOR_INDEX_TO_NAME[ci]] || 0xff3344;
+        const hex = PAINT.COLORS[this.colorMap[ci]] || 0xff3344;
         this.paintGfx.fillStyle(hex, 0.75);
         this.paintGfx.fillRect(cx, cy, this.cellW, this.cellH);
 

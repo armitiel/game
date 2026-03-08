@@ -21,6 +21,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.isClimbing = false;
     this.onLadder = false;
     this.isPainting = false;
+    this.nearPaintSpot = false;       // set by GameScene when near interactable paint spot
     this.isDroppingToLadder = false;  // dropping through platform onto ladder
     this.ladderCooldown = 0;          // frames to wait before re-entering ladder
     this.isPushingLadder = false;     // grabbing and pushing a ladder left/right
@@ -34,6 +35,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // Animation state tracking (prevents restarting same anim)
     this.currentAnim = '';
+
+    // Idle twist timer — plays twist animation after IDLE_TWIST_DELAY ms of no input
+    this.idleTimer = 0;
+    this.isTwisting = false;
 
     // Climb manual frame control (ping-pong: 0→18→0→18...)
     this.climbFrameIndex = 0;        // float — fractional frame position
@@ -75,6 +80,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
       this._pushYShift = 0;
     }
+    // Any non-idle/non-twist animation resets the idle twist timer
+    if (key !== 'player_idle' && key !== 'player_twist') {
+      this.idleTimer = 0;
+      this.isTwisting = false;
+    }
     this.currentAnim = key;
     this.anims.play(key, true);
   }
@@ -94,12 +104,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   playClimb2Anim(platformTopY) {
     if (this.isClimbing2) return;
     this.isClimbing2 = true;
-    // Snap hands (top of sprite content) to platform top edge
-    // With 90px frame, bottom-aligned content: hands near top of content
-    const handsOffset = 25;
-    this._climb2StartY = platformTopY + handsOffset;  // hands touch platform top
+    // Snap hands (top of content) to platform edge/corner
+    // Content top at Y=35 in frame, frame center at 72 → offset = 72-35 = 37
+    const handsOffset = 37;
+    this._climb2StartY = platformTopY + handsOffset;  // hands grab platform edge
     this.y = this._climb2StartY;
-    this._climb2EndY = platformTopY - PLAYER.BODY_H / 2 - PLAYER.BODY_OFFSET_Y + 10;
+    // End position: body bottom 2px above platform — gravity settles it down
+    this._climb2EndY = platformTopY - PLAYER.BODY_OFFSET_Y - PLAYER.BODY_H + PLAYER.FRAME_H / 2 - 2;
     this._climb2Progress = 0;
     // Disable physics body entirely — no collision, no gravity, no sync fighting
     this.body.enable = false;
@@ -109,22 +120,31 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
       this._pushYShift = 0;
     }
+    // Save start X for smooth X slide onto platform
+    this._climb2StartX = this.x;
+    this._climb2EndX = this.x + (this._climb2Dir || 1) * (PLAYER.BODY_W / 2 + 5);
     this.currentAnim = 'player_climb2';
     this.anims.play('player_climb2', true);
     // When animation completes, re-enable body and place on platform
     this.once('animationcomplete-player_climb2', () => {
       this.isClimbing2 = false;
       this.y = this._climb2EndY;
+      this.x = this._climb2EndX;
       // Re-enable body and sync position
       this.body.enable = true;
       this.body.allowGravity = true;
       this.body.reset(this.x, this.y);
+      // Cooldown prevents immediately re-triggering climb2
+      this._climb2Cooldown = 30;
       this.currentAnim = '';
       this.playAnim('player_idle');
     });
   }
 
   update() {
+    // Climb2 cooldown tick
+    if (this._climb2Cooldown > 0) this._climb2Cooldown--;
+
     // === Climb2 animation playing — body disabled, only sprite moves ===
     if (this.isClimbing2) {
       // Smoothly interpolate Y from start to end over animation duration
@@ -133,9 +153,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       // Ease-in-out for smooth motion
       const t = this._climb2Progress;
       const ease = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) * (-2 * t + 2) / 2;
-      // Only travel half the distance during animation — the rest snaps at the end
-      const halfwayY = this._climb2StartY + (this._climb2EndY - this._climb2StartY) * 0.5;
-      this.y = this._climb2StartY + (halfwayY - this._climb2StartY) * ease;
+      // Travel full distance during animation — no snap at the end
+      this.y = this._climb2StartY + (this._climb2EndY - this._climb2StartY) * ease;
+      // Slide X onto platform in last 30% of animation for smooth landing
+      if (t > 0.7) {
+        const xBlend = (t - 0.7) / 0.3;  // 0→1 over last 30%
+        this.x = this._climb2StartX + (this._climb2EndX - this._climb2StartX) * xBlend;
+      }
       this.updateHiddenIcon();
       return;
     }
@@ -168,6 +192,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const jump = jumpRaw && this.ladderCooldown <= 0;
 
     const onGround = this.body.blocked.down;
+    const anyInput = left || right || up || down || jump;
+
+    // Cancel twist animation if any input detected
+    if (this.isTwisting && anyInput) {
+      this.isTwisting = false;
+      this.idleTimer = 0;
+      this.off('animationcomplete-player_twist');  // remove pending callback
+      this.playAnim('player_idle', false);
+    }
+
+    // Reset idle timer when any input is pressed
+    if (anyInput) {
+      this.idleTimer = 0;
+    }
 
     // === Landing detection (dust effect) ===
     if (onGround && this.wasInAir) {
@@ -184,7 +222,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // === Climb2: ledge grab — head hits side of platform while jumping ===
     // Player is in the air BESIDE a platform, head reaches platform level → grab edge
-    if (!onGround && !this.isClimbing && !this.isPushingTrash && !this.isClimbing2 && this.ladderCooldown <= 0) {
+    if (!onGround && !this.isClimbing && !this.isPushingTrash && !this.isClimbing2 && this.ladderCooldown <= 0 && (this._climb2Cooldown || 0) <= 0) {
       const playerHeadY = this.body.y;                   // top of player body
       const playerLeft = this.body.x;
       const playerRight = this.body.x + this.body.width;
@@ -212,8 +250,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           // Snap player X so hands land at platform corner (outer edge)
           if (nearLeftEdge) {
             this.x = platLeft;
+            this._climb2Dir = 1;   // climbing from left → move right onto platform
           } else {
             this.x = platRight;
+            this._climb2Dir = -1;  // climbing from right → move left onto platform
           }
           this.playClimb2Anim(platTop);
           this.updateHiddenIcon();
@@ -267,9 +307,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setFrame(PLAYER.CLIMB_FRAME_START + Math.floor(this.climbFrameIndex));
 
       // Jump off ladder only with SPACE (not UP — UP continues climbing)
+      // But if near a paint spot, SPACE starts painting instead (handled by GameScene)
       const spaceJump = Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
         (this.touch && this.touch.jumpJustPressed);
-      if (spaceJump) {
+      if (spaceJump && !this.nearPaintSpot) {
         this.exitLadder();
         this.setVelocityY(PLAYER.JUMP_VELOCITY);
         this.playAnim('player_jump');
@@ -397,9 +438,23 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         }
         if (this.isPushingTrash) {
           this.playPushAnim();
-        } else {
-          this.playAnim('player_idle');
+        } else if (!this.isTwisting) {
+          // Increment idle timer (roughly 1 per frame ≈ 16.7ms at 60fps)
+          this.idleTimer++;
+          const delayFrames = Math.round((PLAYER.IDLE_TWIST_DELAY || 5000) / 16.67);
+          if (this.idleTimer >= delayFrames && this.currentAnim === 'player_idle') {
+            this.isTwisting = true;
+            this.playAnim('player_twist', false);
+            this.once('animationcomplete-player_twist', () => {
+              this.isTwisting = false;
+              this.idleTimer = 0;
+              this.playAnim('player_idle', false);
+            });
+          } else if (this.currentAnim !== 'player_idle') {
+            this.playAnim('player_idle');
+          }
         }
+        // isTwisting — let twist animation play out, don't interrupt with idle
       }
     }
 

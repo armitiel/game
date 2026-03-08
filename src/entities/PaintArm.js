@@ -18,7 +18,7 @@ const HAND_SPEED = 80;           // pixels per second hand moves
 const ROPE_STIFFNESS = 0.7;     // high = stiff, nearly straight
 const GRAVITY_SAG = 1.5;        // minimal curve even at full extension
 const MAX_ARM_LENGTH = 55;      // max distance from shoulder to hand in pixels
-const MAX_ARM_LEFT = 12;        // max pixels hand can reach past shoulder to the left (behind body)
+const MAX_ARM_LEFT = 25;        // max pixels hand can reach past shoulder to the left (behind body)
 const MIN_SAG_DIST = 15;        // below this distance, sag is reduced to zero
 
 export default class PaintArm {
@@ -29,10 +29,10 @@ export default class PaintArm {
     // Hand sprite — behind player (player depth=5 in GameScene)
     this.hand = scene.add.image(0, 0, 'paint_hand')
       .setDisplaySize(HAND_DISPLAY_W, HAND_DISPLAY_H)
-      .setDepth(4.5)
+      .setDepth(3.8)
       .setVisible(false);
 
-    // Arm segments — behind player AND behind hand
+    // Arm segments — behind player, IN FRONT of hand
     // Height is set dynamically each frame to span the full gap (no holes)
     this.segments = [];
     for (let i = 0; i < ARM_SEGMENT_COUNT; i++) {
@@ -51,7 +51,7 @@ export default class PaintArm {
 
     this.bounds = null;        // paint area bounds {x, y, w, h}
     this.shoulderOffsetX = 14; // offset from player center to right shoulder (wider)
-    this.shoulderOffsetY = -1; // offset from player center to shoulder
+    this.shoulderOffsetY = 12; // offset from player center downward (hip/waist area)
   }
 
   /**
@@ -181,8 +181,10 @@ export default class PaintArm {
       }
     }
 
-    // Update visuals
-    this.hand.setPosition(hx, hy);
+    // Update visuals — hand display nudged up and toward player
+    const handNudgeX = -dir * 3;  // 3px closer to body
+    const handNudgeY = -4;        // 4px up
+    this.hand.setPosition(hx + handNudgeX, hy + handNudgeY);
     this.updateSegmentVisuals();
 
     return { x: hx, y: hy };
