@@ -428,10 +428,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   // === PARTICLE EFFECTS ===
 
   spawnJumpDust() {
+    const feetY = this.y + this.body.halfHeight;
     for (let i = 0; i < 3; i++) {
       const dust = this.scene.add.circle(
         this.x + Phaser.Math.Between(-8, 8),
-        this.y + 20,
+        feetY,
         Phaser.Math.Between(2, 4),
         0x888899, 0.5
       ).setDepth(4);
@@ -454,10 +455,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const spread = 10 + impact * 20;           // wider spread on hard landing
     const maxSize = 3 + impact * 5;            // bigger particles on hard landing
 
+    const feetY = this.y + this.body.halfHeight; // bottom of physics body (feet)
     for (let i = 0; i < count; i++) {
       const dust = this.scene.add.circle(
         this.x + Phaser.Math.Between(-spread, spread),
-        this.y + 22,
+        feetY,
         Phaser.Math.Between(2, maxSize),
         0x888899, 0.4 + impact * 0.4
       ).setDepth(4);
