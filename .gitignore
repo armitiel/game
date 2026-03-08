@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist_*/
+build_out*/
+build_test*/
+.claude/
+*.timestamp-*.mjs

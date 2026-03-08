@@ -1,0 +1,164 @@
+import Phaser from 'phaser';
+import { COP } from '../config/gameConfig.js';
+
+export default class Cop extends Phaser.Physics.Arcade.Sprite {
+  constructor(scene, x, y, patrolLeft, patrolRight) {
+    super(scene, x, y, 'cop');
+
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+
+    this.setCollideWorldBounds(true);
+    this.body.setSize(COP.WIDTH - 4, COP.HEIGHT - 2);
+
+    // Patrol bounds
+    this.patrolLeft = patrolLeft;
+    this.patrolRight = patrolRight;
+    this.direction = 1; // 1 = right, -1 = left
+
+    // AI State
+    this.state = 'PATROL'; // PATROL | DETECT | ALERT
+    this.alertTimer = 0;
+    this.alertDuration = 1500; // ms
+
+    // Detection zone (visual)
+    this.detectionCone = scene.add.graphics();
+    this.detectionCone.setDepth(1);
+
+    // Exclamation mark for alert
+    this.alertMark = scene.add.text(x, y - 30, '!', {
+      font: 'bold 24px monospace',
+      fill: '#ff3333'
+    }).setOrigin(0.5).setVisible(false).setDepth(10);
+
+    this.setVelocityX(COP.SPEED * this.direction);
+  }
+
+  update(time, delta, player) {
+    this.alertMark.setPosition(this.x, this.y - 30);
+
+    switch (this.state) {
+      case 'PATROL':
+        this.patrol();
+        this.drawDetectionZone();
+        if (this.canSeePlayer(player)) {
+          this.enterDetect();
+        }
+        break;
+
+      case 'DETECT':
+        this.setVelocityX(0);
+        this.alertTimer += delta;
+        if (this.alertTimer >= this.alertDuration) {
+          this.enterAlert(player);
+        }
+        if (!this.canSeePlayer(player)) {
+          this.returnToPatrol();
+        }
+        break;
+
+      case 'ALERT':
+        // Player caught — handled in GameScene
+        break;
+    }
+  }
+
+  patrol() {
+    if (this.x <= this.patrolLeft) {
+      this.direction = 1;
+      this.setFlipX(false);
+    } else if (this.x >= this.patrolRight) {
+      this.direction = -1;
+      this.setFlipX(true);
+    }
+    this.setVelocityX(COP.SPEED * this.direction);
+  }
+
+  canSeePlayer(player) {
+    if (!player || player.isHidden) return false;
+
+    const dx = player.x - this.x;
+    const dy = Math.abs(player.y - this.y);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Must be in front and within range
+    const inFront = (this.direction === 1 && dx > 0) || (this.direction === -1 && dx < 0);
+    return inFront && dist < COP.DETECTION_RANGE && dy < 50;
+  }
+
+  drawDetectionZone() {
+    this.detectionCone.clear();
+
+    const dir = this.direction;
+    const startX = this.x;
+    const startY = this.y;
+    const range = COP.DETECTION_RANGE;
+
+    // Draw triangular detection zone
+    this.detectionCone.fillStyle(0xffff00, 0.08);
+    this.detectionCone.fillTriangle(
+      startX, startY - 20,
+      startX + range * dir, startY - 40,
+      startX + range * dir, startY + 20
+    );
+
+    // Border
+    this.detectionCone.lineStyle(1, 0xffff00, 0.2);
+    this.detectionCone.strokeTriangle(
+      startX, startY - 20,
+      startX + range * dir, startY - 40,
+      startX + range * dir, startY + 20
+    );
+  }
+
+  enterDetect() {
+    this.state = 'DETECT';
+    this.alertTimer = 0;
+    this.alertMark.setVisible(true);
+    this.alertMark.setText('?');
+    this.alertMark.setStyle({ fill: '#ffff00' });
+    this.setTint(COP.ALERT_COLOR);
+
+    // Detection cone turns red
+    this.detectionCone.clear();
+    const dir = this.direction;
+    this.detectionCone.fillStyle(0xff0000, 0.15);
+    this.detectionCone.fillTriangle(
+      this.x, this.y - 20,
+      this.x + COP.DETECTION_RANGE * dir, this.y - 40,
+      this.x + COP.DETECTION_RANGE * dir, this.y + 20
+    );
+  }
+
+  enterAlert(player) {
+    this.state = 'ALERT';
+    this.alertMark.setText('!');
+    this.alertMark.setStyle({ fill: '#ff3333' });
+    this.setVelocityX(0);
+
+    // Emit event for GameScene to handle
+    this.scene.events.emit('player-caught');
+  }
+
+  returnToPatrol() {
+    this.state = 'PATROL';
+    this.alertTimer = 0;
+    this.alertMark.setVisible(false);
+    this.clearTint();
+    this.setVelocityX(COP.SPEED * this.direction);
+  }
+
+  resetState() {
+    this.state = 'PATROL';
+    this.alertTimer = 0;
+    this.alertMark.setVisible(false);
+    this.clearTint();
+    this.setVelocityX(COP.SPEED * this.direction);
+  }
+
+  destroy() {
+    this.detectionCone.destroy();
+    this.alertMark.destroy();
+    super.destroy();
+  }
+}
