@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 
 /**
  * Virtual touch controls for mobile devices.
- * Left side: D-pad (left, right, up, down)
- * Right side: Jump button + Action button (E)
+ * Left half of screen: touch-zone D-pad (drag direction = movement)
+ * Right side: large action buttons (JUMP, ACT, E)
  *
  * Exposes .left, .right, .up, .down (isDown booleans)
  * and .jumpJustPressed, .actionJustPressed (consumed on read)
@@ -21,6 +21,7 @@ export default class TouchControls {
     // "Just pressed" flags — consumed after read
     this._jumpJustPressed = false;
     this._actionJustPressed = false;
+    this._eJustPressed = false;
 
     // Don't create controls if no touch support
     if (!scene.sys.game.device.input.touch) return;
@@ -28,55 +29,121 @@ export default class TouchControls {
     this.enabled = true;
     this.buttons = [];
 
-    this.createDpad(scene);
+    this.createMovementZone(scene);
     this.createActionButtons(scene);
   }
 
-  createDpad(scene) {
+  /**
+   * Left half of screen = movement zone.
+   * Touch and drag sets direction based on offset from touch origin.
+   */
+  createMovementZone(scene) {
     const cam = scene.cameras.main;
-    const baseX = 90;
-    const baseY = cam.height - 90;
-    const size = 50;
-    const gap = 4;
+    const zoneW = cam.width * 0.45;
+    const zoneH = cam.height;
 
-    // Semi-transparent D-pad buttons
-    const btnStyle = { alpha: 0.25, activeAlpha: 0.5, color: 0xffffff };
+    // Invisible touch zone covering left ~45% of screen
+    const zone = scene.add.rectangle(zoneW / 2, zoneH / 2, zoneW, zoneH, 0xffffff, 0)
+      .setScrollFactor(0)
+      .setDepth(199)
+      .setInteractive();
 
-    // LEFT
-    this.addButton(scene, baseX - size - gap, baseY, size, size, '\u25C0', btnStyle,
-      () => { this.left = true; }, () => { this.left = false; });
+    // Visual D-pad hint (subtle, shows where to touch)
+    const hintX = 100;
+    const hintY = cam.height - 100;
+    const hintSize = 36;
+    const hintGap = 42;
+    const hintAlpha = 0.12;
 
-    // RIGHT
-    this.addButton(scene, baseX + size + gap, baseY, size, size, '\u25B6', btnStyle,
-      () => { this.right = true; }, () => { this.right = false; });
+    this._dpadHints = [
+      scene.add.text(hintX - hintGap, hintY, '\u25C0', { font: 'bold 22px monospace', fill: '#ffffff' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
+      scene.add.text(hintX + hintGap, hintY, '\u25B6', { font: 'bold 22px monospace', fill: '#ffffff' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
+      scene.add.text(hintX, hintY - hintGap, '\u25B2', { font: 'bold 22px monospace', fill: '#ffffff' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
+      scene.add.text(hintX, hintY + hintGap, '\u25BC', { font: 'bold 22px monospace', fill: '#ffffff' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
+    ];
+    this._dpadHints.forEach(h => this.buttons.push(h));
 
-    // UP
-    this.addButton(scene, baseX, baseY - size - gap, size, size, '\u25B2', btnStyle,
-      () => { this.up = true; }, () => { this.up = false; });
+    let originX = 0, originY = 0;
+    const DEAD_ZONE = 12; // pixels before direction registers
 
-    // DOWN
-    this.addButton(scene, baseX, baseY + size + gap, size, size, '\u25BC', btnStyle,
-      () => { this.down = true; }, () => { this.down = false; });
+    zone.on('pointerdown', (pointer) => {
+      originX = pointer.x;
+      originY = pointer.y;
+      this._updateDirection(0, 0, DEAD_ZONE);
+    });
+
+    zone.on('pointermove', (pointer) => {
+      if (!pointer.isDown) return;
+      const dx = pointer.x - originX;
+      const dy = pointer.y - originY;
+      this._updateDirection(dx, dy, DEAD_ZONE);
+    });
+
+    zone.on('pointerup', () => {
+      this._clearDirection();
+    });
+
+    zone.on('pointerout', () => {
+      this._clearDirection();
+    });
+
+    this.buttons.push(zone);
+  }
+
+  _updateDirection(dx, dy, deadZone) {
+    // Reset all
+    this.left = false;
+    this.right = false;
+    this.up = false;
+    this.down = false;
+
+    // Apply directions based on offset from touch origin
+    if (dx < -deadZone) this.left = true;
+    if (dx > deadZone) this.right = true;
+    if (dy < -deadZone) this.up = true;
+    if (dy > deadZone) this.down = true;
+
+    // Update hint visuals
+    if (this._dpadHints) {
+      this._dpadHints[0].setAlpha(this.left ? 0.5 : 0.12);   // LEFT
+      this._dpadHints[1].setAlpha(this.right ? 0.5 : 0.12);  // RIGHT
+      this._dpadHints[2].setAlpha(this.up ? 0.5 : 0.12);     // UP
+      this._dpadHints[3].setAlpha(this.down ? 0.5 : 0.12);   // DOWN
+    }
+  }
+
+  _clearDirection() {
+    this.left = false;
+    this.right = false;
+    this.up = false;
+    this.down = false;
+    if (this._dpadHints) {
+      this._dpadHints.forEach(h => h.setAlpha(0.12));
+    }
   }
 
   createActionButtons(scene) {
     const cam = scene.cameras.main;
-    const size = 56;
+    const size = 70; // bigger buttons for easier tapping
 
-    // JUMP button (right side, lower) — only triggers jump, NOT up direction
-    this.addButton(scene, cam.width - 80, cam.height - 80, size, size, 'JUMP', {
-      alpha: 0.25, activeAlpha: 0.5, color: 0x00ff88
+    // JUMP button (right side, lower)
+    this.addButton(scene, cam.width - 90, cam.height - 90, size, size, 'JUMP', {
+      alpha: 0.2, activeAlpha: 0.5, color: 0x00ff88
     }, () => { this._jumpJustPressed = true; },
        () => {});
 
-    // ACTION button (right side, upper — SPACE for paint)
-    this.addButton(scene, cam.width - 160, cam.height - 80, size, size, 'ACT', {
-      alpha: 0.25, activeAlpha: 0.5, color: 0xffdd33
+    // ACTION button (SPACE — paint mode toggle)
+    this.addButton(scene, cam.width - 180, cam.height - 90, size, size, 'ACT', {
+      alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
     }, () => { this._actionJustPressed = true; }, () => {});
 
-    // E button (right side, even higher — grab/interact)
-    this.addButton(scene, cam.width - 80, cam.height - 150, size, size, 'E', {
-      alpha: 0.25, activeAlpha: 0.5, color: 0xff8833
+    // E button (grab/interact)
+    this.addButton(scene, cam.width - 90, cam.height - 175, size, size, 'E', {
+      alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
     }, () => { this._eJustPressed = true; }, () => {});
   }
 
@@ -87,7 +154,7 @@ export default class TouchControls {
       .setInteractive();
 
     const text = scene.add.text(x, y, label, {
-      font: 'bold 14px monospace',
+      font: 'bold 16px monospace',
       fill: '#ffffff'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.5);
 
@@ -144,9 +211,6 @@ export default class TouchControls {
 
   /**
    * Create 4 color selector buttons for paint-by-numbers mode.
-   * Only on touch devices. Destroyed when painting ends.
-   * @param {Phaser.Scene} scene
-   * @param {function} onSelect - callback(colorIndex)
    */
   createColorButtons(scene, onSelect) {
     if (!this.enabled) return;
@@ -155,12 +219,12 @@ export default class TouchControls {
     const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88];
     const labels = ['1', '2', '3', '4'];
     const cam = scene.cameras.main;
-    const size = 40;
-    const startX = cam.width / 2 - (colorHexes.length * (size + 6)) / 2 + size / 2;
-    const y = cam.height - 30;
+    const size = 46;
+    const startX = cam.width / 2 - (colorHexes.length * (size + 8)) / 2 + size / 2;
+    const y = cam.height - 35;
 
     for (let i = 0; i < colorHexes.length; i++) {
-      const x = startX + i * (size + 6);
+      const x = startX + i * (size + 8);
 
       const bg = scene.add.rectangle(x, y, size, size, colorHexes[i], 0.5)
         .setScrollFactor(0)
@@ -169,12 +233,11 @@ export default class TouchControls {
         .setStrokeStyle(2, 0xffffff, 0.5);
 
       const text = scene.add.text(x, y, labels[i], {
-        font: 'bold 16px monospace',
+        font: 'bold 18px monospace',
         fill: '#ffffff'
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.7);
 
       bg.on('pointerdown', () => {
-        // Highlight selected
         this.colorButtons.forEach((btn, idx) => {
           btn.bg.setStrokeStyle(idx === i ? 3 : 1, 0xffffff, idx === i ? 1 : 0.3);
         });
