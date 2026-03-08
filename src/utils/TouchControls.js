@@ -49,20 +49,20 @@ export default class TouchControls {
       .setInteractive();
 
     // Visual D-pad hint (subtle, shows where to touch)
-    const hintX = 100;
-    const hintY = cam.height - 100;
-    const hintSize = 36;
-    const hintGap = 42;
-    const hintAlpha = 0.12;
+    const hintX = 120;
+    const hintY = cam.height - 120;
+    const hintGap = 55;
+    const hintAlpha = 0.15;
+    const hintFont = 'bold 32px monospace';
 
     this._dpadHints = [
-      scene.add.text(hintX - hintGap, hintY, '\u25C0', { font: 'bold 22px monospace', fill: '#ffffff' })
+      scene.add.text(hintX - hintGap, hintY, '\u25C0', { font: hintFont, fill: '#ffffff' })
         .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
-      scene.add.text(hintX + hintGap, hintY, '\u25B6', { font: 'bold 22px monospace', fill: '#ffffff' })
+      scene.add.text(hintX + hintGap, hintY, '\u25B6', { font: hintFont, fill: '#ffffff' })
         .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
-      scene.add.text(hintX, hintY - hintGap, '\u25B2', { font: 'bold 22px monospace', fill: '#ffffff' })
+      scene.add.text(hintX, hintY - hintGap, '\u25B2', { font: hintFont, fill: '#ffffff' })
         .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
-      scene.add.text(hintX, hintY + hintGap, '\u25BC', { font: 'bold 22px monospace', fill: '#ffffff' })
+      scene.add.text(hintX, hintY + hintGap, '\u25BC', { font: hintFont, fill: '#ffffff' })
         .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
     ];
     this._dpadHints.forEach(h => this.buttons.push(h));
@@ -128,33 +128,35 @@ export default class TouchControls {
 
   createActionButtons(scene) {
     const cam = scene.cameras.main;
-    const size = 70; // bigger buttons for easier tapping
+    const radius = 46; // large circular buttons
 
     // JUMP button (right side, lower)
-    this.addButton(scene, cam.width - 90, cam.height - 90, size, size, 'JUMP', {
+    this.addCircleButton(scene, cam.width - 90, cam.height - 90, radius, 'JUMP', {
       alpha: 0.2, activeAlpha: 0.5, color: 0x00ff88
     }, () => { this._jumpJustPressed = true; },
        () => {});
 
     // ACTION button (SPACE — paint mode toggle)
-    this.addButton(scene, cam.width - 180, cam.height - 90, size, size, 'ACT', {
+    this.addCircleButton(scene, cam.width - 195, cam.height - 90, radius, 'ACT', {
       alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
     }, () => { this._actionJustPressed = true; }, () => {});
 
-    // E button (grab/interact)
-    this.addButton(scene, cam.width - 90, cam.height - 175, size, size, 'E', {
+    // E button (grab/interact) — store reference for color button positioning
+    this.eButtonX = cam.width - 90;
+    this.eButtonY = cam.height - 195;
+    this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, 'E', {
       alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
     }, () => { this._eJustPressed = true; }, () => {});
   }
 
-  addButton(scene, x, y, w, h, label, style, onDown, onUp) {
-    const bg = scene.add.rectangle(x, y, w, h, style.color, style.alpha)
+  addCircleButton(scene, x, y, radius, label, style, onDown, onUp) {
+    const bg = scene.add.circle(x, y, radius, style.color, style.alpha)
       .setScrollFactor(0)
       .setDepth(200)
-      .setInteractive();
+      .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains);
 
     const text = scene.add.text(x, y, label, {
-      font: 'bold 16px monospace',
+      font: 'bold 18px monospace',
       fill: '#ffffff'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.5);
 
@@ -210,36 +212,40 @@ export default class TouchControls {
   }
 
   /**
-   * Create 4 color selector buttons for paint-by-numbers mode.
+   * Create color selector buttons for paint-by-numbers mode.
+   * Positioned on the right side above the E button, circular.
    */
-  createColorButtons(scene, onSelect) {
+  createColorButtons(scene, onSelect, colorNames) {
     if (!this.enabled) return;
     this.colorButtons = [];
 
     const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88];
     const labels = ['1', '2', '3', '4'];
-    const cam = scene.cameras.main;
-    const size = 46;
-    const startX = cam.width / 2 - (colorHexes.length * (size + 8)) / 2 + size / 2;
-    const y = cam.height - 35;
+    const numColors = colorNames ? colorNames.length : 4;
+    const radius = 28;
+    const gap = 10;
+    // Vertical stack above E button
+    const x = this.eButtonX || (scene.cameras.main.width - 90);
+    const eTop = (this.eButtonY || (scene.cameras.main.height - 195)) - 46 - gap;
 
-    for (let i = 0; i < colorHexes.length; i++) {
-      const x = startX + i * (size + 8);
+    for (let i = 0; i < numColors; i++) {
+      // Bottom color = index 0, stack upward
+      const y = eTop - i * (radius * 2 + gap);
 
-      const bg = scene.add.rectangle(x, y, size, size, colorHexes[i], 0.5)
+      const bg = scene.add.circle(x, y, radius, colorHexes[i] || 0xffffff, 0.6)
         .setScrollFactor(0)
         .setDepth(200)
-        .setInteractive()
+        .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains)
         .setStrokeStyle(2, 0xffffff, 0.5);
 
       const text = scene.add.text(x, y, labels[i], {
-        font: 'bold 18px monospace',
+        font: 'bold 20px monospace',
         fill: '#ffffff'
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.7);
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.8);
 
       bg.on('pointerdown', () => {
         this.colorButtons.forEach((btn, idx) => {
-          btn.bg.setStrokeStyle(idx === i ? 3 : 1, 0xffffff, idx === i ? 1 : 0.3);
+          btn.bg.setStrokeStyle(idx === i ? 3 : 2, 0xffffff, idx === i ? 1 : 0.3);
         });
         onSelect(i);
       });

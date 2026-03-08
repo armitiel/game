@@ -420,11 +420,13 @@ export default class GameScene extends Phaser.Scene {
     this.uiCam.setName('ui');
 
     // Paint inventory — slots auto-derived from level's paintings
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const uiScale = isMobile ? 1.8 : 1;
     const slotColors = this.levelColors;
-    const slotStartX = 22;
-    const slotY = 26;
-    const slotSpacing = 32;
-    this.hudBg = this.add.rectangle(6, 8, slotColors.length * slotSpacing + 12, 40, 0x000000, 0.6)
+    const slotStartX = Math.round(22 * uiScale);
+    const slotY = Math.round(26 * uiScale);
+    const slotSpacing = Math.round(32 * uiScale);
+    this.hudBg = this.add.rectangle(Math.round(6 * uiScale), Math.round(8 * uiScale), slotColors.length * slotSpacing + Math.round(12 * uiScale), Math.round(40 * uiScale), 0x000000, 0.6)
       .setDepth(100).setScrollFactor(0).setOrigin(0, 0);
 
     this.hudSlots = [];
@@ -432,13 +434,13 @@ export default class GameScene extends Phaser.Scene {
       const sx = slotStartX + i * slotSpacing;
       // Grey empty can (always visible as background)
       const empty = this.add.image(sx, slotY, 'hud_can_empty')
-        .setDepth(100.5).setScrollFactor(0);
+        .setDepth(100.5).setScrollFactor(0).setScale(uiScale);
       // Colored filled can (hidden until collected)
       const filled = this.add.image(sx, slotY, `hud_can_${slotColors[i]}`)
-        .setDepth(101).setScrollFactor(0).setVisible(false);
+        .setDepth(101).setScrollFactor(0).setVisible(false).setScale(uiScale);
       // Count label below
-      const count = this.add.text(sx, slotY + 17, '', {
-        font: 'bold 8px monospace',
+      const count = this.add.text(sx, slotY + Math.round(17 * uiScale), '', {
+        font: `bold ${Math.round(8 * uiScale)}px monospace`,
         fill: '#ffffff'
       }).setOrigin(0.5).setDepth(101).setScrollFactor(0).setAlpha(0);
 
@@ -446,18 +448,18 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Painted spots counter (after the slots)
-    const counterX = slotStartX + slotColors.length * slotSpacing + 8;
+    const counterX = slotStartX + slotColors.length * slotSpacing + Math.round(8 * uiScale);
     this.hudCountText = this.add.text(counterX, slotY, '', {
-      font: 'bold 10px monospace',
+      font: `bold ${Math.round(10 * uiScale)}px monospace`,
       fill: '#00ff88'
     }).setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
 
     // Status text
     this.statusText = this.add.text(gw / 2, 10, '', {
-      font: '12px monospace',
+      font: `${Math.round(12 * uiScale)}px monospace`,
       fill: '#00ff88',
       backgroundColor: '#000000aa',
-      padding: { x: 6, y: 4 }
+      padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
     }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0);
 
     // Music toggle button (speaker icon)
@@ -465,11 +467,11 @@ export default class GameScene extends Phaser.Scene {
     this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
     this.bgm.play();
 
-    this.muteBtn = this.add.text(gw - 40, 10, '\u266B', {
-      font: 'bold 20px monospace',
+    this.muteBtn = this.add.text(gw - Math.round(40 * uiScale), 10, '\u266B', {
+      font: `bold ${Math.round(20 * uiScale)}px monospace`,
       fill: '#00ff88',
       backgroundColor: '#000000aa',
-      padding: { x: 6, y: 4 }
+      padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
     }).setDepth(100).setScrollFactor(0).setInteractive({ useHandCursor: true });
 
     this.muteBtn.on('pointerdown', () => {
@@ -501,9 +503,12 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // Auto-ignore any future objects added to the scene
+    // Track HUD elements set for camera routing
+    this._hudElements = new Set(hudElements);
+
+    // Auto-ignore any future objects added to the scene (unless marked as HUD)
     this.events.on('addedtoscene', (obj) => {
-      if (this.uiCam && !hudElements.includes(obj)) {
+      if (this.uiCam && !this._hudElements.has(obj)) {
         this.uiCam.ignore(obj);
       }
     });
@@ -683,8 +688,27 @@ export default class GameScene extends Phaser.Scene {
       { font: 'bold 11px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 4, y: 2 } }
     ).setOrigin(0.5).setDepth(15);
 
-    // Color selector HUD
-    this.createColorSelector(bounds);
+    // Color selector HUD — touch buttons on mobile, world-space boxes on desktop
+    const isMobileDevice = this.touch && this.touch.enabled;
+    if (isMobileDevice) {
+      this.touch.createColorButtons(this, (colorIdx) => {
+        if (this.pbn) {
+          this.pbn.setSelectedColor(colorIdx);
+          this.player.paintColor = this.pbn.getSelectedColorHex();
+          this.updateTouchColorHighlight();
+        }
+      }, this.pbn.colorMap);
+      // Register color buttons as HUD so they show on UI cam, not main cam
+      if (this.touch.colorButtons && this._hudElements) {
+        this.touch.colorButtons.forEach(btn => {
+          this._hudElements.add(btn.bg);
+          this._hudElements.add(btn.text);
+          this.cameras.main.ignore([btn.bg, btn.text]);
+        });
+      }
+    } else {
+      this.createColorSelector(bounds);
+    }
 
     // Color switch keys (1-3 or 1-4 depending on painting colors)
     const keyCodes = [
@@ -695,17 +719,6 @@ export default class GameScene extends Phaser.Scene {
     ];
     const numPaintColors = this.pbn.colorMap.length;
     this.colorKeys = keyCodes.slice(0, numPaintColors).map(k => this.input.keyboard.addKey(k));
-
-    // Create touch color buttons if mobile
-    if (this.touch && this.touch.createColorButtons) {
-      this.touch.createColorButtons(this, (colorIdx) => {
-        if (this.pbn) {
-          this.pbn.setSelectedColor(colorIdx);
-          this.player.paintColor = this.pbn.getSelectedColorHex();
-          this.updateColorSelectorHighlight();
-        }
-      });
-    }
 
     // Start paint arm (hand + rope)
     this.paintArm.start(this.player.x, this.player.y, this.player.flipX, bounds);
@@ -745,18 +758,30 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateColorSelectorHighlight() {
-    if (!this.colorSelectorElements || !this.pbn) return;
-    const sel = this.pbn.selectedColorIndex;
-    const numColors = this.pbn.colorMap.length;
-    for (let i = 0; i < numColors; i++) {
-      const box = this.colorSelectorElements[i * 2];
-      if (!box) continue;
-      if (i === sel) {
-        box.setStrokeStyle(2, 0xffffff, 1);
-      } else {
-        box.setStrokeStyle(1, 0xffffff, 0.3);
+    // Desktop world-space selector
+    if (this.colorSelectorElements && this.pbn) {
+      const sel = this.pbn.selectedColorIndex;
+      const numColors = this.pbn.colorMap.length;
+      for (let i = 0; i < numColors; i++) {
+        const box = this.colorSelectorElements[i * 2];
+        if (!box) continue;
+        if (i === sel) {
+          box.setStrokeStyle(2, 0xffffff, 1);
+        } else {
+          box.setStrokeStyle(1, 0xffffff, 0.3);
+        }
       }
     }
+    // Mobile touch color buttons
+    this.updateTouchColorHighlight();
+  }
+
+  updateTouchColorHighlight() {
+    if (!this.touch || !this.touch.colorButtons || !this.pbn) return;
+    const sel = this.pbn.selectedColorIndex;
+    this.touch.colorButtons.forEach((btn, idx) => {
+      btn.bg.setStrokeStyle(idx === sel ? 3 : 2, 0xffffff, idx === sel ? 1 : 0.3);
+    });
   }
 
   onPaintMove(handX, handY) {
