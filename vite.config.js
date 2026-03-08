@@ -7,7 +7,7 @@ export default defineConfig({
     open: true
   },
   build: {
-    outDir: 'build_out2',
+    outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true
   }
