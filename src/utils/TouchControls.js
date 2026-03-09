@@ -136,20 +136,19 @@ export default class TouchControls {
     }, () => { this._jumpJustPressed = true; },
        () => {});
 
-    // PAINT button (spray can pictogram)
-    const paintX = cam.width - 210, paintY = cam.height - 85;
-    this.addCircleButton(scene, paintX, paintY, radius, null, {
-      alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
-    }, () => { this._actionJustPressed = true; }, () => {});
-    this._drawSprayCan(scene, paintX, paintY);
+    // GRAB/INTERACT button (hand pictogram) — middle right
+    this.addCircleButton(scene, cam.width - 210, cam.height - 85, radius, null, {
+      alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
+    }, () => { this._eJustPressed = true; }, () => {});
+    this._drawHand(scene, cam.width - 210, cam.height - 85);
 
-    // GRAB/INTERACT button (hand pictogram)
+    // PAINT button (spray can pictogram) — top right
     this.eButtonX = cam.width - 85;
     this.eButtonY = cam.height - 215;
     this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, null, {
-      alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
-    }, () => { this._eJustPressed = true; }, () => {});
-    this._drawHand(scene, this.eButtonX, this.eButtonY);
+      alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
+    }, () => { this._actionJustPressed = true; }, () => {});
+    this._drawSprayCan(scene, this.eButtonX, this.eButtonY);
   }
 
   _drawSprayCan(scene, cx, cy) {
