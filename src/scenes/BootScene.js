@@ -353,6 +353,24 @@ export default class BootScene extends Phaser.Scene {
       repeat: 0  // play once, then return to idle
     });
 
+    // --- SIDE: ladder push animation (frame 0 = idle hold, frames 1-27 = pushing) ---
+    const SD = PLAYER.SIDE_FRAME_START;
+    const SDN = PLAYER.TOTAL_SIDE_FRAMES;
+    // Side idle: just the first frame (holding ladder, not moving)
+    this.anims.create({
+      key: 'player_side_idle',
+      frames: [{ key: 'player_sheet', frame: SD }],
+      frameRate: 1,
+      repeat: 0
+    });
+    // Side walk: frames 1 to end (pushing/pulling ladder)
+    this.anims.create({
+      key: 'player_side_walk',
+      frames: this.anims.generateFrameNumbers('player_sheet', { start: SD + 1, end: SD + SDN - 1 }),
+      frameRate: 14,
+      repeat: -1
+    });
+
     // === Register palette colors from painting JSONs ===
     this.registerPaintingPalettes();
 

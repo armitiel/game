@@ -712,10 +712,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocity(0, 0);
     this.body.setAccelerationX(0);
 
-    // Show first frame of paint/turn animation (grabbing pose)
-    this.anims.stop();
-    this.setFrame(PLAYER.TURN_FRAME_START);
+    // Side idle: holding ladder, not moving yet
     this.currentAnim = '';
+    this.playAnim('player_side_idle', false);
   }
 
   updateLadderPush() {
@@ -736,11 +735,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (left) {
       this.pushLadderDx = -pushSpeed * dt;
       this.setFlipX(true);
+      this.playAnim('player_side_walk');
     } else if (right) {
       this.pushLadderDx = pushSpeed * dt;
       this.setFlipX(false);
+      this.playAnim('player_side_walk');
     } else {
       this.pushLadderDx = 0;
+      this.playAnim('player_side_idle');
     }
 
     // Keep player grounded
