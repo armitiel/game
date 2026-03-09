@@ -30,6 +30,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.pushLadderDx = 0;            // dx to move ladder this frame (consumed by GameScene)
     this.isPushingTrash = false;      // true when actively pushing a trash can with E
     this.isClimbing2 = false;         // true during ledge climb animation onto platform
+    this.isHiding = false;            // true when actively crouching in shadow zone
+    this.isUnhiding = false;          // true during stand-up reverse animation
+    this.inShadowZone = false;        // set by GameScene — player overlaps shadow zone this frame
     // Paint inventory: { red: 2, blue: 1, ... } — counts per color
     this.inventory = { red: 0, blue: 0, yellow: 0, green: 0 };
     this.paintedCount = 0;
@@ -47,10 +50,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.climbAnimSpeed = PLAYER.CLIMB_ANIM_SPEED;     // frames per game-frame
     this.climbDirection = 1;         // +1 = forward, -1 = backward (ping-pong)
 
-    // Hidden indicator
-    this.hiddenIcon = scene.add.sprite(x, y - 34, 'hidden_icon')
-      .setVisible(false)
-      .setDepth(10);
+    // Hidden indicator (disabled — no icon above player)
+    this.hiddenIcon = { setPosition() {}, setVisible() {}, setAlpha() {}, destroy() {} };
 
     // Dust particles on landing
     this.wasInAir = false;
@@ -176,6 +177,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // === Ladder push mode ===
     if (this.isPushingLadder) {
       this.updateLadderPush();
+      this.updateHiddenIcon();
+      return;
+    }
+
+    // === Hiding in shadow mode ===
+    if (this.isHiding) {
+      this.updateHiding();
+      this.updateHiddenIcon();
+      return;
+    }
+
+    // === Unhiding (standing up from crouch) — frozen until animation completes ===
+    if (this.isUnhiding) {
+      this.setVelocity(0, 0);
       this.updateHiddenIcon();
       return;
     }
@@ -446,6 +461,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // === Normal movement ===
     this.body.allowGravity = true;
+
+    // === Hide in shadow: DOWN while stopped on ground in shadow zone (not on ladder) ===
+    if (down && !left && !right && !up && onGround && this.inShadowZone && !this.onLadder && Math.abs(this.body.velocity.x) < 10) {
+      this.startHiding();
+      this.updateHiddenIcon();
+      return;
+    }
 
     // === Jump has HIGHEST priority — works regardless of d-pad direction ===
     if (jump && onGround) {
@@ -781,14 +803,56 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   updateHiddenIcon() {
     this.hiddenIcon.setPosition(this.x, this.y - 34);
     this.hiddenIcon.setVisible(this.isHidden);
+    // Alpha/tint handled by tweens in startHiding/stopHiding — no snap changes here
+  }
 
-    if (this.isHidden) {
-      this.setAlpha(0.4);
-      this.setTint(0x334455);
-    } else {
-      this.setAlpha(1);
-      this.clearTint();
-    }
+  /** Gradually darken player when entering hide */
+  _tweenDarken() {
+    if (this._hideTween) this._hideTween.destroy();
+    this._hideTween = this.scene.tweens.add({
+      targets: this,
+      alpha: 0.4,
+      duration: 400,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        // Interpolate tint from white (0xffffff) to dark (0x334455)
+        const t = tween.progress;
+        const r = Math.round(0xff + (0x33 - 0xff) * t);
+        const g = Math.round(0xff + (0x44 - 0xff) * t);
+        const b = Math.round(0xff + (0x55 - 0xff) * t);
+        this.setTint((r << 16) | (g << 8) | b);
+      }
+    });
+  }
+
+  /** Gradually brighten player when exiting hide */
+  _tweenBrighten() {
+    if (this._hideTween) this._hideTween.destroy();
+    // Get current alpha as starting point (in case interrupted mid-darken)
+    const startAlpha = this.alpha;
+    // Get current tint components
+    const curTint = this.tintTopLeft || 0xffffff;
+    const startR = (curTint >> 16) & 0xff;
+    const startG = (curTint >> 8) & 0xff;
+    const startB = curTint & 0xff;
+
+    this._hideTween = this.scene.tweens.add({
+      targets: this,
+      alpha: 1,
+      duration: 350,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        const t = tween.progress;
+        const r = Math.round(startR + (0xff - startR) * t);
+        const g = Math.round(startG + (0xff - startG) * t);
+        const b = Math.round(startB + (0xff - startB) * t);
+        this.setTint((r << 16) | (g << 8) | b);
+      },
+      onComplete: () => {
+        this.clearTint();
+        this.setAlpha(1);
+      }
+    });
   }
 
   setOnLadder(isOn, ladderCenterX, ladderTopY, ladderInfo) {
@@ -854,6 +918,75 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     return this.inventory[colorName.toLowerCase()] || 0;
   }
 
+  // === HIDING IN SHADOW ===
+
+  startHiding() {
+    this.isHiding = true;
+    this.isHidden = true;
+    this.setVelocity(0, 0);
+    this.body.setAccelerationX(0);
+
+    // Gradually darken
+    this._tweenDarken();
+
+    // Play transition animation, then hold last frame
+    this.currentAnim = '';
+    this.playAnim('player_hide', false);
+    this.once('animationcomplete-player_hide', () => {
+      if (this.isHiding) {
+        this.playAnim('player_hide_idle', false);
+      }
+    });
+  }
+
+  updateHiding() {
+    const t = this.touch;
+    const left = this.cursors.left.isDown || this.wasdKeys.left.isDown || (t && t.left);
+    const right = this.cursors.right.isDown || this.wasdKeys.right.isDown || (t && t.right);
+    const up = this.cursors.up.isDown || this.wasdKeys.up.isDown || (t && t.up);
+    const down = this.cursors.down.isDown || this.wasdKeys.down.isDown || (t && t.down);
+    const jump = Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.wasdKeys.up) || (t && t.jumpJustPressed);
+
+    // Keep player frozen
+    this.setVelocity(0, 0);
+
+    // Exit hiding if: any movement key (left/right/up), jump, or player leaves shadow zone
+    if (left || right || up || jump || !this.inShadowZone) {
+      // Determine exit direction for flip
+      let exitDir = 0; // 0 = neutral, -1 = left, 1 = right
+      if (left) exitDir = -1;
+      else if (right) exitDir = 1;
+      this.stopHiding(exitDir);
+      return;
+    }
+  }
+
+  stopHiding(exitDir = 0) {
+    this.isHiding = false;
+    this.isHidden = false;
+    this.isUnhiding = true;  // block input during stand-up animation
+    this._unhideExitDir = exitDir;  // remember direction to move after standing up
+    this.off('animationcomplete-player_hide');  // remove pending callback
+
+    // Set flip based on exit direction:
+    // right (exitDir=1) → normal (flipX=false), left (exitDir=-1) → flipped
+    if (exitDir === -1) this.setFlipX(true);
+    else if (exitDir === 1) this.setFlipX(false);
+
+    // Gradually brighten
+    this._tweenBrighten();
+
+    // Play reverse animation (standing up from crouch)
+    this.currentAnim = '';
+    this.playAnim('player_hide_reverse', false);
+    this.once('animationcomplete-player_hide_reverse', () => {
+      this.isUnhiding = false;
+      this._unhideExitDir = 0;
+      this.currentAnim = '';
+      this.playAnim('player_idle');
+    });
+  }
+
   die(checkpointX, checkpointY) {
     this.scene.cameras.main.shake(200, 0.01);
     this.scene.cameras.main.flash(300, 255, 50, 50);
@@ -866,6 +999,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.pushLadderInfo = null;
     this.isPushingTrash = false;
     this.isClimbing2 = false;
+    this.isHiding = false;
+    this.isHidden = false;
+    this.isUnhiding = false;
+    this.off('animationcomplete-player_hide_reverse');
+    if (this._hideTween) { this._hideTween.destroy(); this._hideTween = null; }
+    this.clearTint();
+    this.setAlpha(1);
     this._pushYShift = 0;
     this.body.allowGravity = true;
     this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
