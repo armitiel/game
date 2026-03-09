@@ -424,10 +424,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // === Enter ladder: UP while near ladder ===
-    // Works from ground OR mid-air (grab ladder while jumping/falling)
+    // Requires slow speed or stopped — prevents accidental grabs while running past
+    // Mid-air grabs still allowed (falling onto ladder)
     // Don't grab ladder with UP if standing on the platform at the top of the ladder
     const playerFeetAtTop = this.ladderTopY && (this.y + PLAYER.BODY_H / 2) <= this.ladderTopY + 10;
-    if (this.onLadder && up && this.ladderCooldown <= 0 && !playerFeetAtTop) {
+    const absVxUp = Math.abs(this.body.velocity.x);
+    const canGrabLadder = !onGround || absVxUp < PLAYER.SPEED * 0.6; // mid-air always OK, ground needs slow speed
+    if (this.onLadder && up && this.ladderCooldown <= 0 && !playerFeetAtTop && canGrabLadder) {
       this.isClimbing = true;
       this.climbFrameIndex = 0;
       this.body.allowGravity = false;
