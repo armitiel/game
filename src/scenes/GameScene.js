@@ -466,40 +466,67 @@ export default class GameScene extends Phaser.Scene {
     this.musicOn = true;
     this.bgm = this.sound.add('bgm', { loop: true, volume: 0.35 });
 
-    // iOS Safari blocks audio autoplay — requires user gesture + synchronous play
-    // Strategy: resume AudioContext AND call play() synchronously in the same gesture handler.
-    // iOS rejects play() inside .then() callbacks — it must be in the direct gesture path.
+    // === iOS audio unlock strategy ===
+    // iOS Safari blocks ALL audio until a user gesture resumes the AudioContext.
+    // We use multiple strategies to ensure music plays:
+    // 1. Phaser's built-in 'unlocked' event
+    // 2. Direct AudioContext resume + synchronous play in gesture handler
+    // 3. Retry on every tap until music starts
+    // 4. Delayed retry after scene starts (catches cases where unlock happened before scene)
+
     const tryPlayBgm = () => {
       if (!this.musicOn || !this.bgm) return;
       try {
-        // Resume AudioContext (iOS keeps it suspended until gesture)
         const ctx = this.sound.context;
+        // Resume AudioContext if suspended (iOS requirement)
         if (ctx && ctx.state === 'suspended') {
           ctx.resume().catch(e => console.warn('AudioContext resume failed:', e));
         }
-        // Play synchronously — don't wait for resume() promise!
-        // iOS allows play() in the same call stack as the gesture even if context
-        // hasn't fully resumed yet — it queues the audio and starts when ready.
+        // Play synchronously in the same call stack as the gesture
         if (!this.bgm.isPlaying) {
           this.bgm.play();
+          console.log('BGM play called, context state:', ctx ? ctx.state : 'no-ctx');
         }
       } catch (e) {
         console.warn('BGM play failed:', e);
       }
     };
 
+    // Strategy 1: Phaser's built-in sound unlock
     if (this.sound.locked) {
-      this.sound.once('unlocked', tryPlayBgm);
+      console.log('Sound is locked, waiting for unlock...');
+      this.sound.once('unlocked', () => {
+        console.log('Phaser sound unlocked!');
+        tryPlayBgm();
+      });
     } else {
       tryPlayBgm();
     }
 
-    // Fallback: retry on EVERY tap until music starts (not just first tap)
+    // Strategy 2: retry on EVERY tap/touch until music starts
     this.input.on('pointerdown', () => {
       if (this.musicOn && this.bgm && !this.bgm.isPlaying) {
         tryPlayBgm();
       }
     });
+
+    // Strategy 3: global document touch listener (catches taps outside Phaser canvas)
+    const docTouchHandler = () => {
+      if (this.musicOn && this.bgm && !this.bgm.isPlaying) {
+        tryPlayBgm();
+      }
+    };
+    document.addEventListener('touchstart', docTouchHandler);
+    document.addEventListener('click', docTouchHandler);
+    // Clean up when scene shuts down
+    this.events.on('shutdown', () => {
+      document.removeEventListener('touchstart', docTouchHandler);
+      document.removeEventListener('click', docTouchHandler);
+    });
+
+    // Strategy 4: delayed retry — if context was already unlocked by main.js handler
+    this.time.delayedCall(500, tryPlayBgm);
+    this.time.delayedCall(2000, tryPlayBgm);
 
     const muteBtnSize = Math.round(64 * uiScale);
     const muteBtnX = gw - Math.round(55 * uiScale);

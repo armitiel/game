@@ -34,8 +34,43 @@ const config = {
   },
   input: {
     activePointers: 4  // multi-touch for D-pad + buttons simultaneously
+  },
+  audio: {
+    disableWebAudio: false,  // prefer WebAudio, Phaser falls back to HTML5 Audio if needed
+    noAudio: false
   }
 };
+
+// iOS: pre-create and unlock AudioContext on first user gesture BEFORE Phaser starts.
+// iOS Safari suspends AudioContext until a touch event handler creates or resumes it.
+// This global handler ensures the context is unlocked as early as possible.
+let _audioCtxUnlocked = false;
+const unlockAudioContext = () => {
+  if (_audioCtxUnlocked) return;
+  _audioCtxUnlocked = true;
+  try {
+    // Create a silent AudioContext and resume it — this "unlocks" audio for the page
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      // Play a silent buffer to fully unlock on iOS
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      console.log('Audio context unlocked via user gesture');
+    }
+  } catch (e) {
+    console.warn('Audio unlock failed:', e);
+  }
+};
+// Listen on BOTH touchstart and click — touchstart fires first on iOS
+document.addEventListener('touchstart', unlockAudioContext, { once: true });
+document.addEventListener('click', unlockAudioContext, { once: true });
 
 const game = new Phaser.Game(config);
 
