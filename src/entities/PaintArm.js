@@ -52,7 +52,7 @@ export default class PaintArm {
 
     this.bounds = null;        // paint area bounds {x, y, w, h}
     this.shoulderOffsetX = 14; // offset from player center to right shoulder (wider)
-    this.shoulderOffsetY = 12; // offset from player center downward (hip/waist area)
+    this.shoulderOffsetY = 18; // offset from player center downward (lower torso)
   }
 
   /**
