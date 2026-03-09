@@ -172,9 +172,8 @@ export default class TouchControls {
   }
 
   _drawSprayCan(scene, cx, cy) {
-    // White spray can icon from can.png asset
-    const icon = scene.add.image(cx, cy, 'spray_can_base')
-      .setScale(36 / 72)   // ~36px tall
+    const icon = scene.add.image(cx, cy, 'icon_spray')
+      .setDisplaySize(38, 38)
       .setScrollFactor(0)
       .setDepth(201)
       .setAlpha(0.7)
@@ -183,9 +182,8 @@ export default class TouchControls {
   }
 
   _drawHand(scene, cx, cy) {
-    // White hand icon from paint_hand asset
-    const icon = scene.add.image(cx, cy, 'paint_hand')
-      .setDisplaySize(34, 34)
+    const icon = scene.add.image(cx, cy, 'icon_hand')
+      .setDisplaySize(38, 38)
       .setScrollFactor(0)
       .setDepth(201)
       .setAlpha(0.7)
