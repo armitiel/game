@@ -49,11 +49,11 @@ export default class TouchControls {
       .setInteractive();
 
     // Visual D-pad hint (subtle, shows where to touch)
-    const hintX = 120;
-    const hintY = cam.height - 120;
-    const hintGap = 55;
+    const hintX = 110;
+    const hintY = cam.height - 130;
+    const hintGap = 65;
     const hintAlpha = 0.15;
-    const hintFont = 'bold 32px monospace';
+    const hintFont = 'bold 36px monospace';
 
     this._dpadHints = [
       scene.add.text(hintX - hintGap, hintY, '\u25C0', { font: hintFont, fill: '#ffffff' })
@@ -128,22 +128,22 @@ export default class TouchControls {
 
   createActionButtons(scene) {
     const cam = scene.cameras.main;
-    const radius = 46; // large circular buttons
+    const radius = 50; // ~10% larger circular buttons
 
-    // JUMP button (right side, lower)
-    this.addCircleButton(scene, cam.width - 90, cam.height - 90, radius, 'JUMP', {
+    // JUMP button (right side, lower) — moved further right/down
+    this.addCircleButton(scene, cam.width - 85, cam.height - 85, radius, 'JUMP', {
       alpha: 0.2, activeAlpha: 0.5, color: 0x00ff88
     }, () => { this._jumpJustPressed = true; },
        () => {});
 
-    // ACTION button (SPACE — paint mode toggle)
-    this.addCircleButton(scene, cam.width - 195, cam.height - 90, radius, 'ACT', {
+    // ACTION button (SPACE — paint mode toggle) — more space from JUMP
+    this.addCircleButton(scene, cam.width - 210, cam.height - 85, radius, 'ACT', {
       alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
     }, () => { this._actionJustPressed = true; }, () => {});
 
-    // E button (grab/interact) — store reference for color button positioning
-    this.eButtonX = cam.width - 90;
-    this.eButtonY = cam.height - 195;
+    // E button (grab/interact) — more space above JUMP
+    this.eButtonX = cam.width - 85;
+    this.eButtonY = cam.height - 215;
     this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, 'E', {
       alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
     }, () => { this._eJustPressed = true; }, () => {});
