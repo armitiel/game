@@ -110,78 +110,21 @@ export default class BootScene extends Phaser.Scene {
     shadowGfx.generateTexture('shadow_zone', 64, 64);
     shadowGfx.destroy();
 
-    // Paint cans — ALL colors generated procedurally (mini icon + world sprite)
-    Object.entries(PAINT.COLORS).forEach(([name, color]) => {
-      const key = name.toLowerCase();
+    // Paint cans — placeholder; real textures generated in create() from green.png base
+    // (green.png must be loaded first before pixel manipulation)
 
-      // Mini icon (16x16) for UI
-      const canGfx = this.make.graphics({ add: false });
-      canGfx.fillStyle(color, 1);
-      canGfx.fillRect(2, 4, 12, 12);
-      canGfx.fillStyle(0xcccccc, 1);
-      canGfx.fillRect(4, 0, 8, 4);
-      canGfx.generateTexture(`paint_can_${key}`, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
-      canGfx.destroy();
-
-      // World sprite (18x34) for in-game pickup — matches original PNG proportions
-      const SW = 18, SH = 34;
-      const sprGfx = this.make.graphics({ add: false });
-      // Can body
-      sprGfx.fillStyle(color, 1);
-      sprGfx.fillRoundedRect(1, 10, SW - 2, SH - 12, 2);
-      // Lid / rim
-      sprGfx.fillStyle(0xcccccc, 1);
-      sprGfx.fillRect(3, 6, SW - 6, 6);
-      // Handle
-      sprGfx.lineStyle(1.5, 0xaaaaaa, 1);
-      sprGfx.strokeCircle(SW / 2, 4, 4);
-      // Color highlight
-      sprGfx.fillStyle(0xffffff, 0.25);
-      sprGfx.fillRect(3, 12, 6, 2);
-      // Label stripe
-      sprGfx.fillStyle(0x000000, 0.15);
-      sprGfx.fillRect(2, 20, SW - 4, 4);
-      sprGfx.generateTexture(`paint_can_sprite_${key}`, SW, SH);
-      sprGfx.destroy();
-    });
-
-    // HUD paint can icons — grey outline (empty slot) + colored filled versions
-    const HUD_CAN_W = 24;
-    const HUD_CAN_H = 28;
-
-    // Helper: draw paint can shape on a graphics object
-    const drawCanShape = (g, fillColor, fillAlpha, outlineColor, outlineAlpha) => {
-      // Can body
-      g.fillStyle(fillColor, fillAlpha);
-      g.fillRoundedRect(3, 8, 18, 18, 2);
-      // Can lid/rim
-      g.fillStyle(fillColor, fillAlpha);
-      g.fillRect(6, 4, 12, 5);
-      // Handle arc
-      g.lineStyle(1.5, outlineColor, outlineAlpha);
-      g.strokeCircle(12, 4, 4);
-      // Outline
-      g.lineStyle(1, outlineColor, outlineAlpha);
-      g.strokeRoundedRect(3, 8, 18, 18, 2);
-      g.strokeRect(6, 4, 12, 5);
-    };
-
-    // Grey empty slot
+    // HUD empty slot (procedural — no image needed)
     const emptyGfx = this.make.graphics({ add: false });
-    drawCanShape(emptyGfx, 0x333344, 0.5, 0x666688, 0.6);
-    emptyGfx.generateTexture('hud_can_empty', HUD_CAN_W, HUD_CAN_H);
+    emptyGfx.fillStyle(0x333344, 0.5);
+    emptyGfx.fillRoundedRect(3, 8, 18, 18, 2);
+    emptyGfx.fillRect(6, 4, 12, 5);
+    emptyGfx.lineStyle(1.5, 0x666688, 0.6);
+    emptyGfx.strokeCircle(12, 4, 4);
+    emptyGfx.lineStyle(1, 0x666688, 0.6);
+    emptyGfx.strokeRoundedRect(3, 8, 18, 18, 2);
+    emptyGfx.strokeRect(6, 4, 12, 5);
+    emptyGfx.generateTexture('hud_can_empty', 24, 28);
     emptyGfx.destroy();
-
-    // Colored filled versions
-    Object.entries(PAINT.COLORS).forEach(([name, color]) => {
-      const g = this.make.graphics({ add: false });
-      drawCanShape(g, color, 0.9, 0xffffff, 0.7);
-      // Paint surface highlight
-      g.fillStyle(0xffffff, 0.25);
-      g.fillRect(6, 9, 12, 3);
-      g.generateTexture(`hud_can_${name.toLowerCase()}`, HUD_CAN_W, HUD_CAN_H);
-      g.destroy();
-    });
 
     // Paint spots — brick wall with marked area (target + painted)
     const SW = PAINT.SPOT_W;  // 64
@@ -375,10 +318,29 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
+    // === Generate paint can textures from green.png base (all colors) ===
+    this._generateAllPaintCanTextures();
+
     // === Register palette colors from painting JSONs ===
     this.registerPaintingPalettes();
 
     this.scene.start('MenuScene');
+  }
+
+  /**
+   * Generate all paint can textures from green.png base.
+   * Recolors the dome for each color in PAINT.COLORS.
+   */
+  _generateAllPaintCanTextures() {
+    Object.entries(PAINT.COLORS).forEach(([name, colorHex]) => {
+      const key = name.toLowerCase();
+      // World sprite (24x34) — in-game pickup
+      this._recolorSprayCan(`paint_can_sprite_${key}`, colorHex, 24, 34);
+      // Mini icon (16x16) for UI
+      this._recolorSprayCan(`paint_can_${key}`, colorHex, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
+      // HUD filled icon (24x28)
+      this._recolorSprayCan(`hud_can_${key}`, colorHex, 24, 28);
+    });
   }
 
   /**
@@ -437,16 +399,17 @@ export default class BootScene extends Phaser.Scene {
     const tG = (targetHex >> 8) & 0xff;
     const tB = targetHex & 0xff;
 
-    // Dome is in the top ~40% of the image
-    const domeBottom = Math.floor(h * 0.42);
+    // Dome band: skip nozzle/cap at top (~15%), stop before metal body (~40%)
+    const domeTop = Math.floor(h * 0.15);
+    const domeBottom = Math.floor(h * 0.40);
 
     for (let i = 0; i < d.length; i += 4) {
       const a = d[i + 3];
       if (a < 10) continue;
 
-      // Only process dome area
+      // Only process dome band (skip nozzle at top, body at bottom)
       const pixelY = Math.floor((i / 4) / w);
-      if (pixelY > domeBottom) continue;
+      if (pixelY < domeTop || pixelY > domeBottom) continue;
 
       const r = d[i], g = d[i + 1], b = d[i + 2];
       const lum = (r + g + b) / 3;
