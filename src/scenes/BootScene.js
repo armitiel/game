@@ -403,30 +403,11 @@ export default class BootScene extends Phaser.Scene {
         // Generate world sprite from green.png base — recolor green dome to target color
         this._recolorSprayCan(`paint_can_sprite_${name.toLowerCase()}`, colorHex, 24, 34);
 
-        // Generate mini icon (16x16)
-        const canGfx = this.make.graphics({ add: false });
-        canGfx.fillStyle(colorHex, 1);
-        canGfx.fillRect(2, 4, 12, 12);
-        canGfx.fillStyle(0xcccccc, 1);
-        canGfx.fillRect(4, 0, 8, 4);
-        canGfx.generateTexture(`paint_can_${name.toLowerCase()}`, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
-        canGfx.destroy();
+        // Generate mini icon (16x16) from recolored spray can
+        this._recolorSprayCan(`paint_can_${name.toLowerCase()}`, colorHex, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
 
-        // Generate HUD filled icon (24x28)
-        const hudGfx = this.make.graphics({ add: false });
-        hudGfx.fillStyle(colorHex, 0.9);
-        hudGfx.fillRoundedRect(3, 8, 18, 18, 2);
-        hudGfx.fillStyle(colorHex, 0.9);
-        hudGfx.fillRect(6, 4, 12, 5);
-        hudGfx.lineStyle(1.5, 0xffffff, 0.7);
-        hudGfx.strokeCircle(12, 4, 4);
-        hudGfx.lineStyle(1, 0xffffff, 0.7);
-        hudGfx.strokeRoundedRect(3, 8, 18, 18, 2);
-        hudGfx.strokeRect(6, 4, 12, 5);
-        hudGfx.fillStyle(0xffffff, 0.25);
-        hudGfx.fillRect(6, 9, 12, 3);
-        hudGfx.generateTexture(`hud_can_${name.toLowerCase()}`, 24, 28);
-        hudGfx.destroy();
+        // Generate HUD filled icon (24x28) from recolored spray can
+        this._recolorSprayCan(`hud_can_${name.toLowerCase()}`, colorHex, 24, 28);
       }
     }
   }
