@@ -773,6 +773,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.pbn) {
           this.pbn.setSelectedColor(colorIdx);
           this.player.paintColor = this.pbn.getSelectedColorHex();
+          this.paintArm.setCanColor(this.pbn.getSelectedColorName());
           this.updateTouchColorHighlight();
         }
       }, this.pbn.colorMap);
@@ -815,8 +816,9 @@ export default class GameScene extends Phaser.Scene {
     // even on large murals where the center is far from the player.
     cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
 
-    // Start paint arm (hand + rope)
-    this.paintArm.start(this.player.x, this.player.y, this.player.flipX, bounds);
+    // Start paint arm (hand + rope + spray can)
+    const startColor = this.pbn ? this.pbn.getSelectedColorName() : null;
+    this.paintArm.start(this.player.x, this.player.y, this.player.flipX, bounds, startColor);
     if (this.touch) this.touch.setPaintMode(true);
 
     // --- Paint SFX ---
@@ -1258,6 +1260,7 @@ export default class GameScene extends Phaser.Scene {
             if (colorName && this.player.hasPaint(colorName.toLowerCase())) {
               this.pbn.setSelectedColor(i);
               this.player.paintColor = this.pbn.getSelectedColorHex();
+              this.paintArm.setCanColor(this.pbn.getSelectedColorName());
               this.updateColorSelectorHighlight();
             }
           }

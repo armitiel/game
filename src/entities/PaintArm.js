@@ -33,6 +33,12 @@ export default class PaintArm {
       .setDepth(3.8)
       .setVisible(false);
 
+    // Spray can in hand — shown during painting, uses current color texture
+    this.canSprite = scene.add.image(0, 0, 'spray_can_base')
+      .setScale(24 / 72)   // ~24px tall in game
+      .setDepth(3.7)        // behind hand
+      .setVisible(false);
+
     // Arm segments — behind player, IN FRONT of hand
     // Height is set dynamically each frame to span the full gap (no holes)
     this.segments = [];
@@ -62,10 +68,13 @@ export default class PaintArm {
    * @param {boolean} flipX - player facing direction
    * @param {object} bounds - paint area {x, y, w, h} (top-left + size)
    */
-  start(playerX, playerY, flipX, bounds) {
+  start(playerX, playerY, flipX, bounds, colorName) {
     this.active = true;
     this.bounds = bounds;
     this.flipX = flipX;
+
+    // Set spray can texture to current color
+    this.setCanColor(colorName);
 
     // Shoulder anchor position
     const dir = flipX ? -1 : 1;
@@ -85,6 +94,7 @@ export default class PaintArm {
 
     // Show everything
     this.hand.setVisible(true).setPosition(handX, handY);
+    this.canSprite.setVisible(true).setPosition(handX, handY);
     this.segments.forEach(s => s.setVisible(true));
     this.updateSegmentVisuals();
   }
@@ -95,6 +105,7 @@ export default class PaintArm {
   stop() {
     this.active = false;
     this.hand.setVisible(false);
+    this.canSprite.setVisible(false);
     this.segments.forEach(s => s.setVisible(false));
   }
 
@@ -188,6 +199,9 @@ export default class PaintArm {
     const handNudgeX = -dir * 3;  // 3px closer to body
     const handNudgeY = -4;        // 4px up
     this.hand.setPosition(hx + handNudgeX, hy + handNudgeY);
+    // Spray can follows hand, offset slightly below/behind
+    this.canSprite.setPosition(hx + handNudgeX, hy + handNudgeY + 6);
+    this.canSprite.setFlipX(this.flipX);
     this.updateSegmentVisuals();
 
     return { x: hx, y: hy };
@@ -217,10 +231,23 @@ export default class PaintArm {
   }
 
   /**
+   * Switch the spray can texture to match a new paint color.
+   * @param {string} colorName - e.g. 'red', 'blue'
+   */
+  setCanColor(colorName) {
+    if (!colorName) return;
+    const key = `paint_can_sprite_${colorName.toLowerCase()}`;
+    if (this.scene.textures.exists(key)) {
+      this.canSprite.setTexture(key);
+    }
+  }
+
+  /**
    * Destroy all sprites (cleanup).
    */
   destroy() {
     this.hand.destroy();
+    this.canSprite.destroy();
     this.segments.forEach(s => s.destroy());
   }
 }
