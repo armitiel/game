@@ -48,24 +48,33 @@ export default class TouchControls {
       .setDepth(199)
       .setInteractive();
 
-    // Visual D-pad hint (subtle, shows where to touch)
+    // Visual D-pad with colored circle backgrounds + arrow pictograms
     const hintX = 110;
     const hintY = cam.height - 130;
     const hintGap = 65;
-    const hintAlpha = 0.15;
+    const dpadRadius = 30;
+    const bgAlpha = 0.15;
     const hintFont = 'bold 36px monospace';
+    const hintAlpha = 0.4;
 
-    this._dpadHints = [
-      scene.add.text(hintX - hintGap, hintY, '\u25C0', { font: hintFont, fill: '#ffffff' })
-        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
-      scene.add.text(hintX + hintGap, hintY, '\u25B6', { font: hintFont, fill: '#ffffff' })
-        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
-      scene.add.text(hintX, hintY - hintGap, '\u25B2', { font: hintFont, fill: '#ffffff' })
-        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
-      scene.add.text(hintX, hintY + hintGap, '\u25BC', { font: hintFont, fill: '#ffffff' })
-        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha),
+    const positions = [
+      { x: hintX - hintGap, y: hintY, arrow: '\u25C0', color: 0x88aaff },  // LEFT
+      { x: hintX + hintGap, y: hintY, arrow: '\u25B6', color: 0x88aaff },  // RIGHT
+      { x: hintX, y: hintY - hintGap, arrow: '\u25B2', color: 0x88ffaa },  // UP
+      { x: hintX, y: hintY + hintGap, arrow: '\u25BC', color: 0xff8888 },  // DOWN
     ];
-    this._dpadHints.forEach(h => this.buttons.push(h));
+
+    this._dpadBgs = [];
+    this._dpadHints = [];
+    positions.forEach(p => {
+      const bg = scene.add.circle(p.x, p.y, dpadRadius, p.color, bgAlpha)
+        .setScrollFactor(0).setDepth(199);
+      const arrow = scene.add.text(p.x, p.y, p.arrow, { font: hintFont, fill: '#ffffff' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha);
+      this._dpadBgs.push(bg);
+      this._dpadHints.push(arrow);
+      this.buttons.push(bg, arrow);
+    });
 
     let originX = 0, originY = 0;
     const DEAD_ZONE = 12; // pixels before direction registers
@@ -107,12 +116,13 @@ export default class TouchControls {
     if (dy < -deadZone) this.up = true;
     if (dy > deadZone) this.down = true;
 
-    // Update hint visuals
+    // Update hint visuals — bg fades on press, arrows stay bright
+    const active = [this.left, this.right, this.up, this.down];
+    if (this._dpadBgs) {
+      this._dpadBgs.forEach((bg, i) => bg.setAlpha(active[i] ? 0.35 : 0.15));
+    }
     if (this._dpadHints) {
-      this._dpadHints[0].setAlpha(this.left ? 0.5 : 0.12);   // LEFT
-      this._dpadHints[1].setAlpha(this.right ? 0.5 : 0.12);  // RIGHT
-      this._dpadHints[2].setAlpha(this.up ? 0.5 : 0.12);     // UP
-      this._dpadHints[3].setAlpha(this.down ? 0.5 : 0.12);   // DOWN
+      this._dpadHints.forEach((h, i) => h.setAlpha(active[i] ? 0.8 : 0.4));
     }
   }
 
@@ -121,8 +131,11 @@ export default class TouchControls {
     this.right = false;
     this.up = false;
     this.down = false;
+    if (this._dpadBgs) {
+      this._dpadBgs.forEach(bg => bg.setAlpha(0.15));
+    }
     if (this._dpadHints) {
-      this._dpadHints.forEach(h => h.setAlpha(0.12));
+      this._dpadHints.forEach(h => h.setAlpha(0.4));
     }
   }
 
