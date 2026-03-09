@@ -23,6 +23,8 @@ export default class TouchControls {
     this._actionJustPressed = false;
     this._eJustPressed = false;
 
+    this._paintMode = false;
+
     // Don't create controls if no touch support
     if (!scene.sys.game.device.input.touch) return;
 
@@ -78,18 +80,21 @@ export default class TouchControls {
 
     let originX = 0, originY = 0;
     const DEAD_ZONE = 12; // pixels before direction registers
+    const DEAD_ZONE_PAINT = 30; // larger dead zone during painting to avoid accidental moves
 
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
       originY = pointer.y;
-      this._updateDirection(0, 0, DEAD_ZONE);
+      const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
+      this._updateDirection(0, 0, dz);
     });
 
     zone.on('pointermove', (pointer) => {
       if (!pointer.isDown) return;
       const dx = pointer.x - originX;
       const dy = pointer.y - originY;
-      this._updateDirection(dx, dy, DEAD_ZONE);
+      const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
+      this._updateDirection(dx, dy, dz);
     });
 
     zone.on('pointerup', () => {
@@ -238,6 +243,10 @@ export default class TouchControls {
     this.buttons.push(bg);
     if (text) this.buttons.push(text);
     return bg;
+  }
+
+  setPaintMode(on) {
+    this._paintMode = on;
   }
 
   /**

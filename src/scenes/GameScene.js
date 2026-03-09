@@ -814,6 +814,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Start paint arm (hand + rope)
     this.paintArm.start(this.player.x, this.player.y, this.player.flipX, bounds);
+    if (this.touch) this.touch.setPaintMode(true);
 
     // --- Paint SFX ---
     this.sfxSpray = this.sound.add('sfx_spray', { loop: true, volume: 0.18 });
@@ -1044,6 +1045,7 @@ export default class GameScene extends Phaser.Scene {
     this._paintIdleTimer = 0;
 
     this.paintArm.stop();
+    if (this.touch) this.touch.setPaintMode(false);
 
     if (this.paintProgressText) {
       this.paintProgressText.destroy();
