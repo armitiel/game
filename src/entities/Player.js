@@ -24,6 +24,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.nearPaintSpot = false;       // set by GameScene when near interactable paint spot
     this.isDroppingToLadder = false;  // dropping through platform onto ladder
     this.ladderCooldown = 0;          // frames to wait before re-entering ladder
+    this._ladderDownHoldFrames = 0;   // frames DOWN held near ladder — require deliberate hold to enter
     this.isPushingLadder = false;     // grabbing and pushing a ladder left/right
     this.pushLadderInfo = null;       // reference to ladder data {visual, zone, minX, maxX, ...}
     this.pushLadderDx = 0;            // dx to move ladder this frame (consumed by GameScene)
@@ -411,6 +412,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // === Normal movement ===
     this.body.allowGravity = true;
 
+    // === Jump has HIGHEST priority — works regardless of d-pad direction ===
+    if (jump && onGround) {
+      this._ladderDownHoldFrames = 0;  // reset ladder hold counter
+      this.setVelocityY(PLAYER.JUMP_VELOCITY);
+      this.playAnim('player_jump');
+      this.spawnJumpDust();
+      if (this.scene.sfx) this.scene.sfx.jump();
+      this.updateHiddenIcon();
+      return;
+    }
+
     // === Enter ladder: UP while near ladder ===
     // Works from ground OR mid-air (grab ladder while jumping/falling)
     // Don't grab ladder with UP if standing on the platform at the top of the ladder
@@ -430,21 +442,29 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // === Enter ladder: DOWN while near ladder ===
+    // Require holding DOWN for several frames to prevent accidental ladder entry
+    const LADDER_DOWN_HOLD_THRESHOLD = 10; // ~170ms at 60fps — deliberate hold required
     if (this.onLadder && down && onGround && this.ladderCooldown <= 0) {
-      this.isClimbing = true;
-      this.isDroppingToLadder = true;  // disable platform collision until below platform
-      this.dropPlatformY = this.y;     // remember platform Y to know when we're past it
-      this.climbFrameIndex = this.climbTotalFrames - 1;
-      this.climbDirection = -1;  // start in reverse for descending
-      this.body.allowGravity = false;
-      this.setVelocityX(0);
-      this.setVelocityY(PLAYER.CLIMB_SPEED);
-      this.setFlipX(false);
-      this.anims.stop();
-      this.setFrame(PLAYER.CLIMB_FRAME_START + Math.floor(this.climbFrameIndex));
-      this.currentAnim = '_climb_manual';
-      this.updateHiddenIcon();
-      return;
+      this._ladderDownHoldFrames++;
+      if (this._ladderDownHoldFrames >= LADDER_DOWN_HOLD_THRESHOLD) {
+        this._ladderDownHoldFrames = 0;
+        this.isClimbing = true;
+        this.isDroppingToLadder = true;  // disable platform collision until below platform
+        this.dropPlatformY = this.y;     // remember platform Y to know when we're past it
+        this.climbFrameIndex = this.climbTotalFrames - 1;
+        this.climbDirection = -1;  // start in reverse for descending
+        this.body.allowGravity = false;
+        this.setVelocityX(0);
+        this.setVelocityY(PLAYER.CLIMB_SPEED);
+        this.setFlipX(false);
+        this.anims.stop();
+        this.setFrame(PLAYER.CLIMB_FRAME_START + Math.floor(this.climbFrameIndex));
+        this.currentAnim = '_climb_manual';
+        this.updateHiddenIcon();
+        return;
+      }
+    } else {
+      this._ladderDownHoldFrames = 0;
     }
 
     // === Movement with inertia ===
@@ -512,14 +532,6 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // === Ladder push grab is now handled by GameScene (unified E key logic) ===
-
-    // === Jump ===
-    if (jump && onGround) {
-      this.setVelocityY(PLAYER.JUMP_VELOCITY);
-      this.playAnim('player_jump');
-      this.spawnJumpDust();
-      if (this.scene.sfx) this.scene.sfx.jump();
-    }
 
     // === Air animations ===
     if (!onGround && !this.isPushingTrash && this.ladderCooldown <= 0) {
