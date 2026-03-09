@@ -150,18 +150,20 @@ export default class TouchControls {
        () => {});
 
     // GRAB/INTERACT button (hand pictogram) — middle right
-    this.addCircleButton(scene, cam.width - 210, cam.height - 85, radius, null, {
+    this._grabBg = this.addCircleButton(scene, cam.width - 210, cam.height - 85, radius, null, {
       alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
     }, () => { this._eJustPressed = true; }, () => {});
     this._drawHand(scene, cam.width - 210, cam.height - 85);
+    this._grabHighlight = false;
 
     // PAINT button (spray can pictogram) — top right
     this.eButtonX = cam.width - 85;
     this.eButtonY = cam.height - 215;
-    this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, null, {
+    this._paintBg = this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, null, {
       alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
     }, () => { this._actionJustPressed = true; }, () => {});
     this._drawSprayCan(scene, this.eButtonX, this.eButtonY);
+    this._paintHighlight = false;
   }
 
   _drawSprayCan(scene, cx, cy) {
@@ -236,6 +238,27 @@ export default class TouchControls {
     this.buttons.push(bg);
     if (text) this.buttons.push(text);
     return bg;
+  }
+
+  /**
+   * Highlight a button to signal proximity to an interactable.
+   * @param {'paint'|'grab'} name
+   * @param {boolean} on
+   */
+  highlightButton(name, on) {
+    if (name === 'paint' && this._paintBg) {
+      if (on !== this._paintHighlight) {
+        this._paintHighlight = on;
+        this._paintBg.setAlpha(on ? 0.45 : 0.2);
+        this._paintBg.setStrokeStyle(on ? 2 : 0, 0xffdd33, on ? 0.8 : 0);
+      }
+    } else if (name === 'grab' && this._grabBg) {
+      if (on !== this._grabHighlight) {
+        this._grabHighlight = on;
+        this._grabBg.setAlpha(on ? 0.45 : 0.2);
+        this._grabBg.setStrokeStyle(on ? 2 : 0, 0xff8833, on ? 0.8 : 0);
+      }
+    }
   }
 
   get jumpJustPressed() {

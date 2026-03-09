@@ -464,7 +464,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Music toggle button (speaker icon)
     this.musicOn = true;
-    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.07 });
 
     // === iOS audio unlock strategy ===
     // iOS Safari blocks ALL audio until a user gesture resumes the AudioContext.
@@ -835,21 +835,34 @@ export default class GameScene extends Phaser.Scene {
 
   updateColorSelectorPosition() {
     if (!this.colorSelectorElements || this.colorSelectorElements.length === 0) return;
+    if (!this._colorSelectorBounds) return;
+
+    const b = this._colorSelectorBounds; // {x, y, w, h}
     const numColors = this.colorSelectorElements.length / 2;
     const boxSize = 16;
     const gap = 4;
     const totalH = numColors * (boxSize + gap) - gap;
-    const offsetX = 28;  // distance from player center
+    const margin = 6;  // gap between paint area edge and selector
 
-    // Decide side: default right, flip to left if player is too close to right edge
+    // Place selector to the right of the paint area; flip left if near camera edge
     const cam = this.cameras.main;
     const camRight = cam.scrollX + cam.width;
-    const playerScreenX = this.player.x;
-    const useLeft = (playerScreenX + offsetX + boxSize + 10 > camRight);
-    const sideSign = useLeft ? -1 : 1;
+    const camLeft = cam.scrollX;
+    const areaRight = b.x + b.w;
+    const areaLeft = b.x;
 
-    const baseX = this.player.x + sideSign * offsetX;
-    const baseY = this.player.y - totalH / 2;
+    let baseX;
+    if (areaRight + margin + boxSize + 4 < camRight) {
+      baseX = areaRight + margin + boxSize / 2;
+    } else if (areaLeft - margin - boxSize / 2 - 4 > camLeft) {
+      baseX = areaLeft - margin - boxSize / 2;
+    } else {
+      baseX = areaRight + margin + boxSize / 2;
+    }
+
+    // Vertically center on the paint area
+    const areaCenterY = b.y + b.h / 2;
+    const baseY = areaCenterY - totalH / 2;
 
     for (let i = 0; i < numColors; i++) {
       const box = this.colorSelectorElements[i * 2];
@@ -1193,8 +1206,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 3b. Paint arm update — drive hand movement and rope simulation
     if (this.player.isPainting && this.paintArm.active) {
-      // Update color selector position (follows player on desktop)
-      this.updateColorSelectorPosition();
+      // Color selector is fixed next to paint area (set once in createColorSelector)
       // Color switching (keys 1-4)
       if (this.colorKeys && this.pbn) {
         for (let i = 0; i < this.colorKeys.length; i++) {
@@ -1266,6 +1278,20 @@ export default class GameScene extends Phaser.Scene {
 
     // 4. Cops AI
     this.cops.forEach(cop => cop.update(time, delta, this.player));
+
+    // 4b. Touch button highlights — signal nearby interactables
+    if (this.touch && this.touch.enabled) {
+      const onGnd = this.player.body.blocked.down || this.player.body.touching.down;
+      const canP = onGnd || this.player.isClimbing || this.player.onLadder;
+      this.touch.highlightButton('paint', !!(this.interactablePaintSpot && canP && !this.player.isPainting));
+
+      let nearGrab = !!this.nearbyTrash;
+      if (!nearGrab && onGnd && this.playerOnLadderThisFrame && this.currentLadderInfo) {
+        const feetY = this.player.body.y + this.player.body.height;
+        nearGrab = feetY >= this.currentLadderInfo.bottomY - 40;
+      }
+      this.touch.highlightButton('grab', nearGrab && !this.player.isPushingTrash && !this.player.isPushingLadder);
+    }
 
     // 5. HUD (uses interactablePaintSpot, ladder info)
     this.updateHUD();
