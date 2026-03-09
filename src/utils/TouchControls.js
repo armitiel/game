@@ -130,21 +130,21 @@ export default class TouchControls {
     const cam = scene.cameras.main;
     const radius = 50; // ~10% larger circular buttons
 
-    // JUMP button (right side, lower) — moved further right/down
+    // JUMP button (right side, lower)
     this.addCircleButton(scene, cam.width - 85, cam.height - 85, radius, 'JUMP', {
       alpha: 0.2, activeAlpha: 0.5, color: 0x00ff88
     }, () => { this._jumpJustPressed = true; },
        () => {});
 
-    // ACTION button (SPACE — paint mode toggle) — more space from JUMP
-    this.addCircleButton(scene, cam.width - 210, cam.height - 85, radius, 'ACT', {
+    // PAINT button (spray can icon) — was "ACT"
+    this.addCircleButton(scene, cam.width - 210, cam.height - 85, radius, '\uD83C\uDFA8', {
       alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
     }, () => { this._actionJustPressed = true; }, () => {});
 
-    // E button (grab/interact) — more space above JUMP
+    // GRAB/INTERACT button (hand icon) — was "E"
     this.eButtonX = cam.width - 85;
     this.eButtonY = cam.height - 215;
-    this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, 'E', {
+    this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, '\u270B', {
       alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
     }, () => { this._eJustPressed = true; }, () => {});
   }
@@ -155,8 +155,11 @@ export default class TouchControls {
       .setDepth(200)
       .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains);
 
+    // Use larger font for emoji icons, smaller for text labels
+    const isEmoji = label.length > 2 || label.charCodeAt(0) > 0x2000;
+    const fontSize = isEmoji ? 28 : 18;
     const text = scene.add.text(x, y, label, {
-      font: 'bold 18px monospace',
+      font: `bold ${fontSize}px monospace`,
       fill: '#ffffff'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.5);
 
