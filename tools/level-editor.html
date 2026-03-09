@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Shadow Tagger — Level Editor</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: monospace; display: flex; height: 100vh; overflow: hidden; }
+
+#sidebar {
+  width: 260px; background: #222; padding: 12px; overflow-y: auto; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+#sidebar h2 { font-size: 14px; color: #0f8; margin-bottom: 4px; }
+#sidebar label { font-size: 12px; display: block; margin: 2px 0; }
+#sidebar select, #sidebar input, #sidebar button {
+  font-family: monospace; font-size: 12px; padding: 4px 6px; border: 1px solid #555; background: #333; color: #eee; border-radius: 3px; width: 100%;
+}
+#sidebar button { cursor: pointer; background: #335; border-color: #558; }
+#sidebar button:hover { background: #447; }
+#sidebar button.active { background: #0a5; border-color: #0d8; }
+#sidebar button.danger { background: #733; border-color: #a55; }
+
+.tool-btn { display: inline-block; width: 48%; margin: 1px; text-align: center; padding: 6px 2px; font-size: 11px; }
+.section { border-top: 1px solid #444; padding-top: 8px; margin-top: 4px; }
+
+#canvas-wrap { flex: 1; position: relative; overflow: auto; background: #111; }
+canvas { display: block; cursor: crosshair; }
+
+#props {
+  position: absolute; bottom: 10px; left: 270px; background: rgba(0,0,0,0.85);
+  padding: 8px 12px; border-radius: 4px; font-size: 12px; border: 1px solid #555;
+  display: none; max-width: 500px;
+}
+#props input { width: 60px; background: #333; color: #eee; border: 1px solid #555; padding: 2px 4px; font-family: monospace; font-size: 12px; }
+#props label { margin-right: 8px; }
+
+#status { position: absolute; top: 4px; right: 10px; font-size: 11px; color: #888; }
+#saveIndicator { font-size: 10px; color: #0a5; text-align: center; padding: 2px; transition: opacity 0.3s; }
+#saveIndicator.flash { color: #0f8; }
+#help { font-size: 10px; color: #777; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>Shadow Tagger Level Editor</h2>
+
+  <div>
+    <label>Level:</label>
+    <select id="levelSelect"></select>
+  </div>
+
+  <div>
+    <label>World: <span id="worldInfo"></span></label>
+  </div>
+
+  <div class="section">
+    <label>Narzedzie:</label>
+    <button class="tool-btn active" data-tool="select">Zaznacz</button>
+    <button class="tool-btn" data-tool="platform">Platforma</button>
+    <button class="tool-btn" data-tool="ground">Grunt</button>
+    <button class="tool-btn" data-tool="ladder">Drabinka</button>
+    <button class="tool-btn" data-tool="shadow">Cien</button>
+    <button class="tool-btn" data-tool="paintSpot">Mural</button>
+    <button class="tool-btn" data-tool="paintCan">Puszka</button>
+    <button class="tool-btn" data-tool="cop">Policjant</button>
+    <button class="tool-btn" data-tool="trashCan">Kosz</button>
+    <button class="tool-btn" data-tool="checkpoint">Checkpoint</button>
+    <button class="tool-btn" data-tool="wire">Kabel</button>
+  </div>
+
+  <div class="section">
+    <label>Siatka: <input id="gridSize" type="number" value="10" min="1" max="100" style="width:40px"> px</label>
+    <label><input id="snapGrid" type="checkbox" checked> Przypnij do siatki</label>
+  </div>
+
+  <div class="section">
+    <button id="btnDuplicate">Duplikuj [D]</button>
+    <button id="btnDelete" class="danger">Usun [Del]</button>
+  </div>
+
+  <div class="section">
+    <button id="btnSaveToGame" style="background:#085;border-color:#0c8;font-size:14px;padding:10px 16px;color:#fff;font-weight:bold;cursor:pointer;width:100%;">&#128190; Zapisz do gry</button>
+    <div id="saveIndicator">Autosave wlaczony</div>
+    <button id="btnExport" style="background:#063;border-color:#0a5;font-size:13px;padding:8px;">Eksportuj levels.js</button>
+    <button id="btnCopy" style="margin-top:4px;">Kopiuj do schowka</button>
+    <button id="btnImport" style="margin-top:4px;">Importuj JSON...</button>
+    <button id="btnReset" class="danger" style="margin-top:4px;">Resetuj do domyslnych</button>
+  </div>
+
+  <div class="section" id="help">
+    <b>Skroty:</b><br>
+    Klik = zaznacz/postaw<br>
+    Drag = przesun / rysuj nowy<br>
+    Del = usun zaznaczony<br>
+    D = duplikuj<br>
+    Ctrl+Z = cofnij<br>
+    Ctrl+S = eksportuj<br>
+    Scroll = przewin (duze levele)<br>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+  <div id="status"></div>
+</div>
+
+<div id="props"></div>
+
+<script>
+// ============================================================
+// LEVEL DATA (embedded from levels.js)
+// ============================================================
+const GAME_W = 1280, GAME_H = 720;
+
+const LEVELS_SOURCE = [
+  {
+    name: 'Ulica', description: 'Pomaluj dwa murale w miescie',
+    worldWidth: GAME_W, worldHeight: GAME_H,
+    checkpoint: { x: 60, y: GAME_H - 101 },
+    paintings: ['painting_heart', 'painting_star'],
+    platforms: [
+      { x: 0, y: GAME_H - 156, w: 256 },
+      { x: 620, y: GAME_H - 286, w: 250 },
+      { x: 300, y: GAME_H - 286, w: 300 },
+      { x: 50, y: GAME_H - 416, w: 300 },
+      { x: 600, y: GAME_H - 436, w: 170 },
+    ],
+    ground: [{ x: 0, y: GAME_H - 32, w: GAME_W }],
+    ladders: [
+      { x: 200, topY: GAME_H - 140, bottomY: GAME_H - 32, minX: 30, maxX: 240 },
+      { x: 820, topY: GAME_H - 270, bottomY: GAME_H - 32, minX: 630, maxX: 870 },
+      { x: 340, topY: GAME_H - 400, bottomY: GAME_H - 270, minX: 310, maxX: 590 },
+      { x: 500, topY: GAME_H - 270, bottomY: GAME_H - 32, minX: 310, maxX: 590 },
+    ],
+    shadows: [
+      { x: 80, y: GAME_H - 135, w: 60, h: 100 },
+      { x: 545, y: GAME_H - 135, w: 60, h: 100 },
+    ],
+    paintCans: [
+      { x: 120, y: GAME_H - 190 },
+      { x: 250, y: GAME_H - 450 },
+      { x: 550, y: GAME_H - 320 },
+    ],
+    paintSpots: [
+      { x: 450, y: GAME_H - 143, w: 140, h: 222, paintingKey: 'painting_heart' },
+      { x: 700, y: GAME_H - 143, w: 140, h: 222, paintingKey: 'painting_star' },
+    ],
+    trashCans: [
+      { x: 170, y: GAME_H - 32 - 24 },
+      { x: 850, y: GAME_H - 32 - 24 },
+    ],
+    cops: [
+      { x: 400, y: GAME_H - 55, minX: 300, maxX: GAME_W - 40 },
+    ],
+    foregroundWires: [
+      { x1: 0, y1: GAME_H - 350, x2: GAME_W, y2: GAME_H - 380 },
+    ],
+  },
+  {
+    name: 'Wiezowiec', description: 'Pokoloruj wielki mural na scianie wiezowca',
+    worldWidth: 800, worldHeight: 1300,
+    checkpoint: { x: 60, y: 1300 - 101 },
+    paintings: ['painting_mural_big'],
+    ground: [{ x: 0, y: 1300 - 32, w: 800 }],
+    platforms: [
+      { x: 0, y: 1300 - 250, w: 280 }, { x: 420, y: 1300 - 250, w: 380 },
+      { x: 0, y: 1300 - 500, w: 320 }, { x: 480, y: 1300 - 500, w: 320 },
+      { x: 0, y: 1300 - 750, w: 280 }, { x: 420, y: 1300 - 750, w: 380 },
+      { x: 0, y: 1300 - 1000, w: 800 },
+    ],
+    ladders: [
+      { x: 350, topY: 1300 - 250, bottomY: 1300 - 32, minX: 280, maxX: 420 },
+      { x: 150, topY: 1300 - 500, bottomY: 1300 - 250, minX: 50, maxX: 380 },
+      { x: 620, topY: 1300 - 750, bottomY: 1300 - 500, minX: 450, maxX: 720 },
+      { x: 250, topY: 1300 - 1000, bottomY: 1300 - 750, minX: 80, maxX: 420 },
+    ],
+    shadows: [
+      { x: 50, y: 1300 - 220, w: 60, h: 140 },
+      { x: 620, y: 1300 - 480, w: 50, h: 140 },
+      { x: 100, y: 1300 - 730, w: 60, h: 140 },
+    ],
+    paintCans: [
+      { x: 120, y: 1300 - 290 }, { x: 650, y: 1300 - 540 },
+      { x: 180, y: 1300 - 540 }, { x: 600, y: 1300 - 790 },
+      { x: 150, y: 1300 - 790 }, { x: 400, y: 1300 - 1040 },
+    ],
+    paintSpots: [
+      { x: 400, y: 1300 - 620, w: 480, h: 576, paintingKey: 'painting_mural_big' },
+    ],
+    trashCans: [
+      { x: 500, y: 1300 - 32 - 24 }, { x: 200, y: 1300 - 500 - 24 },
+    ],
+    cops: [
+      { x: 500, y: 1300 - 55, minX: 100, maxX: 760 },
+      { x: 300, y: 1300 - 520, minX: 100, maxX: 500 },
+    ],
+    foregroundWires: [
+      { x1: 0, y1: 1300 - 380, x2: 800, y2: 1300 - 400 },
+      { x1: 0, y1: 1300 - 880, x2: 800, y2: 1300 - 860 },
+    ],
+  }
+];
+
+// Deep clone — try to load from server first (authoritative source),
+// fall back to localStorage, then to hardcoded LEVELS_SOURCE.
+const STORAGE_KEY = 'shadowTaggerLevelEditor';
+let levels;
+let _levelsLoadedFromServer = false;
+
+// Synchronous init with fallback — server load happens async below
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) {
+  try { levels = JSON.parse(saved); } catch (e) { levels = null; }
+}
+if (!levels || !Array.isArray(levels) || levels.length !== LEVELS_SOURCE.length) {
+  levels = JSON.parse(JSON.stringify(LEVELS_SOURCE));
+}
+let currentLevelIdx = 0;
+let level = levels[0];
+
+// Async: load authoritative data from editor-server (parsed levels.js)
+// This overwrites localStorage data with what's actually in levels.js
+(async function loadFromServer() {
+  try {
+    console.log('[EDITOR] loadFromServer: fetching', window.location.origin + '/levels-data');
+    const resp = await fetch('/levels-data');
+    console.log('[EDITOR] loadFromServer: status', resp.status);
+    if (!resp.ok) return;
+    const serverLevels = await resp.json();
+    if (Array.isArray(serverLevels) && serverLevels.length > 0) {
+      levels = serverLevels;
+      level = levels[currentLevelIdx] || levels[0];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(levels));
+      _levelsLoadedFromServer = true;
+      draw();
+      const ind = document.getElementById('saveIndicator');
+      if (ind) { ind.textContent = 'Załadowano z levels.js'; ind.style.color = '#5a5'; }
+      console.log('[Editor] Loaded levels from server (levels.js)');
+    }
+  } catch (e) {
+    console.log('[Editor] Server not available, using localStorage/fallback');
+  }
+})();
+
+let _saveTimer = null;
+function autoSave() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(levels));
+  // Debounce file save — write at most every 500ms
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => saveToFile(), 500);
+}
+
+function saveToFile() {
+  const code = generateExport();
+  console.log('[EDITOR autoSave] Posting to /save, code length:', code.length, 'origin:', window.location.origin);
+  fetch('/save', { method: 'POST', body: code })
+    .then(r => r.json())
+    .then(() => {
+      const ind = document.getElementById('saveIndicator');
+      if (ind) { ind.textContent = 'Zapisano ' + new Date().toLocaleTimeString(); ind.classList.add('flash'); setTimeout(() => ind.classList.remove('flash'), 600); }
+    })
+    .catch(() => {
+      const ind = document.getElementById('saveIndicator');
+      if (ind) { ind.textContent = 'Brak serwera — tylko localStorage'; ind.style.color = '#a55'; }
+    });
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let tool = 'select';
+let selected = null; // { type, index }
+let dragging = false;
+let dragStart = { x: 0, y: 0 };
+let dragOffset = { x: 0, y: 0 };
+let drawing = false; // true when creating new element via drag
+let drawRect = null;
+
+let undoStack = [];
+const MAX_UNDO = 50;
+
+// Mural preview cache: paintingKey -> { cols, rows, colors, palette, grid }
+const muralCache = {};
+const MURAL_GAME_COLORS = { RED: '#ff3344', BLUE: '#3388ff', YELLOW: '#ffdd33', GREEN: '#33ff88' };
+
+async function loadMuralPreviews() {
+  try {
+    const resp = await fetch('/mural-list');
+    const files = await resp.json();
+    for (const f of files) {
+      try {
+        const r = await fetch('/mural-load?file=' + encodeURIComponent(f));
+        const data = await r.json();
+        // Key without _mural.json suffix, prefixed with painting_
+        const key = 'painting_' + f.replace('_mural.json', '').replace('.json', '');
+        muralCache[key] = data;
+      } catch (e) { /* skip broken files */ }
+    }
+  } catch (e) { /* server not available */ }
+}
+loadMuralPreviews();
+
+// ============================================================
+// CANVAS
+// ============================================================
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  const scale = getScale();
+  canvas.width = level.worldWidth * scale;
+  canvas.height = level.worldHeight * scale;
+}
+
+function getScale() {
+  const wrap = document.getElementById('canvas-wrap');
+  const maxW = wrap.clientWidth - 20;
+  return Math.min(1, maxW / level.worldWidth);
+}
+
+// ============================================================
+// COLORS for element types
+// ============================================================
+const COLORS = {
+  platform: '#667788',
+  ground: '#556677',
+  ladder: '#aa8844',
+  shadow: 'rgba(0,0,80,0.6)',
+  paintSpot: '#886655',
+  paintCan: '#ff8833',
+  cop: '#3344aa',
+  trashCan: '#888888',
+  checkpoint: '#00ff88',
+  wire: '#ffff44',
+};
+
+// ============================================================
+// DRAWING
+// ============================================================
+function draw() {
+  const s = getScale();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Grid
+  if (document.getElementById('snapGrid').checked) {
+    const gridSz = parseInt(document.getElementById('gridSize').value) || 10;
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < level.worldWidth; x += gridSz) {
+      ctx.beginPath(); ctx.moveTo(x * s, 0); ctx.lineTo(x * s, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < level.worldHeight; y += gridSz) {
+      ctx.beginPath(); ctx.moveTo(0, y * s); ctx.lineTo(canvas.width, y * s); ctx.stroke();
+    }
+  }
+
+  // Ground
+  (level.ground || []).forEach((g, i) => {
+    drawRect2(g.x, g.y, g.w, 32, COLORS.ground, isSelected('ground', i));
+    drawLabel(g.x + g.w / 2, g.y + 16, 'GROUND', s);
+  });
+
+  // Shadows
+  (level.shadows || []).forEach((sh, i) => {
+    ctx.fillStyle = 'rgba(0,0,80,0.5)';
+    ctx.fillRect(sh.x * s, sh.y * s, sh.w * s, sh.h * s);
+    // Edge glow
+    ctx.fillStyle = 'rgba(50,70,170,0.4)';
+    ctx.fillRect(sh.x * s, sh.y * s, 2 * s, sh.h * s);
+    ctx.fillRect((sh.x + sh.w) * s - 2 * s, sh.y * s, 2 * s, sh.h * s);
+    if (isSelected('shadow', i)) drawSelectionBorder(sh.x, sh.y, sh.w, sh.h, s);
+    drawLabel(sh.x + sh.w / 2, sh.y + sh.h / 2, 'CIEN', s);
+  });
+
+  // Paint spots (murals)
+  (level.paintSpots || []).forEach((ps, i) => {
+    const px = ps.x - ps.w / 2, py = ps.y - ps.h / 2;
+    // Brick pattern background
+    ctx.fillStyle = '#555566';
+    ctx.fillRect(px * s, py * s, ps.w * s, ps.h * s);
+    ctx.fillStyle = '#664455';
+    for (let r = 0; r < Math.ceil(ps.h / 9); r++) {
+      const ox = (r % 2) * 7;
+      for (let c = -1; c < Math.ceil(ps.w / 15) + 1; c++) {
+        ctx.fillRect((px + c * 15 + ox) * s, (py + r * 9) * s, 14 * s, 8 * s);
+      }
+    }
+    // Mural grid preview overlay
+    const mural = muralCache[ps.paintingKey];
+    if (mural && mural.grid && mural.cols && mural.rows) {
+      const cellW = ps.w / mural.cols;
+      const cellH = ps.h / mural.rows;
+      const pal = mural.palette || {};
+      const cols2 = mural.colors || [];
+      for (let mr = 0; mr < mural.rows; mr++) {
+        for (let mc = 0; mc < mural.cols; mc++) {
+          const ci = mural.grid[mr] && mural.grid[mr][mc];
+          if (ci == null || ci < 0) continue;
+          const cName = cols2[ci];
+          const hex = (pal && pal[cName]) || MURAL_GAME_COLORS[cName] || '#888';
+          ctx.fillStyle = hex;
+          ctx.globalAlpha = 0.85;
+          ctx.fillRect((px + mc * cellW) * s, (py + mr * cellH) * s, Math.ceil(cellW * s), Math.ceil(cellH * s));
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (isSelected('paintSpot', i)) drawSelectionBorder(px, py, ps.w, ps.h, s);
+    drawLabel(ps.x, ps.y, ps.paintingKey || 'MURAL', s);
+  });
+
+  // Platforms
+  (level.platforms || []).forEach((p, i) => {
+    drawRect2(p.x, p.y, p.w, 32, COLORS.platform, isSelected('platform', i));
+    drawLabel(p.x + p.w / 2, p.y + 16, 'PLATF', s);
+  });
+
+  // Ladders
+  (level.ladders || []).forEach((l, i) => {
+    const lMinY = Math.min(l.topY, l.bottomY), lMaxY = Math.max(l.topY, l.bottomY);
+    const lx = l.x - 12, ly = lMinY, lw = 24, lh = lMaxY - lMinY;
+    ctx.fillStyle = 'rgba(170,136,68,0.6)';
+    ctx.fillRect(lx * s, ly * s, lw * s, lh * s);
+    // Rungs
+    ctx.strokeStyle = '#aa8844';
+    ctx.lineWidth = 2;
+    for (let ry = lMinY; ry < lMaxY; ry += 20) {
+      ctx.beginPath(); ctx.moveTo(lx * s, ry * s); ctx.lineTo((lx + lw) * s, ry * s); ctx.stroke();
+    }
+    // Side rails
+    ctx.beginPath(); ctx.moveTo(lx * s, ly * s); ctx.lineTo(lx * s, (ly + lh) * s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo((lx + lw) * s, ly * s); ctx.lineTo((lx + lw) * s, (ly + lh) * s); ctx.stroke();
+    if (isSelected('ladder', i)) drawSelectionBorder(lx, ly, lw, lh, s);
+    drawLabel(l.x, lMinY + lh / 2, 'DRABIN', s);
+  });
+
+  // Paint cans
+  (level.paintCans || []).forEach((c, i) => {
+    ctx.fillStyle = COLORS.paintCan;
+    ctx.beginPath();
+    ctx.arc(c.x * s, c.y * s, 8 * s, 0, Math.PI * 2);
+    ctx.fill();
+    if (isSelected('paintCan', i)) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(c.x * s, c.y * s, 12 * s, 0, Math.PI * 2); ctx.stroke();
+    }
+    drawLabel(c.x, c.y - 14, 'CAN', s);
+  });
+
+  // Cops
+  (level.cops || []).forEach((c, i) => {
+    // Patrol range
+    ctx.fillStyle = 'rgba(50,70,170,0.15)';
+    ctx.fillRect(c.minX * s, (c.y - 30) * s, (c.maxX - c.minX) * s, 60 * s);
+    ctx.strokeStyle = 'rgba(50,70,170,0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(c.minX * s, (c.y - 30) * s, (c.maxX - c.minX) * s, 60 * s);
+    // Cop body
+    ctx.fillStyle = COLORS.cop;
+    ctx.fillRect((c.x - 10) * s, (c.y - 20) * s, 20 * s, 40 * s);
+    if (isSelected('cop', i)) drawSelectionBorder(c.x - 15, c.y - 25, 30, 50, s);
+    drawLabel(c.x, c.y - 28, 'COP', s);
+  });
+
+  // Trash cans
+  (level.trashCans || []).forEach((t, i) => {
+    ctx.fillStyle = COLORS.trashCan;
+    ctx.fillRect((t.x - 12) * s, (t.y - 12) * s, 24 * s, 24 * s);
+    if (isSelected('trashCan', i)) drawSelectionBorder(t.x - 15, t.y - 15, 30, 30, s);
+    drawLabel(t.x, t.y - 18, 'KOSZ', s);
+  });
+
+  // Checkpoint
+  if (level.checkpoint) {
+    const cp = level.checkpoint;
+    ctx.fillStyle = COLORS.checkpoint;
+    ctx.beginPath();
+    ctx.moveTo(cp.x * s, (cp.y - 20) * s);
+    ctx.lineTo((cp.x + 8) * s, cp.y * s);
+    ctx.lineTo((cp.x - 8) * s, cp.y * s);
+    ctx.closePath(); ctx.fill();
+    if (isSelected('checkpoint', 0)) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    drawLabel(cp.x, cp.y - 26, 'START', s);
+  }
+
+  // Foreground wires
+  (level.foregroundWires || []).forEach((w, i) => {
+    ctx.strokeStyle = COLORS.wire;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(w.x1 * s, w.y1 * s);
+    ctx.lineTo(w.x2 * s, w.y2 * s);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (isSelected('wire', i)) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+      ctx.strokeRect(Math.min(w.x1, w.x2) * s - 4, Math.min(w.y1, w.y2) * s - 4,
+        Math.abs(w.x2 - w.x1) * s + 8, Math.abs(w.y2 - w.y1) * s + 8);
+    }
+  });
+
+  // Drawing preview
+  if (drawing && drawRect) {
+    ctx.strokeStyle = '#0f8';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(drawRect.x * s, drawRect.y * s, drawRect.w * s, drawRect.h * s);
+    ctx.setLineDash([]);
+  }
+
+  // Status
+  document.getElementById('status').textContent =
+    `${level.name} | ${level.worldWidth}x${level.worldHeight} | Narzedzie: ${tool}`;
+}
+
+function drawRect2(x, y, w, h, color, sel) {
+  const s = getScale();
+  ctx.fillStyle = color;
+  ctx.fillRect(x * s, y * s, w * s, h * s);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x * s, y * s, w * s, h * s);
+  if (sel) drawSelectionBorder(x, y, w, h, s);
+}
+
+function drawSelectionBorder(x, y, w, h, s) {
+  ctx.strokeStyle = '#0f8';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 3]);
+  ctx.strokeRect(x * s - 2, y * s - 2, w * s + 4, h * s + 4);
+  ctx.setLineDash([]);
+  // Resize handle
+  ctx.fillStyle = '#0f8';
+  ctx.fillRect((x + w) * s - 4, (y + h) * s - 4, 8, 8);
+}
+
+function drawLabel(cx, cy, text, s) {
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = `${Math.max(9, 11 * s)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText(text, cx * s, cy * s + 4);
+}
+
+function isSelected(type, index) {
+  return selected && selected.type === type && selected.index === index;
+}
+
+// ============================================================
+// HIT TESTING
+// ============================================================
+function hitTest(mx, my) {
+  // Check each element type, return { type, index } or null
+  // Order: small/point items first, then rects
+
+  // Checkpoint
+  if (level.checkpoint) {
+    const cp = level.checkpoint;
+    if (Math.abs(mx - cp.x) < 15 && Math.abs(my - cp.y) < 25) return { type: 'checkpoint', index: 0 };
+  }
+
+  // Paint cans
+  for (let i = (level.paintCans || []).length - 1; i >= 0; i--) {
+    const c = level.paintCans[i];
+    if (Math.hypot(mx - c.x, my - c.y) < 15) return { type: 'paintCan', index: i };
+  }
+
+  // Trash cans
+  for (let i = (level.trashCans || []).length - 1; i >= 0; i--) {
+    const t = level.trashCans[i];
+    if (Math.abs(mx - t.x) < 18 && Math.abs(my - t.y) < 18) return { type: 'trashCan', index: i };
+  }
+
+  // Cops
+  for (let i = (level.cops || []).length - 1; i >= 0; i--) {
+    const c = level.cops[i];
+    if (Math.abs(mx - c.x) < 20 && Math.abs(my - c.y) < 30) return { type: 'cop', index: i };
+  }
+
+  // Ladders
+  for (let i = (level.ladders || []).length - 1; i >= 0; i--) {
+    const l = level.ladders[i];
+    const lMinY = Math.min(l.topY, l.bottomY), lMaxY = Math.max(l.topY, l.bottomY);
+    if (mx >= l.x - 18 && mx <= l.x + 18 && my >= lMinY && my <= lMaxY) return { type: 'ladder', index: i };
+  }
+
+  // Platforms
+  for (let i = (level.platforms || []).length - 1; i >= 0; i--) {
+    const p = level.platforms[i];
+    if (mx >= p.x && mx <= p.x + p.w && my >= p.y && my <= p.y + 32) return { type: 'platform', index: i };
+  }
+
+  // Ground
+  for (let i = (level.ground || []).length - 1; i >= 0; i--) {
+    const g = level.ground[i];
+    if (mx >= g.x && mx <= g.x + g.w && my >= g.y && my <= g.y + 32) return { type: 'ground', index: i };
+  }
+
+  // Paint spots (center-origin)
+  for (let i = (level.paintSpots || []).length - 1; i >= 0; i--) {
+    const ps = level.paintSpots[i];
+    if (mx >= ps.x - ps.w / 2 && mx <= ps.x + ps.w / 2 && my >= ps.y - ps.h / 2 && my <= ps.y + ps.h / 2)
+      return { type: 'paintSpot', index: i };
+  }
+
+  // Shadows
+  for (let i = (level.shadows || []).length - 1; i >= 0; i--) {
+    const sh = level.shadows[i];
+    if (mx >= sh.x && mx <= sh.x + sh.w && my >= sh.y && my <= sh.y + sh.h) return { type: 'shadow', index: i };
+  }
+
+  // Wires
+  for (let i = (level.foregroundWires || []).length - 1; i >= 0; i--) {
+    const w = level.foregroundWires[i];
+    const minX = Math.min(w.x1, w.x2), maxX = Math.max(w.x1, w.x2);
+    const minY = Math.min(w.y1, w.y2), maxY = Math.max(w.y1, w.y2);
+    if (mx >= minX - 10 && mx <= maxX + 10 && my >= minY - 10 && my <= maxY + 10) return { type: 'wire', index: i };
+  }
+
+  return null;
+}
+
+// ============================================================
+// GET/SET element position helpers
+// ============================================================
+function getElemPos(sel) {
+  const arr = getArray(sel.type);
+  if (!arr || !arr[sel.index]) return null;
+  const e = arr[sel.index];
+  switch (sel.type) {
+    case 'platform': case 'ground': return { x: e.x, y: e.y };
+    case 'shadow': return { x: e.x, y: e.y };
+    case 'ladder': return { x: e.x, y: e.topY };
+    case 'paintSpot': return { x: e.x, y: e.y };
+    case 'paintCan': return { x: e.x, y: e.y };
+    case 'cop': return { x: e.x, y: e.y };
+    case 'trashCan': return { x: e.x, y: e.y };
+    case 'checkpoint': return { x: level.checkpoint.x, y: level.checkpoint.y };
+    case 'wire': return { x: e.x1, y: e.y1 };
+  }
+}
+
+function moveElem(sel, dx, dy) {
+  const arr = getArray(sel.type);
+  if (!arr || !arr[sel.index]) return;
+  const e = arr[sel.index];
+  switch (sel.type) {
+    case 'platform': case 'ground': e.x += dx; e.y += dy; break;
+    case 'shadow': e.x += dx; e.y += dy; break;
+    case 'ladder': e.x += dx; e.topY += dy; e.bottomY += dy; e.minX += dx; e.maxX += dx; break;
+    case 'paintSpot': e.x += dx; e.y += dy; break;
+    case 'paintCan': e.x += dx; e.y += dy; break;
+    case 'cop': e.x += dx; e.y += dy; e.minX += dx; e.maxX += dx; break;
+    case 'trashCan': e.x += dx; e.y += dy; break;
+    case 'checkpoint': level.checkpoint.x += dx; level.checkpoint.y += dy; break;
+    case 'wire': e.x1 += dx; e.y1 += dy; e.x2 += dx; e.y2 += dy; break;
+  }
+}
+
+function getArray(type) {
+  switch (type) {
+    case 'platform': return level.platforms;
+    case 'ground': return level.ground;
+    case 'ladder': return level.ladders;
+    case 'shadow': return level.shadows;
+    case 'paintSpot': return level.paintSpots;
+    case 'paintCan': return level.paintCans;
+    case 'cop': return level.cops;
+    case 'trashCan': return level.trashCans;
+    case 'checkpoint': return [level.checkpoint];
+    case 'wire': return level.foregroundWires;
+  }
+  return null;
+}
+
+// ============================================================
+// SNAPPING
+// ============================================================
+function snap(v) {
+  if (!document.getElementById('snapGrid').checked) return Math.round(v);
+  const g = parseInt(document.getElementById('gridSize').value) || 10;
+  return Math.round(v / g) * g;
+}
+
+// ============================================================
+// UNDO
+// ============================================================
+function pushUndo() {
+  undoStack.push(JSON.stringify(level));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  autoSave();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  const state = undoStack.pop();
+  const restored = JSON.parse(state);
+  Object.assign(level, restored);
+  selected = null;
+  autoSave();
+  draw();
+  showProps();
+}
+
+// ============================================================
+// MOUSE EVENTS
+// ============================================================
+function canvasToWorld(e) {
+  const rect = canvas.getBoundingClientRect();
+  const s = getScale();
+  return {
+    x: (e.clientX - rect.left) / s,
+    y: (e.clientY - rect.top) / s
+  };
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  const pos = canvasToWorld(e);
+  const mx = pos.x, my = pos.y;
+
+  if (tool === 'select') {
+    const hit = hitTest(mx, my);
+    selected = hit;
+    if (hit) {
+      pushUndo();
+      dragging = true;
+      const ep = getElemPos(hit);
+      dragOffset = { x: mx - ep.x, y: my - ep.y };
+    }
+  } else {
+    // Place or start drawing
+    pushUndo();
+    drawing = true;
+    dragStart = { x: snap(mx), y: snap(my) };
+    drawRect = { x: dragStart.x, y: dragStart.y, w: 0, h: 0 };
+  }
+
+  draw();
+  showProps();
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const pos = canvasToWorld(e);
+
+  if (dragging && selected) {
+    const ep = getElemPos(selected);
+    const dx = snap(pos.x - dragOffset.x) - ep.x;
+    const dy = snap(pos.y - dragOffset.y) - ep.y;
+    moveElem(selected, dx, dy);
+    draw();
+    showProps();
+  }
+
+  if (drawing) {
+    const ex = snap(pos.x), ey = snap(pos.y);
+    drawRect = {
+      x: Math.min(dragStart.x, ex),
+      y: Math.min(dragStart.y, ey),
+      w: Math.abs(ex - dragStart.x),
+      h: Math.abs(ey - dragStart.y),
+    };
+    draw();
+  }
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (dragging) {
+    dragging = false;
+    draw();
+    showProps();
+    return;
+  }
+
+  if (drawing) {
+    drawing = false;
+    const pos = canvasToWorld(e);
+    const ex = snap(pos.x), ey = snap(pos.y);
+    const r = drawRect || { x: dragStart.x, y: dragStart.y, w: 0, h: 0 };
+
+    // Create element
+    createElement(tool, r, dragStart, { x: ex, y: ey });
+    drawRect = null;
+    draw();
+    showProps();
+  }
+});
+
+function createElement(type, r, start, end) {
+  const w = Math.max(r.w, 10);
+  const h = Math.max(r.h, 10);
+
+  switch (type) {
+    case 'platform':
+      if (!level.platforms) level.platforms = [];
+      level.platforms.push({ x: r.x, y: r.y, w: Math.max(w, 32) });
+      selected = { type: 'platform', index: level.platforms.length - 1 };
+      break;
+    case 'ground':
+      if (!level.ground) level.ground = [];
+      level.ground.push({ x: r.x, y: r.y, w: Math.max(w, 32) });
+      selected = { type: 'ground', index: level.ground.length - 1 };
+      break;
+    case 'ladder':
+      if (!level.ladders) level.ladders = [];
+      level.ladders.push({
+        x: Math.round((r.x + w / 2)),
+        topY: r.y, bottomY: r.y + Math.max(h, 60),
+        minX: r.x - 20, maxX: r.x + w + 20
+      });
+      selected = { type: 'ladder', index: level.ladders.length - 1 };
+      break;
+    case 'shadow':
+      if (!level.shadows) level.shadows = [];
+      level.shadows.push({ x: r.x, y: r.y, w: Math.max(w, 30), h: Math.max(h, 30) });
+      selected = { type: 'shadow', index: level.shadows.length - 1 };
+      break;
+    case 'paintSpot':
+      if (!level.paintSpots) level.paintSpots = [];
+      level.paintSpots.push({
+        x: Math.round(r.x + w / 2), y: Math.round(r.y + h / 2),
+        w: Math.max(w, 40), h: Math.max(h, 40),
+        paintingKey: 'painting_new'
+      });
+      selected = { type: 'paintSpot', index: level.paintSpots.length - 1 };
+      break;
+    case 'paintCan':
+      if (!level.paintCans) level.paintCans = [];
+      level.paintCans.push({ x: start.x, y: start.y });
+      selected = { type: 'paintCan', index: level.paintCans.length - 1 };
+      break;
+    case 'cop':
+      if (!level.cops) level.cops = [];
+      level.cops.push({
+        x: start.x, y: start.y,
+        minX: start.x - 100, maxX: start.x + 100
+      });
+      selected = { type: 'cop', index: level.cops.length - 1 };
+      break;
+    case 'trashCan':
+      if (!level.trashCans) level.trashCans = [];
+      level.trashCans.push({ x: start.x, y: start.y });
+      selected = { type: 'trashCan', index: level.trashCans.length - 1 };
+      break;
+    case 'checkpoint':
+      level.checkpoint = { x: start.x, y: start.y };
+      selected = { type: 'checkpoint', index: 0 };
+      break;
+    case 'wire':
+      if (!level.foregroundWires) level.foregroundWires = [];
+      level.foregroundWires.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y });
+      selected = { type: 'wire', index: level.foregroundWires.length - 1 };
+      break;
+  }
+}
+
+// ============================================================
+// PROPERTIES PANEL
+// ============================================================
+function showProps() {
+  const panel = document.getElementById('props');
+  if (!selected) { panel.style.display = 'none'; return; }
+
+  const arr = getArray(selected.type);
+  if (!arr || !arr[selected.index]) { panel.style.display = 'none'; return; }
+  const e = arr[selected.index];
+
+  panel.style.display = 'block';
+  let html = `<b>${selected.type} #${selected.index}</b> &nbsp; `;
+
+  const field = (name, val) =>
+    `<label>${name}: <input data-field="${name}" value="${Math.round(val)}" /></label>`;
+
+  switch (selected.type) {
+    case 'platform': case 'ground':
+      html += field('x', e.x) + field('y', e.y) + field('w', e.w) + field('depth', e.depth ?? '');
+      break;
+    case 'shadow':
+      html += field('x', e.x) + field('y', e.y) + field('w', e.w) + field('h', e.h) + field('depth', e.depth ?? '');
+      break;
+    case 'ladder':
+      html += field('x', e.x) + field('topY', e.topY) + field('bottomY', e.bottomY) + field('minX', e.minX) + field('maxX', e.maxX) + field('depth', e.depth ?? '');
+      break;
+    case 'paintSpot':
+      html += field('x', e.x) + field('y', e.y) + field('w', e.w) + field('h', e.h) + field('depth', e.depth ?? '');
+      html += ` <label>key: <input data-field="paintingKey" value="${e.paintingKey || ''}" style="width:140px" /></label>`;
+      html += ` <button onclick="window.open('/tools/mural-editor.html?key=${encodeURIComponent(e.paintingKey || '')}&spotW=${e.w}&spotH=${e.h}','_blank')" style="margin-left:8px;background:#530;border-color:#a60;padding:4px 10px;cursor:pointer;color:#fc0;font-weight:bold;">Edytuj mural</button>`;
+      break;
+    case 'paintCan':
+      html += field('x', e.x) + field('y', e.y) + field('depth', e.depth ?? '');
+      break;
+    case 'cop':
+      html += field('x', e.x) + field('y', e.y) + field('minX', e.minX) + field('maxX', e.maxX) + field('depth', e.depth ?? '');
+      break;
+    case 'trashCan':
+      html += field('x', e.x) + field('y', e.y) + field('depth', e.depth ?? '');
+      break;
+    case 'checkpoint':
+      html += field('x', e.x) + field('y', e.y);
+      break;
+    case 'wire':
+      html += field('x1', e.x1) + field('y1', e.y1) + field('x2', e.x2) + field('y2', e.y2) + field('depth', e.depth ?? '');
+      break;
+  }
+
+  panel.innerHTML = html;
+
+  // Bind inputs
+  panel.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      pushUndo();
+      const f = inp.dataset.field;
+      let v;
+      if (f === 'paintingKey') { v = inp.value; }
+      else if (f === 'depth') { v = inp.value.trim() === '' ? undefined : parseFloat(inp.value); }
+      else { v = parseInt(inp.value); }
+      if (selected.type === 'checkpoint') {
+        level.checkpoint[f] = v;
+      } else {
+        arr[selected.index][f] = v;
+      }
+      autoSave();
+      draw();
+    });
+  });
+}
+
+// ============================================================
+// KEYBOARD
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    deleteSelected();
+    e.preventDefault();
+  }
+  if (e.key === 'd' || e.key === 'D') {
+    duplicateSelected();
+  }
+  if (e.ctrlKey && e.key === 'z') {
+    undo();
+    e.preventDefault();
+  }
+  if (e.ctrlKey && e.key === 's') {
+    exportLevels();
+    e.preventDefault();
+  }
+  // Arrow keys nudge
+  if (selected && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+    pushUndo();
+    const step = e.shiftKey ? 10 : 1;
+    const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+    const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+    moveElem(selected, dx, dy);
+    draw();
+    showProps();
+    e.preventDefault();
+  }
+});
+
+function deleteSelected() {
+  if (!selected) return;
+  if (selected.type === 'checkpoint') return; // can't delete checkpoint
+  pushUndo();
+  const arr = getArray(selected.type);
+  if (arr) arr.splice(selected.index, 1);
+  selected = null;
+  draw();
+  showProps();
+}
+
+function duplicateSelected() {
+  if (!selected) return;
+  if (selected.type === 'checkpoint') return;
+  pushUndo();
+  const arr = getArray(selected.type);
+  if (!arr || !arr[selected.index]) return;
+  const clone = JSON.parse(JSON.stringify(arr[selected.index]));
+  // Offset the clone
+  if ('x' in clone) clone.x += 30;
+  if ('y' in clone && selected.type !== 'ladder') clone.y += 30;
+  if ('topY' in clone) { clone.topY += 30; clone.bottomY += 30; }
+  if ('minX' in clone) { clone.minX += 30; clone.maxX += 30; }
+  if ('x1' in clone) { clone.x1 += 30; clone.x2 += 30; }
+  if ('y1' in clone) { clone.y1 += 30; clone.y2 += 30; }
+  arr.push(clone);
+  selected = { type: selected.type, index: arr.length - 1 };
+  draw();
+  showProps();
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function generateExport() {
+  let out = `import { GAME } from './gameConfig.js';\n\nconst H = GAME.HEIGHT;\nconst W = GAME.WIDTH;\n\n`;
+
+  levels.forEach((lv, li) => {
+    const isL2 = li === 1;
+    const prefix = isL2 ? 'L2_' : '';
+    const WW = lv.worldWidth;
+    const HH = lv.worldHeight;
+
+    if (isL2) {
+      out += `const L2_W = ${WW};\nconst L2_H = ${HH};\n\n`;
+    }
+
+    const varName = `LEVEL_${li + 1}`;
+    const hVar = isL2 ? 'L2_H' : 'H';
+    const wVar = isL2 ? 'L2_W' : 'W';
+
+    const rel = (v, base, bVar) => {
+      const diff = base - v;
+      if (diff === 0) return bVar;
+      if (diff > 0) return `${bVar} - ${diff}`;
+      return `${bVar} + ${-diff}`;
+    };
+    const dp = (obj) => obj.depth != null ? `, depth: ${obj.depth}` : '';
+
+    out += `export const ${varName} = {\n`;
+    out += `  name: '${lv.name}',\n`;
+    out += `  description: '${lv.description}',\n`;
+    out += `  worldWidth: ${wVar},\n`;
+    out += `  worldHeight: ${hVar},\n`;
+    out += `  checkpoint: { x: ${lv.checkpoint.x}, y: ${rel(lv.checkpoint.y, HH, hVar)} },\n`;
+    out += `  paintings: [${(lv.paintings || []).map(p => `'${p}'`).join(', ')}],\n\n`;
+
+    // Platforms
+    out += `  platforms: [\n`;
+    (lv.platforms || []).forEach(p => {
+      out += `    { x: ${Math.round(p.x)}, y: ${rel(Math.round(p.y), HH, hVar)}, w: ${Math.round(p.w)}${dp(p)} },\n`;
+    });
+    out += `  ],\n`;
+
+    // Ground
+    out += `  ground: [\n`;
+    (lv.ground || []).forEach(g => {
+      out += `    { x: ${Math.round(g.x)}, y: ${rel(Math.round(g.y), HH, hVar)}, w: ${g.w === WW ? wVar : Math.round(g.w)}${dp(g)} },\n`;
+    });
+    out += `  ],\n`;
+
+    // Ladders
+    out += `  ladders: [\n`;
+    (lv.ladders || []).forEach(l => {
+      out += `    { x: ${Math.round(l.x)}, topY: ${rel(Math.round(l.topY), HH, hVar)}, bottomY: ${rel(Math.round(l.bottomY), HH, hVar)}, minX: ${Math.round(l.minX)}, maxX: ${Math.round(l.maxX)}${dp(l)} },\n`;
+    });
+    out += `  ],\n`;
+
+    // Shadows
+    out += `  shadows: [\n`;
+    (lv.shadows || []).forEach(s => {
+      out += `    { x: ${Math.round(s.x)}, y: ${rel(Math.round(s.y), HH, hVar)}, w: ${Math.round(s.w)}, h: ${Math.round(s.h)}${dp(s)} },\n`;
+    });
+    out += `  ],\n`;
+
+    // Paint cans
+    out += `  paintCans: [\n`;
+    (lv.paintCans || []).forEach(c => {
+      out += `    { x: ${Math.round(c.x)}, y: ${rel(Math.round(c.y), HH, hVar)}${dp(c)} },\n`;
+    });
+    out += `  ],\n`;
+
+    // Paint spots
+    out += `  paintSpots: [\n`;
+    (lv.paintSpots || []).forEach(ps => {
+      out += `    { x: ${Math.round(ps.x)}, y: ${rel(Math.round(ps.y), HH, hVar)}, w: ${Math.round(ps.w)}, h: ${Math.round(ps.h)}, paintingKey: '${ps.paintingKey}'${dp(ps)} },\n`;
+    });
+    out += `  ],\n`;
+
+    // Trash cans
+    out += `  trashCans: [\n`;
+    (lv.trashCans || []).forEach(t => {
+      out += `    { x: ${Math.round(t.x)}, y: ${rel(Math.round(t.y), HH, hVar)}${dp(t)} },\n`;
+    });
+    out += `  ],\n`;
+
+    // Cops
+    out += `  cops: [\n`;
+    (lv.cops || []).forEach(c => {
+      out += `    { x: ${Math.round(c.x)}, y: ${rel(Math.round(c.y), HH, hVar)}, minX: ${Math.round(c.minX)}, maxX: ${c.maxX === WW - 40 ? `${wVar} - 40` : Math.round(c.maxX)}${dp(c)} },\n`;
+    });
+    out += `  ],\n`;
+
+    // Wires
+    out += `  foregroundWires: [\n`;
+    (lv.foregroundWires || []).forEach(w => {
+      out += `    { x1: ${Math.round(w.x1)}, y1: ${rel(Math.round(w.y1), HH, hVar)}, x2: ${w.x2 === WW ? wVar : Math.round(w.x2)}, y2: ${rel(Math.round(w.y2), HH, hVar)}${dp(w)} },\n`;
+    });
+    out += `  ],\n`;
+
+    out += `};\n\n`;
+  });
+
+  out += `export const LEVELS = [${levels.map((_, i) => `LEVEL_${i + 1}`).join(', ')}];\n`;
+  return out;
+}
+
+function exportLevels() {
+  const code = generateExport();
+  const blob = new Blob([code], { type: 'text/javascript' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'levels.js';
+  a.click();
+}
+
+// ============================================================
+// UI BINDINGS
+// ============================================================
+
+// Tool buttons
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    tool = btn.dataset.tool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (tool !== 'select') selected = null;
+    draw();
+    showProps();
+  });
+});
+
+// Level select
+const levelSelect = document.getElementById('levelSelect');
+levels.forEach((lv, i) => {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = `${i + 1}. ${lv.name}`;
+  levelSelect.appendChild(opt);
+});
+levelSelect.addEventListener('change', () => {
+  currentLevelIdx = parseInt(levelSelect.value);
+  level = levels[currentLevelIdx];
+  selected = null;
+  undoStack = [];
+  resizeCanvas();
+  draw();
+  showProps();
+  document.getElementById('worldInfo').textContent = `${level.worldWidth}x${level.worldHeight}`;
+});
+
+// Buttons
+document.getElementById('btnDelete').addEventListener('click', deleteSelected);
+document.getElementById('btnDuplicate').addEventListener('click', duplicateSelected);
+document.getElementById('btnExport').addEventListener('click', exportLevels);
+document.getElementById('btnSaveToGame').addEventListener('click', () => {
+  const btn = document.getElementById('btnSaveToGame');
+  const ind = document.getElementById('saveIndicator');
+  btn.disabled = true;
+  btn.textContent = 'Zapisuję...';
+  const code = generateExport();
+  console.log('[EDITOR] Save button clicked, code length:', code.length);
+  console.log('[EDITOR] Fetching:', window.location.origin + '/save');
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(levels));
+  fetch('/save', { method: 'POST', body: code })
+    .then(r => {
+      console.log('[EDITOR] /save response status:', r.status);
+      return r.json();
+    })
+    .then(data => {
+      console.log('[EDITOR] /save response data:', JSON.stringify(data));
+      btn.textContent = '\u2705 Zapisano! Gra się odświeży';
+      btn.style.background = '#0a5';
+      if (ind) { ind.textContent = 'Zapisano ' + new Date().toLocaleTimeString(); ind.style.color = '#0f8'; }
+      setTimeout(() => {
+        btn.innerHTML = '&#128190; Zapisz do gry';
+        btn.style.background = '#085';
+        btn.disabled = false;
+      }, 2000);
+    })
+    .catch(err => {
+      btn.textContent = '\u274c Błąd zapisu!';
+      btn.style.background = '#a33';
+      if (ind) { ind.textContent = 'Błąd: ' + err.message; ind.style.color = '#f55'; }
+      setTimeout(() => {
+        btn.innerHTML = '&#128190; Zapisz do gry';
+        btn.style.background = '#085';
+        btn.disabled = false;
+      }, 3000);
+    });
+});
+document.getElementById('btnCopy').addEventListener('click', () => {
+  navigator.clipboard.writeText(generateExport()).then(() => alert('Skopiowano do schowka!'));
+});
+document.getElementById('btnImport').addEventListener('click', () => {
+  const json = prompt('Wklej JSON levelu (caly obiekt):');
+  if (!json) return;
+  try {
+    const parsed = JSON.parse(json);
+    pushUndo();
+    Object.assign(level, parsed);
+    resizeCanvas();
+    draw();
+  } catch (e) {
+    alert('Blad parsowania JSON: ' + e.message);
+  }
+});
+
+// Reset
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (!confirm('Na pewno? Wszystkie zmiany zostana utracone.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  levels = JSON.parse(JSON.stringify(LEVELS_SOURCE));
+  level = levels[currentLevelIdx];
+  selected = null;
+  undoStack = [];
+  resizeCanvas();
+  draw();
+  showProps();
+  document.getElementById('saveIndicator').textContent = 'Zresetowano do domyslnych';
+});
+
+// Grid change
+document.getElementById('gridSize').addEventListener('change', draw);
+document.getElementById('snapGrid').addEventListener('change', draw);
+
+// Init
+window.addEventListener('resize', () => { resizeCanvas(); draw(); });
+document.getElementById('worldInfo').textContent = `${level.worldWidth}x${level.worldHeight}`;
+resizeCanvas();
+draw();
+</script>
+</body>
+</html>

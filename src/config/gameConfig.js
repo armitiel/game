@@ -15,7 +15,7 @@ export const PLAYER = {
   FRAME_W: 96,
   FRAME_H: 144,
   // Frame ranges in combined sheet:
-  // idle: 0-17, walk: 18-41, jump: 42-61, push: 62-85, climb: 86-104, climb2: 105-124, paint: 125-149, twist: 150-177, side: 178-205
+  // idle: 0-17, walk: 18-41, jump: 42-61, push: 62-85, climb: 86-104, climb2: 105-124, paint: 125-149, twist: 150-177, side: 178-205, hide: 206-222
   TOTAL_IDLE_FRAMES: 18,
   IDLE_FRAME_START: 0,
   TOTAL_WALK_FRAMES: 24,
@@ -36,13 +36,15 @@ export const PLAYER = {
   IDLE_TWIST_DELAY: 5000, // ms of idle before twist plays
   TOTAL_SIDE_FRAMES: 28,
   SIDE_FRAME_START: 178,
+  TOTAL_HIDE_FRAMES: 17,
+  HIDE_FRAME_START: 206,
   // Physics body (smaller than visual, centered at feet)
   BODY_W: 20,
   BODY_H: 60,
   BODY_OFFSET_X: 38,  // (96 - 20) / 2
   BODY_OFFSET_Y: 81,  // feet at Y=141 in 144px frame, body top at 141-60=81
   // Sprite sheet path
-  SHEET_PATH: 'assets/sprites/player_combined_sheet.png?v=187'
+  SHEET_PATH: 'assets/sprites/player_combined_sheet.png?v=193'
 };
 
 export const COP = {
@@ -74,11 +76,11 @@ export const PAINT = {
   PAINT_SPEED: 80,            // px/s movement while painting
   PAINT_GRID_COLS: 7,         // grid columns for paint coverage
   PAINT_GRID_ROWS: 10,        // grid rows for paint coverage
-  PAINT_FILL_THRESHOLD: 0.75, // 75% coverage = complete
+  PAINT_FILL_THRESHOLD: 0.95, // 95% coverage = complete
   // Paint-by-numbers system
   PBN_ENABLED: true,
   PBN_WRONG_FLASH_MS: 300,
-  PBN_COMPLETION_THRESHOLD: 0.75
+  PBN_COMPLETION_THRESHOLD: 0.95
 };
 
 export const CONTROLS = {

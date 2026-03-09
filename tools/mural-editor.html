@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Shadow Tagger — Mural Editor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; }
+
+  /* Left panel — controls */
+  #sidebar {
+    width: 280px; min-width: 280px; background: #16213e; padding: 16px;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+    border-right: 2px solid #0f3460;
+  }
+  #sidebar h2 { color: #00ff88; font-size: 16px; margin-bottom: 4px; }
+  #sidebar label { font-size: 13px; display: block; margin-bottom: 2px; }
+  #sidebar input, #sidebar select { background: #0f3460; color: #e0e0e0; border: 1px solid #333; border-radius: 4px; padding: 4px 8px; width: 100%; font-size: 13px; }
+  #sidebar input[type="number"] { width: 70px; }
+  #sidebar input[type="range"] { width: 100%; accent-color: #00ff88; }
+  #sidebar button {
+    background: #0f3460; color: #00ff88; border: 1px solid #00ff88; border-radius: 4px;
+    padding: 6px 12px; cursor: pointer; font-size: 13px;
+  }
+  #sidebar button:hover { background: #00ff88; color: #0f3460; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .section { border-top: 1px solid #333; padding-top: 10px; }
+
+  /* File list */
+  #file-list { display: flex; flex-direction: column; gap: 4px; }
+  #file-list button { text-align: left; font-size: 12px; }
+  #file-list button.active { background: #00ff88; color: #0f3460; }
+
+  /* Color palette */
+  #palette { display: flex; flex-wrap: wrap; gap: 6px; }
+  .palette-btn {
+    width: 36px; height: 36px; border-radius: 4px; border: 2px solid #555; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;
+    color: #fff; text-shadow: 0 0 3px #000;
+  }
+  .palette-btn.selected { border-color: #fff; box-shadow: 0 0 8px #00ff88; }
+  .palette-btn.eraser { background: repeating-conic-gradient(#444 0% 25%, #222 0% 50%) 50% / 12px 12px; }
+
+  /* Color editor */
+  #color-editor { display: flex; flex-direction: column; gap: 4px; }
+  .color-row { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .color-row input[type="color"] { width: 32px; height: 24px; border: none; cursor: pointer; }
+  .color-row input[type="text"] { width: 90px; }
+
+  /* Canvas area */
+  #canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 20px; }
+  canvas { border: 1px solid #333; cursor: crosshair; image-rendering: pixelated; }
+
+  /* Status */
+  #status { font-size: 11px; color: #888; min-height: 30px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>🎨 Mural Editor</h2>
+
+  <div class="section">
+    <label>Plik muralu:</label>
+    <div id="file-list"></div>
+    <div class="row" style="margin-top:6px">
+      <input type="text" id="new-name" placeholder="nowy_mural" style="flex:1">
+      <button onclick="createNew()">+ Nowy</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <label>Rozmiar siatki:</label>
+    <div class="row">
+      <label>Kol: <input type="number" id="cols" min="2" max="60" value="14"></label>
+      <label>Wier: <input type="number" id="rows" min="2" max="60" value="14"></label>
+      <button onclick="resizeGrid()">Zmień</button>
+    </div>
+    <div style="margin-top:6px">
+      <label style="font-size:12px;cursor:pointer">
+        <input type="checkbox" id="lockRatio" style="width:auto;vertical-align:middle">
+        Zablokuj proporcje (<span id="ratio-label">1:1</span>)
+      </label>
+    </div>
+    <div id="density-section" style="display:none;margin-top:6px">
+      <label style="font-size:12px">Gestosc: <span id="locked-density-val"></span></label>
+      <input type="range" id="locked-density" min="1" max="12" value="4" oninput="onLockedDensity()">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#666;margin-top:-4px">
+        <span>gruba</span><span>drobna</span>
+      </div>
+    </div>
+    <div id="spot-info" style="display:none;margin-top:6px;font-size:11px;color:#0a8;border:1px solid #0a8;padding:4px 8px;border-radius:4px">
+      <span id="spot-dims"></span>
+      <button onclick="fitToSpot()" style="margin-left:6px;font-size:12px;padding:3px 10px">Dopasuj siatke</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <label>Paleta kolorów:</label>
+    <div id="palette"></div>
+    <div style="margin-top:6px">
+      <button onclick="addColor()">+ Kolor</button>
+      <button onclick="removeLastColor()">- Usuń</button>
+    </div>
+  </div>
+
+  <div class="section" id="color-editor">
+    <label>Edycja kolorów:</label>
+  </div>
+
+  <div class="section">
+    <label>Generator wzorów:</label>
+    <label style="margin-top:4px">Gęstość: <span id="density-val">3</span></label>
+    <input type="range" id="gen-density" min="1" max="8" value="3" oninput="onDensityChange()">
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#666;margin-top:-4px">
+      <span>gruba</span><span>drobna</span>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <label>Kolory: <input type="number" id="gen-colors" min="1" max="8" value="3"></label>
+    </div>
+    <label style="margin-top:6px">Wzór:</label>
+    <select id="gen-pattern">
+      <option value="heart">Serce</option>
+      <option value="star">Gwiazda</option>
+      <option value="circle">Koło</option>
+      <option value="diamond">Diament</option>
+      <option value="cross">Krzyż</option>
+      <option value="stripes-h">Paski poziome</option>
+      <option value="stripes-v">Paski pionowe</option>
+      <option value="checker">Szachownica</option>
+      <option value="spiral">Spirala</option>
+      <option value="frame">Ramka</option>
+      <option value="random">Losowy</option>
+      <option value="noise">Szum</option>
+    </select>
+    <button onclick="generatePattern()" style="width:100%;margin-top:6px;font-size:13px">⚡ Generuj</button>
+  </div>
+
+  <div class="section">
+    <label>Import ze zdjęcia:</label>
+    <input type="file" id="img-input" accept="image/*" style="font-size:11px;padding:2px" onchange="handleImageUpload(event)">
+    <div id="img-preview-wrap" style="display:none;margin-top:6px;position:relative">
+      <canvas id="img-preview" style="width:100%;border:1px solid #333;border-radius:4px"></canvas>
+    </div>
+    <button onclick="convertImage()" style="width:100%;margin-top:6px">🖼 Konwertuj zdjęcie</button>
+  </div>
+
+  <div class="section">
+    <label>Przesuwanie wzoru:</label>
+    <div style="display:flex;align-items:center;justify-content:center;gap:2px;margin-top:4px">
+      <div style="display:grid;grid-template-columns:32px 32px 32px;grid-template-rows:32px 32px 32px;gap:2px">
+        <div></div>
+        <button onclick="shiftGrid(0,-1)" style="padding:2px;font-size:16px" title="W górę">↑</button>
+        <div></div>
+        <button onclick="shiftGrid(-1,0)" style="padding:2px;font-size:16px" title="W lewo">←</button>
+        <button onclick="centerGrid()" style="padding:2px;font-size:11px" title="Wyśrodkuj">C</button>
+        <button onclick="shiftGrid(1,0)" style="padding:2px;font-size:16px" title="W prawo">→</button>
+        <div></div>
+        <button onclick="shiftGrid(0,1)" style="padding:2px;font-size:16px" title="W dół">↓</button>
+        <div></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:6px;justify-content:center">
+      <label style="font-size:11px">Krok: <input type="number" id="shift-step" min="1" max="20" value="1" style="width:45px"></label>
+      <label style="font-size:11px"><input type="checkbox" id="shift-wrap" style="width:auto"> Zawijaj</label>
+    </div>
+  </div>
+
+  <div class="section">
+    <label>Narzędzia:</label>
+    <div class="row">
+      <button onclick="fillAll()">Wypełnij wszystko</button>
+      <button onclick="clearAll()">Wyczyść</button>
+    </div>
+    <div class="row" style="margin-top:4px">
+      <button onclick="mirrorH()">Lustro ↔</button>
+      <button onclick="mirrorV()">Lustro ↕</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <button onclick="saveFile()" style="width:100%;font-size:14px;padding:8px">💾 Zapisz</button>
+    <button onclick="exportJSON()" style="width:100%;margin-top:4px">📋 Kopiuj JSON</button>
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<div id="canvas-area">
+  <canvas id="grid-canvas" width="600" height="600"></canvas>
+</div>
+
+<script>
+// ===== State =====
+let currentFile = null;
+let grid = [];
+let cols = 14, rows = 14;
+let colors = ['RED', 'BLUE', 'YELLOW'];
+let palette = {};
+let selectedColor = 0; // -1 = eraser, 0+ = color index
+let files = [];
+
+// Default game colors
+const GAME_COLORS = {
+  RED: '#ff3344', BLUE: '#3388ff', YELLOW: '#ffdd33', GREEN: '#33ff88'
+};
+
+const canvas = document.getElementById('grid-canvas');
+const ctx = canvas.getContext('2d');
+
+// ===== URL params from level editor =====
+const _urlParams = new URLSearchParams(window.location.search);
+const _paramKey = _urlParams.get('key');       // e.g. "painting_heart"
+const _spotW = parseInt(_urlParams.get('spotW')) || 0;
+const _spotH = parseInt(_urlParams.get('spotH')) || 0;
+
+// Show spot dimensions if available
+if (_spotW && _spotH) {
+  const info = document.getElementById('spot-info');
+  info.style.display = 'block';
+  document.getElementById('spot-dims').textContent = `PaintSpot: ${_spotW} x ${_spotH} px (${(_spotW/_spotH).toFixed(2)})`;
+}
+
+/**
+ * Auto-fit grid to match paintSpot proportions from level editor.
+ * Keeps the current density (total cells ≈ cols*rows) but adjusts
+ * cols/rows ratio to match spotW/spotH.
+ */
+function fitToSpot() {
+  if (!_spotW || !_spotH) return;
+  const aspect = _spotW / _spotH;
+  const totalCells = cols * rows;
+  // Solve: newCols/newRows = aspect, newCols*newRows ≈ totalCells
+  // newCols = aspect * newRows → aspect * newRows^2 = totalCells
+  let newRows = Math.max(2, Math.round(Math.sqrt(totalCells / aspect)));
+  let newCols = Math.max(2, Math.round(newRows * aspect));
+
+  // Rescale existing grid content using nearest-neighbor
+  const oldGrid = grid;
+  const oldCols = cols, oldRows = rows;
+  const newGrid = Array.from({length: newRows}, (_, r) =>
+    Array.from({length: newCols}, (_, c) => {
+      const srcR = Math.min(oldRows - 1, Math.floor(r * oldRows / newRows));
+      const srcC = Math.min(oldCols - 1, Math.floor(c * oldCols / newCols));
+      return oldGrid[srcR] ? (oldGrid[srcR][srcC] ?? -1) : -1;
+    })
+  );
+
+  cols = newCols;
+  rows = newRows;
+  grid = newGrid;
+  document.getElementById('cols').value = cols;
+  document.getElementById('rows').value = rows;
+  renderPalette();
+  renderColorEditor();
+  draw();
+  // Auto-lock ratio after fitting
+  lockedAspect = cols / rows;
+  const lockCb = document.getElementById('lockRatio');
+  if (!lockCb.checked) { lockCb.checked = true; lockCb.dispatchEvent(new Event('change')); }
+  status(`Dopasowano: ${cols}x${rows} (proporcje ${aspect.toFixed(2)})`);
+  updateRatioLabel();
+}
+
+// ===== Lock ratio + density slider =====
+let lockedAspect = 1; // cols/rows ratio when locked
+
+function updateRatioLabel() {
+  // Simplify ratio for display using GCD
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+  const g = gcd(cols, rows);
+  document.getElementById('ratio-label').textContent = `${cols/g}:${rows/g}`;
+}
+
+document.getElementById('lockRatio').addEventListener('change', function() {
+  const sec = document.getElementById('density-section');
+  if (this.checked) {
+    lockedAspect = cols / rows;
+    sec.style.display = 'block';
+    // Set slider to approximate current density
+    const d = Math.round(Math.sqrt(cols * rows) / 3);
+    document.getElementById('locked-density').value = Math.max(1, Math.min(12, d));
+    onLockedDensity(true); // update label only
+  } else {
+    sec.style.display = 'none';
+  }
+  updateRatioLabel();
+});
+
+function onLockedDensity(labelOnly) {
+  const d = parseInt(document.getElementById('locked-density').value);
+  // Map density 1-12 to total cells: d^2 * 4
+  const totalTarget = d * d * 4;
+  const newRows2 = Math.max(2, Math.round(Math.sqrt(totalTarget / lockedAspect)));
+  const newCols2 = Math.max(2, Math.round(newRows2 * lockedAspect));
+  document.getElementById('locked-density-val').textContent = `${d} (${newCols2}x${newRows2})`;
+  if (labelOnly === true) return;
+
+  // Rescale grid
+  const oldGrid = grid;
+  const oldCols = cols, oldRows = rows;
+  const newGrid = Array.from({length: newRows2}, (_, r) =>
+    Array.from({length: newCols2}, (_, c) => {
+      const srcR = Math.min(oldRows - 1, Math.floor(r * oldRows / newRows2));
+      const srcC = Math.min(oldCols - 1, Math.floor(c * oldCols / newCols2));
+      return oldGrid[srcR] ? (oldGrid[srcR][srcC] ?? -1) : -1;
+    })
+  );
+  cols = newCols2;
+  rows = newRows2;
+  grid = newGrid;
+  document.getElementById('cols').value = cols;
+  document.getElementById('rows').value = rows;
+  renderPalette();
+  renderColorEditor();
+  draw();
+  status(`Gestosc ${d}: ${cols}x${rows}`);
+}
+
+// ===== Init =====
+async function init() {
+  const resp = await fetch('/mural-list');
+  files = await resp.json();
+  renderFileList();
+
+  // Auto-load mural matching URL key param
+  if (_paramKey) {
+    const suffix = _paramKey.replace('painting_', '') + '_mural.json';
+    const match = files.find(f => f === suffix);
+    if (match) { await loadFile(match); return; }
+  }
+  if (files.length > 0) loadFile(files[0]);
+  else createDefault();
+}
+
+function renderFileList() {
+  const el = document.getElementById('file-list');
+  el.innerHTML = '';
+  files.forEach(f => {
+    const btn = document.createElement('button');
+    btn.textContent = f;
+    if (f === currentFile) btn.classList.add('active');
+    btn.onclick = () => loadFile(f);
+    el.appendChild(btn);
+  });
+}
+
+async function loadFile(filename) {
+  const resp = await fetch('/mural-load?file=' + encodeURIComponent(filename));
+  const data = await resp.json();
+  currentFile = filename;
+  cols = data.cols;
+  rows = data.rows;
+  colors = data.colors || ['RED', 'BLUE', 'YELLOW'];
+  palette = data.palette || {};
+  grid = data.grid;
+  selectedColor = 0;
+  document.getElementById('cols').value = cols;
+  document.getElementById('rows').value = rows;
+  renderFileList();
+  renderPalette();
+  renderColorEditor();
+  draw();
+  status('Załadowano: ' + filename);
+}
+
+function createDefault() {
+  cols = 14; rows = 14;
+  colors = ['RED', 'BLUE', 'YELLOW'];
+  palette = {};
+  grid = Array.from({length: rows}, () => Array(cols).fill(-1));
+  selectedColor = 0;
+  document.getElementById('cols').value = cols;
+  document.getElementById('rows').value = rows;
+  renderPalette();
+  renderColorEditor();
+  draw();
+}
+
+function createNew() {
+  const name = document.getElementById('new-name').value.trim();
+  if (!name) return;
+  currentFile = name.endsWith('.json') ? name : name + '_mural.json';
+  createDefault();
+  if (!files.includes(currentFile)) files.push(currentFile);
+  renderFileList();
+  status('Nowy mural: ' + currentFile);
+}
+
+// ===== Color helpers =====
+function colorHex(index) {
+  if (index < 0) return null;
+  const name = colors[index];
+  if (palette[name]) return palette[name];
+  if (GAME_COLORS[name]) return GAME_COLORS[name];
+  // Generate a default hue
+  const hue = (index * 137) % 360;
+  return `hsl(${hue}, 70%, 55%)`;
+}
+
+// ===== Palette UI =====
+function renderPalette() {
+  const el = document.getElementById('palette');
+  el.innerHTML = '';
+  // Eraser
+  const eraser = document.createElement('div');
+  eraser.className = 'palette-btn eraser' + (selectedColor === -1 ? ' selected' : '');
+  eraser.textContent = '✕';
+  eraser.onclick = () => { selectedColor = -1; renderPalette(); };
+  el.appendChild(eraser);
+
+  colors.forEach((name, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'palette-btn' + (selectedColor === i ? ' selected' : '');
+    btn.style.background = colorHex(i);
+    btn.textContent = i + 1;
+    btn.onclick = () => { selectedColor = i; renderPalette(); };
+    el.appendChild(btn);
+  });
+}
+
+function renderColorEditor() {
+  const el = document.getElementById('color-editor');
+  el.innerHTML = '<label>Edycja kolorów:</label>';
+  colors.forEach((name, i) => {
+    const row = document.createElement('div');
+    row.className = 'color-row';
+
+    const picker = document.createElement('input');
+    picker.type = 'color';
+    picker.value = toHex6(colorHex(i));
+    picker.oninput = () => {
+      palette[colors[i]] = picker.value;
+      renderPalette();
+      draw();
+    };
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = name;
+    nameInput.onchange = () => {
+      const oldName = colors[i];
+      const newName = nameInput.value.trim() || oldName;
+      if (palette[oldName]) {
+        palette[newName] = palette[oldName];
+        delete palette[oldName];
+      }
+      colors[i] = newName;
+      renderPalette();
+      renderColorEditor();
+      draw();
+    };
+
+    const label = document.createElement('span');
+    label.textContent = `${i + 1}:`;
+
+    row.appendChild(label);
+    row.appendChild(picker);
+    row.appendChild(nameInput);
+    el.appendChild(row);
+  });
+}
+
+function addColor() {
+  const idx = colors.length;
+  const name = 'COLOR_' + idx;
+  const hue = (idx * 137) % 360;
+  colors.push(name);
+  palette[name] = `hsl(${hue}, 70%, 55%)`;
+  renderPalette();
+  renderColorEditor();
+}
+
+function removeLastColor() {
+  if (colors.length <= 1) return;
+  const removed = colors.length - 1;
+  // Clear cells using removed color
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if (grid[r][c] === removed) grid[r][c] = -1;
+  const name = colors.pop();
+  delete palette[name];
+  if (selectedColor >= colors.length) selectedColor = colors.length - 1;
+  renderPalette();
+  renderColorEditor();
+  draw();
+}
+
+// ===== Grid resize =====
+function resizeGrid() {
+  const newCols = parseInt(document.getElementById('cols').value) || 14;
+  const newRows = parseInt(document.getElementById('rows').value) || 14;
+  const newGrid = Array.from({length: newRows}, (_, r) =>
+    Array.from({length: newCols}, (_, c) =>
+      (r < rows && c < cols) ? grid[r][c] : -1
+    )
+  );
+  cols = newCols;
+  rows = newRows;
+  grid = newGrid;
+  draw();
+  status(`Siatka: ${cols}x${rows}`);
+}
+
+// ===== Tools =====
+function fillAll() {
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if (grid[r][c] === -1) grid[r][c] = selectedColor >= 0 ? selectedColor : 0;
+  draw();
+}
+
+function clearAll() {
+  grid = Array.from({length: rows}, () => Array(cols).fill(-1));
+  draw();
+}
+
+function mirrorH() {
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < Math.floor(cols / 2); c++)
+      grid[r][cols - 1 - c] = grid[r][c];
+  draw();
+}
+
+function mirrorV() {
+  for (let r = 0; r < Math.floor(rows / 2); r++)
+    for (let c = 0; c < cols; c++)
+      grid[rows - 1 - r][c] = grid[r][c];
+  draw();
+}
+
+// ===== Drawing =====
+function draw() {
+  const maxW = canvas.parentElement.clientWidth - 40;
+  const maxH = canvas.parentElement.clientHeight - 40;
+  const cellSize = Math.max(8, Math.min(40, Math.floor(Math.min(maxW / cols, maxH / rows))));
+  canvas.width = cols * cellSize;
+  canvas.height = rows * cellSize;
+
+  // Background
+  ctx.fillStyle = '#333344';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = c * cellSize;
+      const y = r * cellSize;
+      const ci = grid[r][c];
+
+      if (ci >= 0) {
+        ctx.fillStyle = colorHex(ci);
+        ctx.fillRect(x, y, cellSize, cellSize);
+        // Number label
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = `${Math.max(8, cellSize * 0.5)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ci + 1, x + cellSize / 2, y + cellSize / 2);
+      } else {
+        // Empty cell — checkerboard
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#2a2a3e' : '#252538';
+        ctx.fillRect(x, y, cellSize, cellSize);
+      }
+
+      // Grid lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.strokeRect(x, y, cellSize, cellSize);
+    }
+  }
+}
+
+// ===== Mouse interaction =====
+let painting = false;
+let paintButton = -1;
+
+canvas.addEventListener('mousedown', (e) => {
+  painting = true;
+  paintButton = e.button;
+  paintCell(e);
+});
+canvas.addEventListener('mousemove', (e) => { if (painting) paintCell(e); });
+canvas.addEventListener('mouseup', () => { painting = false; });
+canvas.addEventListener('mouseleave', () => { painting = false; });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+function paintCell(e) {
+  const rect = canvas.getBoundingClientRect();
+  const cellSize = canvas.width / cols;
+  const c = Math.floor((e.clientX - rect.left) / cellSize);
+  const r = Math.floor((e.clientY - rect.top) / cellSize);
+  if (r < 0 || r >= rows || c < 0 || c >= cols) return;
+
+  if (paintButton === 2) {
+    // Right click = erase
+    grid[r][c] = -1;
+  } else {
+    grid[r][c] = selectedColor;
+  }
+  draw();
+}
+
+// ===== Save / Export =====
+async function saveFile() {
+  if (!currentFile) {
+    status('Najpierw wybierz lub utwórz plik!');
+    return;
+  }
+  const data = buildJSON();
+  const resp = await fetch('/mural-save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: currentFile, data })
+  });
+  if (resp.ok) {
+    status('Zapisano: ' + currentFile);
+    if (!files.includes(currentFile)) {
+      files.push(currentFile);
+      renderFileList();
+    }
+  } else {
+    status('Błąd zapisu!');
+  }
+}
+
+function exportJSON() {
+  const json = JSON.stringify(buildJSON(), null, 2);
+  navigator.clipboard.writeText(json);
+  status('JSON skopiowany do schowka');
+}
+
+function buildJSON() {
+  const name = currentFile ? currentFile.replace('.json', '') : 'unnamed';
+  const obj = { name, cols, rows, colors, grid };
+  // Include palette only if custom colors exist
+  const hasCustom = Object.keys(palette).some(k => !GAME_COLORS[k]);
+  if (hasCustom || Object.keys(palette).length > 0) obj.palette = { ...palette };
+  return obj;
+}
+
+// ===== Pattern Generator =====
+// Density 1-8 maps to grid sizes:
+// 1=6x6, 2=10x10, 3=14x14, 4=20x20, 5=28x28, 6=36x36, 7=46x46, 8=56x56
+const DENSITY_SIZES = [6, 10, 14, 20, 28, 36, 46, 56];
+
+function updateDensityLabel() {
+  const d = parseInt(document.getElementById('gen-density').value);
+  const size = DENSITY_SIZES[d - 1];
+  document.getElementById('density-val').textContent = `${d} (${size}x${size})`;
+}
+
+function onDensityChange() {
+  updateDensityLabel();
+  // Rescale current grid content to new density
+  rescaleGrid();
+}
+
+function rescaleGrid() {
+  const density = parseInt(document.getElementById('gen-density').value) || 3;
+  const targetSize = DENSITY_SIZES[density - 1];
+
+  // If image is loaded, re-convert from source image
+  if (uploadedImage) {
+    convertImage();
+    return;
+  }
+
+  // Otherwise rescale existing grid using nearest-neighbor sampling
+  const oldGrid = grid;
+  const oldCols = cols, oldRows = rows;
+  if (oldCols === targetSize && oldRows === targetSize) return;
+
+  // Preserve aspect ratio of current grid
+  const aspect = oldCols / oldRows;
+  let newCols, newRows;
+  if (aspect >= 1) {
+    newCols = targetSize;
+    newRows = Math.max(2, Math.round(targetSize / aspect));
+  } else {
+    newRows = targetSize;
+    newCols = Math.max(2, Math.round(targetSize * aspect));
+  }
+
+  const newGrid = Array.from({length: newRows}, (_, r) =>
+    Array.from({length: newCols}, (_, c) => {
+      const srcR = Math.min(oldRows - 1, Math.floor(r * oldRows / newRows));
+      const srcC = Math.min(oldCols - 1, Math.floor(c * oldCols / newCols));
+      return oldGrid[srcR][srcC];
+    })
+  );
+
+  cols = newCols;
+  rows = newRows;
+  grid = newGrid;
+  document.getElementById('cols').value = cols;
+  document.getElementById('rows').value = rows;
+  renderPalette();
+  renderColorEditor();
+  draw();
+  status(`Przeskalowano: ${cols}x${rows}`);
+}
+
+function generatePattern() {
+  const density = parseInt(document.getElementById('gen-density').value) || 3;
+  const gridSize = DENSITY_SIZES[density - 1];
+  const numColors = parseInt(document.getElementById('gen-colors').value) || 3;
+  const pattern = document.getElementById('gen-pattern').value;
+
+  // Set up grid size from density
+  cols = gridSize;
+  rows = gridSize;
+  document.getElementById('cols').value = cols;
+  document.getElementById('rows').value = rows;
+
+  // Set up colors
+  const defaultNames = ['RED', 'BLUE', 'YELLOW', 'GREEN', 'PURPLE', 'ORANGE', 'CYAN', 'PINK'];
+  const defaultHex = ['#ff3344', '#3388ff', '#ffdd33', '#33ff88', '#aa44ff', '#ff8833', '#33ddff', '#ff66aa'];
+  colors = [];
+  palette = {};
+  for (let i = 0; i < numColors; i++) {
+    const name = i < defaultNames.length ? defaultNames[i] : 'COLOR_' + i;
+    colors.push(name);
+    if (!GAME_COLORS[name]) palette[name] = defaultHex[i] || `hsl(${(i*137)%360}, 70%, 55%)`;
+  }
+
+  // Generate grid
+  grid = Array.from({length: rows}, () => Array(cols).fill(-1));
+  const cx = cols / 2, cy = rows / 2;
+  const maxR = Math.min(cx, cy);
+
+  switch (pattern) {
+    case 'heart':
+      genHeart(numColors);
+      break;
+    case 'star':
+      genStar(numColors);
+      break;
+    case 'circle':
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++) {
+          const dx = (c + 0.5 - cx) / cx, dy = (r + 0.5 - cy) / cy;
+          if (dx*dx + dy*dy <= 1) grid[r][c] = Math.floor(Math.sqrt(dx*dx+dy*dy) * numColors) % numColors;
+        }
+      break;
+    case 'diamond':
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++) {
+          const dx = Math.abs(c + 0.5 - cx) / cx, dy = Math.abs(r + 0.5 - cy) / cy;
+          if (dx + dy <= 1) grid[r][c] = Math.floor((dx + dy) * numColors) % numColors;
+        }
+      break;
+    case 'cross':
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++) {
+          const inH = Math.abs(r + 0.5 - cy) < cy * 0.3;
+          const inV = Math.abs(c + 0.5 - cx) < cx * 0.3;
+          if (inH || inV) grid[r][c] = (Math.floor(r / 2) + Math.floor(c / 2)) % numColors;
+        }
+      break;
+    case 'stripes-h':
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+          grid[r][c] = r % numColors;
+      break;
+    case 'stripes-v':
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+          grid[r][c] = c % numColors;
+      break;
+    case 'checker': {
+      const blockSize = Math.max(1, Math.floor(Math.min(cols, rows) / (numColors * 2)));
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+          grid[r][c] = (Math.floor(r / blockSize) + Math.floor(c / blockSize)) % numColors;
+      break;
+    }
+    case 'spiral':
+      genSpiral(numColors);
+      break;
+    case 'frame':
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++) {
+          const dist = Math.min(r, c, rows - 1 - r, cols - 1 - c);
+          grid[r][c] = dist % numColors;
+        }
+      break;
+    case 'random':
+      genRandomShape(numColors);
+      break;
+    case 'noise':
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+          grid[r][c] = Math.floor(Math.random() * numColors);
+      break;
+  }
+
+  selectedColor = 0;
+  renderPalette();
+  renderColorEditor();
+  draw();
+  status(`Wygenerowano: ${pattern} (${cols}x${rows}, ${numColors} kolorów)`);
+}
+
+function genHeart(numColors) {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      // Normalized coords: x in [-1,1], y in [-1,1]
+      const x = (c + 0.5) / cols * 2 - 1;
+      const y = 1 - (r + 0.5) / rows * 2; // y up
+      // Heart implicit: (x^2 + y^2 - 1)^3 - x^2 * y^3 <= 0
+      const x2 = x * x, y2 = y * y;
+      const val = Math.pow(x2 + y2 - 0.7, 3) - x2 * y2 * y;
+      if (val <= 0) {
+        // Color based on distance from center
+        const dist = Math.sqrt(x2 + y2);
+        grid[r][c] = Math.floor(dist * numColors * 1.2) % numColors;
+      }
+    }
+  }
+}
+
+function genStar(numColors) {
+  const cx = cols / 2, cy = rows / 2;
+  const outerR = Math.min(cx, cy) * 0.95;
+  const innerR = outerR * 0.38;
+  const points = 5;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const dx = c + 0.5 - cx, dy = r + 0.5 - cy;
+      const angle = Math.atan2(dy, dx);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      // Star radius at this angle
+      const a = angle + Math.PI / 2;
+      const sector = Math.floor((a / (2 * Math.PI) * points * 2 + 0.5 + points * 2)) % (points * 2);
+      const starR = sector % 2 === 0 ? outerR : innerR;
+      // Interpolate
+      const frac = (a / (2 * Math.PI) * points * 2 + 0.5 + points * 2) % 1;
+      const prevR = sector % 2 === 0 ? outerR : innerR;
+      const nextR = sector % 2 === 0 ? innerR : outerR;
+      const edgeR = prevR + (nextR - prevR) * frac;
+      if (dist <= edgeR) {
+        grid[r][c] = Math.floor(dist / outerR * numColors) % numColors;
+      }
+    }
+  }
+}
+
+function genSpiral(numColors) {
+  const cx = cols / 2, cy = rows / 2;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const dx = c + 0.5 - cx, dy = r + 0.5 - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = Math.sqrt(cx * cx + cy * cy);
+      if (dist > maxDist * 0.95) continue;
+      const angle = Math.atan2(dy, dx);
+      const spiralVal = (angle / (2 * Math.PI) + dist / maxDist * 3);
+      grid[r][c] = Math.floor(((spiralVal % 1) + 1) * numColors) % numColors;
+    }
+  }
+}
+
+function genRandomShape(numColors) {
+  // Generate organic blob shape using multiple overlapping circles
+  const blobs = 3 + Math.floor(Math.random() * 4);
+  const centers = [];
+  for (let i = 0; i < blobs; i++) {
+    centers.push({
+      x: 0.2 + Math.random() * 0.6,
+      y: 0.2 + Math.random() * 0.6,
+      r: 0.15 + Math.random() * 0.25
+    });
+  }
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const nx = (c + 0.5) / cols, ny = (r + 0.5) / rows;
+      let inside = false;
+      let minDist = 999;
+      for (const b of centers) {
+        const d = Math.sqrt((nx - b.x) ** 2 + (ny - b.y) ** 2);
+        if (d <= b.r) { inside = true; minDist = Math.min(minDist, d / b.r); }
+      }
+      if (inside) grid[r][c] = Math.floor(minDist * numColors) % numColors;
+    }
+  }
+}
+
+// ===== Grid Shift =====
+function shiftGrid(dx, dy) {
+  const step = parseInt(document.getElementById('shift-step').value) || 1;
+  const wrap = document.getElementById('shift-wrap').checked;
+  const totalDx = dx * step, totalDy = dy * step;
+
+  const newGrid = Array.from({length: rows}, () => Array(cols).fill(-1));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let srcR = r - totalDy, srcC = c - totalDx;
+      if (wrap) {
+        srcR = ((srcR % rows) + rows) % rows;
+        srcC = ((srcC % cols) + cols) % cols;
+      }
+      if (srcR >= 0 && srcR < rows && srcC >= 0 && srcC < cols) {
+        newGrid[r][c] = grid[srcR][srcC];
+      }
+    }
+  }
+  grid = newGrid;
+  draw();
+}
+
+function centerGrid() {
+  // Find bounding box of non-empty cells
+  let minR = rows, maxR = -1, minC = cols, maxC = -1;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (grid[r][c] >= 0) {
+        minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+        minC = Math.min(minC, c); maxC = Math.max(maxC, c);
+      }
+    }
+  }
+  if (maxR < 0) return; // empty grid
+
+  const contentH = maxR - minR + 1, contentW = maxC - minC + 1;
+  const targetR = Math.floor((rows - contentH) / 2);
+  const targetC = Math.floor((cols - contentW) / 2);
+  const offsetR = targetR - minR, offsetC = targetC - minC;
+
+  const newGrid = Array.from({length: rows}, () => Array(cols).fill(-1));
+  for (let r = minR; r <= maxR; r++) {
+    for (let c = minC; c <= maxC; c++) {
+      const nr = r + offsetR, nc = c + offsetC;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+        newGrid[nr][nc] = grid[r][c];
+      }
+    }
+  }
+  grid = newGrid;
+  draw();
+  status('Wyśrodkowano');
+}
+
+// ===== Image Import =====
+let uploadedImage = null;
+
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    uploadedImage = img;
+    // Draw preview
+    const preview = document.getElementById('img-preview');
+    const wrap = document.getElementById('img-preview-wrap');
+    wrap.style.display = 'block';
+    const maxW = 248;
+    const scale = maxW / img.width;
+    preview.width = maxW;
+    preview.height = img.height * scale;
+    const pctx = preview.getContext('2d');
+    pctx.drawImage(img, 0, 0, preview.width, preview.height);
+    status('Zdjęcie załadowane: ' + img.width + 'x' + img.height);
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+function convertImage() {
+  if (!uploadedImage) { status('Najpierw wybierz zdjęcie!'); return; }
+
+  const density = parseInt(document.getElementById('gen-density').value) || 3;
+  const gridSize = DENSITY_SIZES[density - 1];
+  const numColors = parseInt(document.getElementById('gen-colors').value) || 3;
+
+  // Calculate grid dimensions preserving image aspect ratio
+  const aspect = uploadedImage.width / uploadedImage.height;
+  let newCols, newRows;
+  if (aspect >= 1) {
+    newCols = gridSize;
+    newRows = Math.max(2, Math.round(gridSize / aspect));
+  } else {
+    newRows = gridSize;
+    newCols = Math.max(2, Math.round(gridSize * aspect));
+  }
+
+  // Render image at grid resolution to sample colors
+  const sampleCanvas = document.createElement('canvas');
+  sampleCanvas.width = newCols;
+  sampleCanvas.height = newRows;
+  const sctx = sampleCanvas.getContext('2d');
+  sctx.drawImage(uploadedImage, 0, 0, newCols, newRows);
+  const imageData = sctx.getImageData(0, 0, newCols, newRows).data;
+
+  // Collect all pixel colors
+  const pixels = [];
+  for (let i = 0; i < newCols * newRows; i++) {
+    const r = imageData[i * 4], g = imageData[i * 4 + 1], b = imageData[i * 4 + 2];
+    pixels.push([r, g, b]);
+  }
+
+  // K-means color quantization
+  const quantizedPalette = kMeansQuantize(pixels, numColors);
+
+  // Set up state
+  cols = newCols;
+  rows = newRows;
+  document.getElementById('cols').value = cols;
+  document.getElementById('rows').value = rows;
+
+  // Build color names and palette
+  colors = [];
+  palette = {};
+  for (let i = 0; i < quantizedPalette.length; i++) {
+    const [r, g, b] = quantizedPalette[i];
+    const name = 'IMG_' + i;
+    const hex = '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+    colors.push(name);
+    palette[name] = hex;
+  }
+
+  // Map each pixel to closest palette color
+  grid = [];
+  for (let row = 0; row < newRows; row++) {
+    const gridRow = [];
+    for (let col = 0; col < newCols; col++) {
+      const px = pixels[row * newCols + col];
+      gridRow.push(closestColor(px, quantizedPalette));
+    }
+    grid.push(gridRow);
+  }
+
+  selectedColor = 0;
+  renderPalette();
+  renderColorEditor();
+  draw();
+  status(`Zdjęcie skonwertowane: ${cols}x${rows}, ${numColors} kolorów`);
+}
+
+function kMeansQuantize(pixels, k, iterations = 15) {
+  // Initialize centroids with k-means++ seeding
+  const centroids = [pixels[Math.floor(Math.random() * pixels.length)].slice()];
+  for (let i = 1; i < k; i++) {
+    const dists = pixels.map(p => {
+      let minD = Infinity;
+      for (const c of centroids) minD = Math.min(minD, colorDist(p, c));
+      return minD;
+    });
+    const total = dists.reduce((a, b) => a + b, 0);
+    let rand = Math.random() * total;
+    for (let j = 0; j < pixels.length; j++) {
+      rand -= dists[j];
+      if (rand <= 0) { centroids.push(pixels[j].slice()); break; }
+    }
+  }
+
+  // Iterate
+  let assignments = new Array(pixels.length).fill(0);
+  for (let iter = 0; iter < iterations; iter++) {
+    // Assign pixels to closest centroid
+    for (let i = 0; i < pixels.length; i++) {
+      assignments[i] = closestColor(pixels[i], centroids);
+    }
+    // Update centroids
+    for (let c = 0; c < k; c++) {
+      let sumR = 0, sumG = 0, sumB = 0, count = 0;
+      for (let i = 0; i < pixels.length; i++) {
+        if (assignments[i] === c) {
+          sumR += pixels[i][0]; sumG += pixels[i][1]; sumB += pixels[i][2];
+          count++;
+        }
+      }
+      if (count > 0) {
+        centroids[c] = [sumR / count, sumG / count, sumB / count];
+      }
+    }
+  }
+  return centroids;
+}
+
+function closestColor(pixel, palette) {
+  let minD = Infinity, best = 0;
+  for (let i = 0; i < palette.length; i++) {
+    const d = colorDist(pixel, palette[i]);
+    if (d < minD) { minD = d; best = i; }
+  }
+  return best;
+}
+
+function colorDist(a, b) {
+  // Weighted euclidean (human perception weights)
+  const dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+  return dr * dr * 2 + dg * dg * 4 + db * db * 3;
+}
+
+// ===== Utility =====
+function toHex6(color) {
+  if (color && color.startsWith('#') && color.length === 7) return color;
+  // Parse via canvas
+  const tmp = document.createElement('canvas');
+  tmp.width = tmp.height = 1;
+  const c = tmp.getContext('2d');
+  c.fillStyle = color;
+  c.fillRect(0, 0, 1, 1);
+  const [r, g, b] = c.getImageData(0, 0, 1, 1).data;
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function status(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 's' && e.ctrlKey) { e.preventDefault(); saveFile(); }
+  // Number keys 1-9 select color
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= colors.length) { selectedColor = num - 1; renderPalette(); }
+  if (e.key === '0' || e.key === 'Escape') { selectedColor = -1; renderPalette(); }
+  // Arrow keys shift grid
+  if (e.key === 'ArrowLeft') { e.preventDefault(); shiftGrid(-1, 0); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); shiftGrid(1, 0); }
+  if (e.key === 'ArrowUp') { e.preventDefault(); shiftGrid(0, -1); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); shiftGrid(0, 1); }
+  if (e.key === 'c') { centerGrid(); }
+});
+
+// Resize handler
+window.addEventListener('resize', draw);
+
+init();
+</script>
+</body>
+</html>

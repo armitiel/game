@@ -311,6 +311,31 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
+    // --- HIDE: crouching into shadow (transition plays once, then holds last frame) ---
+    const HD = PLAYER.HIDE_FRAME_START;
+    const HDN = PLAYER.TOTAL_HIDE_FRAMES;
+    // Transition: full sequence from standing to crouching (plays once)
+    this.anims.create({
+      key: 'player_hide',
+      frames: this.anims.generateFrameNumbers('player_sheet', { start: HD, end: HD + HDN - 1 }),
+      frameRate: 18,
+      repeat: 0
+    });
+    // Held pose: last frame of hide (fully crouched)
+    this.anims.create({
+      key: 'player_hide_idle',
+      frames: [{ key: 'player_sheet', frame: HD + HDN - 1 }],
+      frameRate: 1,
+      repeat: 0
+    });
+    // Reverse: standing up from crouch (plays once, then return to idle)
+    this.anims.create({
+      key: 'player_hide_reverse',
+      frames: this.anims.generateFrameNumbers('player_sheet', { start: HD + HDN - 1, end: HD }),
+      frameRate: 22,
+      repeat: 0
+    });
+
     // === Generate paint can textures from can.png base (all colors) ===
     this._generateAllPaintCanTextures();
 

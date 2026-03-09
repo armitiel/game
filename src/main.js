@@ -74,9 +74,15 @@ document.addEventListener('click', unlockAudioContext, { once: true });
 
 const game = new Phaser.Game(config);
 
-// === PWA: Register service worker ===
-if ('serviceWorker' in navigator) {
+// === PWA: Register service worker (skip in Vite dev mode to avoid HMR conflicts) ===
+if ('serviceWorker' in navigator && !import.meta.hot) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+} else if (import.meta.hot && 'serviceWorker' in navigator) {
+  // Dev mode: unregister any existing SW so it doesn't intercept Vite HMR
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+    console.log('[DEV] Unregistered', regs.length, 'service worker(s)');
+  });
 }
 
 // === PWA: Install prompt with browser detection ===
@@ -207,4 +213,32 @@ if (isTouchDevice) {
       }
     }
   }, { once: true });
+}
+
+// === Dev: reload game when level editor saves ===
+if (import.meta.hot) {
+  console.log('[DEV] HMR active — listening for levels-updated event');
+  import.meta.hot.on('levels-updated', () => {
+    console.log('[DEV] Received levels-updated HMR event! Reloading...');
+    location.reload();
+  });
+
+  // Polling fallback: check /save-timestamp every 2s in case HMR websocket fails
+  let _lastKnownTs = 0;
+  setInterval(async () => {
+    try {
+      const r = await fetch('/save-timestamp', { cache: 'no-store' });
+      const { ts } = await r.json();
+      if (_lastKnownTs === 0) {
+        _lastKnownTs = ts; // first poll — just record current timestamp
+        console.log('[DEV] Poll: initial save timestamp:', ts);
+      } else if (ts > _lastKnownTs) {
+        console.log('[DEV] Poll: new save detected! ts:', ts, '(was:', _lastKnownTs, ') — reloading...');
+        _lastKnownTs = ts;
+        location.reload();
+      }
+    } catch (e) { /* server not ready yet */ }
+  }, 2000);
+} else {
+  console.log('[DEV] import.meta.hot is NOT available — HMR disabled');
 }

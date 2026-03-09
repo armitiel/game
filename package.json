@@ -4,7 +4,9 @@
   "description": "2D stealth platformer - graffiti art game built with Phaser 3",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --open",
+    "editor": "vite --open /tools/level-editor.html",
+    "studio": "node scripts/studio.js",
     "build": "vite build",
     "preview": "vite preview"
   },

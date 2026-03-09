@@ -284,16 +284,38 @@ export default class GameScene extends Phaser.Scene {
     this.ground = this.physics.add.staticGroup();
 
     const BLOCK_H = 32;
-    const addPlatform = (group, x, y, width) => {
+    const addPlatform = (group, x, y, width, depth) => {
       const tile = this.add.tileSprite(x + width / 2, y + BLOCK_H / 2, width, BLOCK_H, 'platform_block');
-      tile.setDepth(3);
+      tile.setDepth(depth ?? 3);
       this.physics.add.existing(tile, true);
       group.add(tile);
     };
 
     const ld = this.levelData;
-    ld.ground.forEach(g => addPlatform(this.ground, g.x, g.y, g.w));
-    ld.platforms.forEach(p => addPlatform(this.platforms, p.x, p.y, p.w));
+    ld.ground.forEach(g => addPlatform(this.ground, g.x, g.y, g.w, g.depth));
+    ld.platforms.forEach(p => {
+      addPlatform(this.platforms, p.x, p.y, p.w, p.depth);
+      // Cast shadow below platform
+      this._addPlatformShadow(p.x, p.y + BLOCK_H, p.w);
+    });
+  }
+
+  /**
+   * Add a soft drop-shadow beneath a platform.
+   * Uses a gradient that fades out vertically.
+   */
+  _addPlatformShadow(x, y, width) {
+    const shadowH = 40;
+    const steps = 6;
+    const gfx = this.add.graphics();
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps;
+      const alpha = 0.25 * (1 - t);
+      const sliceH = shadowH / steps;
+      gfx.fillStyle(0x000000, alpha);
+      gfx.fillRect(x, y + t * shadowH, width, sliceH);
+    }
+    gfx.setDepth(2.5); // between shadows (2) and platforms (3)
   }
 
   createLadders() {
@@ -307,13 +329,13 @@ export default class GameScene extends Phaser.Scene {
     const ZONE_EXTEND_BOTTOM = 16;
     const ld = this.levelData;
 
-    const addLadder = (x, topY, bottomY, minX, maxX) => {
+    const addLadder = (x, topY, bottomY, minX, maxX, ladderDepth) => {
       const height = bottomY - topY;
       const ladderScale = LADDER_DISPLAY_W / 51;
       const tileH = height / ladderScale;
       const visual = this.add.tileSprite(x, topY + height / 2, 51, tileH, 'ladder_tile');
       visual.setScale(ladderScale);
-      visual.setDepth(4);
+      visual.setDepth(ladderDepth ?? 4);
       this.ladderVisuals.add(visual);
 
       const zone = this.add.zone(
@@ -329,14 +351,14 @@ export default class GameScene extends Phaser.Scene {
       this.ladderData.push(ladderInfo);
     };
 
-    ld.ladders.forEach(l => addLadder(l.x, l.topY, l.bottomY, l.minX, l.maxX));
+    ld.ladders.forEach(l => addLadder(l.x, l.topY, l.bottomY, l.minX, l.maxX, l.depth));
   }
 
   createShadowZones() {
     this.shadowZones = this.physics.add.staticGroup();
     this.shadowVisuals = this.add.group();
 
-    const addShadow = (x, y, w, h) => {
+    const addShadow = (x, y, w, h, shadowDepth) => {
       const visual = this.add.graphics();
       // Dark fill — almost black
       visual.fillStyle(SHADOW.COLOR, SHADOW.ALPHA);
@@ -351,7 +373,7 @@ export default class GameScene extends Phaser.Scene {
       visual.fillStyle(0x2233aa, 0.15);
       visual.fillRect(x - 2, y, 2, h);               // left outer
       visual.fillRect(x + w, y, 2, h);                // right outer
-      visual.setDepth(2);
+      visual.setDepth(shadowDepth ?? 2);
       this.shadowVisuals.add(visual);
 
       const zone = this.add.zone(x, y, w, h).setOrigin(0, 0);
@@ -359,7 +381,7 @@ export default class GameScene extends Phaser.Scene {
       this.shadowZones.add(zone);
     };
 
-    this.levelData.shadows.forEach(s => addShadow(s.x, s.y, s.w, s.h));
+    this.levelData.shadows.forEach(s => addShadow(s.x, s.y, s.w, s.h, s.depth));
   }
 
   createPaintCans() {
@@ -376,9 +398,9 @@ export default class GameScene extends Phaser.Scene {
   createPaintSpots() {
     this.paintSpotZones = this.physics.add.staticGroup();
 
-    const addSpot = (x, y, w, h, paintingKey) => {
+    const addSpot = (x, y, w, h, paintingKey, spotDepth) => {
       // Paint-by-numbers spot — uses JSON grid data
-      const visual = this.add.graphics().setDepth(2);
+      const visual = this.add.graphics().setDepth(spotDepth ?? 2);
       // Draw brick wall placeholder
       visual.fillStyle(0x555566, 1);
       visual.fillRect(x - w / 2, y - h / 2, w, h);
@@ -393,9 +415,7 @@ export default class GameScene extends Phaser.Scene {
           visual.fillRect(bx, by, brickW, brickH);
         }
       }
-      // Colored border hint
-      visual.lineStyle(2, 0xffdd33, 0.6);
-      visual.strokeRect(x - w / 2 + 2, y - h / 2 + 2, w - 4, h - 4);
+      // No border — clean brick wall look
 
       // Interaction zone — slightly wider than visual for comfortable reach
       const interactPad = 10;  // small extra reach on each side
@@ -412,7 +432,7 @@ export default class GameScene extends Phaser.Scene {
       this.totalSpots++;
     };
 
-    this.levelData.paintSpots.forEach(s => addSpot(s.x, s.y, s.w, s.h, s.paintingKey));
+    this.levelData.paintSpots.forEach(s => addSpot(s.x, s.y, s.w, s.h, s.paintingKey, s.depth));
   }
 
   createTrashCans() {
