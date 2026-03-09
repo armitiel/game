@@ -44,45 +44,59 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
-// === PWA: Install prompt ===
-// Chrome/Edge/Samsung: capture beforeinstallprompt
-let deferredInstallPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  showInstallBanner();
-});
-
-// iOS Safari: detect standalone mode and show hint if not installed
-const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+// === PWA: Install prompt with browser detection ===
 const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches
   || window.matchMedia('(display-mode: standalone)').matches
   || navigator.standalone === true;
 
-if (isIOS && !isStandalone) {
-  // Show iOS-specific install hint after a short delay
-  setTimeout(() => showInstallBanner(true), 2500);
+const ua = navigator.userAgent;
+const isIOS = /iphone|ipad|ipod/i.test(ua);
+const isAndroid = /android/i.test(ua);
+// On iOS all browsers use WebKit — detect Safari (no CriOS/FxiOS/EdgiOS = real Safari)
+const isIOSSafari = isIOS && !(/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua));
+const isMobileDevice = isIOS || isAndroid;
+
+let deferredInstallPrompt = null;
+
+// Chrome/Edge/Samsung on Android: real install via beforeinstallprompt
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (isMobileDevice) showInstallBanner('chromium');
+});
+
+// iOS Safari: only browser that supports "Add to Home Screen" PWA on iOS
+if (isIOSSafari && !isStandalone) {
+  setTimeout(() => showInstallBanner('ios-safari'), 2500);
+}
+// iOS but NOT Safari — PWA won't work, tell user to open in Safari
+if (isIOS && !isIOSSafari && !isStandalone) {
+  setTimeout(() => showInstallBanner('ios-other'), 2500);
 }
 
-function showInstallBanner(isIOSHint) {
-  // Don't show if already in standalone/fullscreen mode
+function showInstallBanner(type) {
   if (isStandalone) return;
+  if (document.getElementById('pwa-install-banner')) return;
 
   const banner = document.createElement('div');
   banner.id = 'pwa-install-banner';
 
-  if (isIOSHint) {
-    banner.innerHTML = `
-      <span>Aby zainstalowac: tap <strong style="font-size:18px">&#x2934;</strong> (Udostepnij) &rarr; <strong>Na ekranie poczatkowym</strong></span>
-      <button id="pwa-dismiss">&times;</button>
-    `;
-  } else {
-    banner.innerHTML = `
+  const messages = {
+    'chromium': `
       <span>Zainstaluj Shadow Tagger na ekranie!</span>
       <button id="pwa-install">Instaluj</button>
       <button id="pwa-dismiss">&times;</button>
-    `;
-  }
+    `,
+    'ios-safari': `
+      <span>Zainstaluj: tap <strong style="font-size:18px">&#x2934;</strong> (Udostepnij) &rarr; <strong>Ekran poczatkowy</strong></span>
+      <button id="pwa-dismiss">&times;</button>
+    `,
+    'ios-other': `
+      <span>Otworz w <strong>Safari</strong> aby zainstalowac jako aplikacje</span>
+      <button id="pwa-dismiss">&times;</button>
+    `
+  };
+  banner.innerHTML = messages[type] || '';
 
   banner.style.cssText = `
     position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
@@ -95,8 +109,10 @@ function showInstallBanner(isIOSHint) {
   document.body.appendChild(banner);
 
   const dismissBtn = document.getElementById('pwa-dismiss');
-  dismissBtn.style.cssText = 'background:none;border:none;color:#ff6666;font-size:20px;cursor:pointer;padding:0 4px;';
-  dismissBtn.addEventListener('click', () => banner.remove());
+  if (dismissBtn) {
+    dismissBtn.style.cssText = 'background:none;border:none;color:#ff6666;font-size:20px;cursor:pointer;padding:0 4px;';
+    dismissBtn.addEventListener('click', () => banner.remove());
+  }
 
   const installBtn = document.getElementById('pwa-install');
   if (installBtn) {
