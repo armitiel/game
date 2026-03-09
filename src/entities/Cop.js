@@ -24,7 +24,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
     // Detection zone (visual)
     this.detectionCone = scene.add.graphics();
-    this.detectionCone.setDepth(1);
+    this.detectionCone.setDepth(9);
 
     // Exclamation mark for alert
     this.alertMark = scene.add.text(x, y - 30, '!', {
