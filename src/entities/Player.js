@@ -442,11 +442,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // === Enter ladder: DOWN while near ladder ===
-    // Require: holding DOWN for ~330ms AND player must be nearly stopped (not running)
-    // AND not pressing left/right — prevents accidental descent while moving
-    const LADDER_DOWN_HOLD_THRESHOLD = 10; // ~170ms at 60fps — quick when standing still
+    // Two modes:
+    // A) Player is nearly still → DOWN (with or without left/right) enters quickly (170ms)
+    // B) Player is moving → block descent entirely (prevent accidental entry while running)
     const isNearlyStill = Math.abs(this.body.velocity.x) < 30;
-    if (this.onLadder && down && !left && !right && onGround && isNearlyStill && this.ladderCooldown <= 0) {
+    const LADDER_DOWN_HOLD_THRESHOLD = 10; // ~170ms at 60fps — quick when standing still
+    if (this.onLadder && down && onGround && isNearlyStill && this.ladderCooldown <= 0) {
       this._ladderDownHoldFrames++;
       if (this._ladderDownHoldFrames >= LADDER_DOWN_HOLD_THRESHOLD) {
         this._ladderDownHoldFrames = 0;
