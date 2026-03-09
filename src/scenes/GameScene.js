@@ -464,7 +464,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Music toggle button (speaker icon)
     this.musicOn = true;
-    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.35 });
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
 
     // === iOS audio unlock strategy ===
     // iOS Safari blocks ALL audio until a user gesture resumes the AudioContext.
@@ -809,27 +809,55 @@ export default class GameScene extends Phaser.Scene {
 
   createColorSelector(bounds) {
     this.colorSelectorElements = [];
+    this._colorSelectorBounds = bounds;  // store for position updates
     // Use the painting's own color list
     const colorNames = this.pbn.colorMap;
-    const selectorY = bounds.y + bounds.h + 12;
-    const selectorStartX = bounds.x + bounds.w / 2 - (colorNames.length * 18) / 2;
+    const boxSize = 16;   // 15% bigger than old 14
+    const gap = 4;
 
     for (let i = 0; i < colorNames.length; i++) {
-      const sx = selectorStartX + i * 18;
       const hex = PAINT.COLORS[colorNames[i]] || 0xffffff;
       const hasColor = this.player.hasPaint(colorNames[i].toLowerCase());
       const alpha = hasColor ? 0.9 : 0.2;
 
-      const box = this.add.rectangle(sx + 7, selectorY + 7, 14, 14, hex, alpha)
+      const box = this.add.rectangle(0, 0, boxSize, boxSize, hex, alpha)
         .setDepth(15).setStrokeStyle(1, 0xffffff, 0.5);
-      const num = this.add.text(sx + 7, selectorY + 7, String(i + 1), {
-        font: 'bold 7px monospace', fill: '#000000'
+      const num = this.add.text(0, 0, String(i + 1), {
+        font: 'bold 8px monospace', fill: '#000000'
       }).setOrigin(0.5).setDepth(15.1).setAlpha(hasColor ? 1 : 0.3);
 
       this.colorSelectorElements.push(box, num);
     }
 
+    this.updateColorSelectorPosition();
     this.updateColorSelectorHighlight();
+  }
+
+  updateColorSelectorPosition() {
+    if (!this.colorSelectorElements || this.colorSelectorElements.length === 0) return;
+    const numColors = this.colorSelectorElements.length / 2;
+    const boxSize = 16;
+    const gap = 4;
+    const totalH = numColors * (boxSize + gap) - gap;
+    const offsetX = 28;  // distance from player center
+
+    // Decide side: default right, flip to left if player is too close to right edge
+    const cam = this.cameras.main;
+    const camRight = cam.scrollX + cam.width;
+    const playerScreenX = this.player.x;
+    const useLeft = (playerScreenX + offsetX + boxSize + 10 > camRight);
+    const sideSign = useLeft ? -1 : 1;
+
+    const baseX = this.player.x + sideSign * offsetX;
+    const baseY = this.player.y - totalH / 2;
+
+    for (let i = 0; i < numColors; i++) {
+      const box = this.colorSelectorElements[i * 2];
+      const num = this.colorSelectorElements[i * 2 + 1];
+      const cy = baseY + i * (boxSize + gap);
+      box.setPosition(baseX, cy);
+      num.setPosition(baseX, cy);
+    }
   }
 
   updateColorSelectorHighlight() {
@@ -1165,6 +1193,8 @@ export default class GameScene extends Phaser.Scene {
 
     // 3b. Paint arm update — drive hand movement and rope simulation
     if (this.player.isPainting && this.paintArm.active) {
+      // Update color selector position (follows player on desktop)
+      this.updateColorSelectorPosition();
       // Color switching (keys 1-4)
       if (this.colorKeys && this.pbn) {
         for (let i = 0; i < this.colorKeys.length; i++) {
