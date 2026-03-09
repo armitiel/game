@@ -307,20 +307,55 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       // Apply current frame to sprite (offset by CLIMB_FRAME_START)
       this.setFrame(PLAYER.CLIMB_FRAME_START + Math.floor(this.climbFrameIndex));
 
-      // Jump off ladder only with SPACE (not UP — UP continues climbing)
-      // But if near a paint spot, SPACE starts painting instead (handled by GameScene)
+      // Jump off ladder — multiple options:
+      // 1. SPACE (when not near paint spot) = jump UP off ladder
+      // 2. LEFT/RIGHT + SPACE = side jump off ladder (works even near paint spot)
+      // 3. DOWN + SPACE = drop down off ladder (works even near paint spot)
       const spaceJump = Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
+        Phaser.Input.Keyboard.JustDown(this.interactKey) ||
         (this.touch && this.touch.jumpJustPressed);
-      if (spaceJump && !this.nearPaintSpot) {
-        this.exitLadder('space-jump');
-        this.setVelocityY(PLAYER.JUMP_VELOCITY);
-        this.playAnim('player_jump');
-        this.spawnJumpDust();
-        this.updateHiddenIcon();
-        return;
+
+      if (spaceJump) {
+        if (down) {
+          // DOWN + SPACE = drop down from ladder
+          this.exitLadder('drop-down');
+          this.setVelocityY(PLAYER.CLIMB_SPEED * 2);  // fast drop
+          this.setVelocityX(0);
+          this.playAnim('player_jump');
+          this.updateHiddenIcon();
+          return;
+        } else if (left) {
+          // LEFT + SPACE = side jump left
+          this.exitLadder('side-jump-left');
+          this.setVelocityY(PLAYER.JUMP_VELOCITY * 0.7);
+          this.setVelocityX(-PLAYER.SPEED);
+          this.setFlipX(true);
+          this.playAnim('player_jump');
+          this.spawnJumpDust();
+          this.updateHiddenIcon();
+          return;
+        } else if (right) {
+          // RIGHT + SPACE = side jump right
+          this.exitLadder('side-jump-right');
+          this.setVelocityY(PLAYER.JUMP_VELOCITY * 0.7);
+          this.setVelocityX(PLAYER.SPEED);
+          this.setFlipX(false);
+          this.playAnim('player_jump');
+          this.spawnJumpDust();
+          this.updateHiddenIcon();
+          return;
+        } else if (!this.nearPaintSpot) {
+          // SPACE alone (no direction) = jump UP off ladder
+          this.exitLadder('space-jump');
+          this.setVelocityY(PLAYER.JUMP_VELOCITY);
+          this.playAnim('player_jump');
+          this.spawnJumpDust();
+          this.updateHiddenIcon();
+          return;
+        }
       }
 
-      // Left/right to dismount ladder
+      // Left/right without SPACE = gentle dismount (walk off)
       if (left && !up && !down) {
         this.exitLadder('move-left');
         this.setVelocityX(-PLAYER.SPEED);

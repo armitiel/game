@@ -34,9 +34,8 @@ export default class BootScene extends Phaser.Scene {
     });
 
     // === Load music ===
-    // Provide both mp3 and aac paths — Phaser picks the best for the platform
-    // (renamed to remove spaces which can cause issues on some CDNs/browsers)
-    this.load.audio('bgm', ['assets/sprites/bgm.mp3']);
+    // Multiple formats: browser picks first supported (m4a=iOS/Safari preferred, mp3=universal, ogg=Firefox/Chrome)
+    this.load.audio('bgm', ['assets/sprites/bgm.m4a', 'assets/sprites/bgm.mp3', 'assets/sprites/bgm.ogg']);
 
     // === Load logo ===
     this.load.image('logo', 'assets/sprites/logo.png');
