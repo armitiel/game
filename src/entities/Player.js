@@ -345,9 +345,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         return;
       }
 
-      // Auto-dismount onto platform: when descending, detect platform edges
+      // Auto-dismount onto platform: when descending, detect platform edges.
       // Platform collision is disabled during climbing, so we manually check feet vs platform tops.
       // Skip the platform we just dropped FROM (isDroppingToLadder handles that).
+      // Also skip platform at ladder top (that's where we entered from).
       if (down && !this.isDroppingToLadder && this.scene.platforms) {
         const feetY = this.body.y + this.body.height;
         const bodyLeft = this.body.x;
@@ -357,10 +358,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           const platTop = plat.body.y;
           const platLeft = plat.body.x;
           const platRight = platLeft + plat.body.width;
+          // Skip platform at ladder top (the one we started descending from)
+          if (this.ladderTopY && Math.abs(platTop - this.ladderTopY) < 5) continue;
           // Player must be horizontally over the platform
           if (bodyRight < platLeft + 4 || bodyLeft > platRight - 4) continue;
-          // Feet just reached or slightly passed the platform top (within one frame of movement)
-          if (feetY >= platTop - 2 && feetY <= platTop + 12) {
+          // Feet reached or passed the platform top (generous range to catch fast movement)
+          if (feetY >= platTop - 4 && feetY <= platTop + 20) {
             // Snap body bottom to platform top
             const snapY = platTop - PLAYER.BODY_H + PLAYER.FRAME_H / 2 - PLAYER.BODY_OFFSET_Y;
             this.y = snapY;
@@ -690,7 +693,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
   // === LADDER ===
 
-  exitLadder() {
+  exitLadder(reason) {
+    console.log('exitLadder called, reason:', reason || 'unknown', 'y:', this.y, 'feetY:', this.body.y + this.body.height);
     this.isClimbing = false;
     this.isDroppingToLadder = false;
     this.ladderCooldown = 15;  // ignore ladder for 15 frames after dismount
@@ -726,18 +730,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // When climbing but no longer overlapping ladder zone,
-    // use a grace period to avoid flickering exits.
-    // Don't force-exit here — let the auto-dismount in update() handle
-    // clean exits at top/bottom. Grace just keeps onLadder=true temporarily.
+    // DON'T force-exit — let the auto-dismount in update() handle clean exits
+    // at top (feet above platform) or bottom (feet reach platform/ground).
+    // Just keep onLadder=true so climbing continues smoothly until a platform is hit.
     if (!isOn && this.isClimbing) {
+      // Keep climbing — auto-dismount in update() will detect platform edges
+      this.onLadder = true;
       this.ladderGraceFrames = (this.ladderGraceFrames || 0) + 1;
-      if (this.ladderGraceFrames > 8) {
-        // Only force-exit if we've been off the ladder for many frames
-        // (e.g. pushed off by something unusual)
+      if (this.ladderGraceFrames > 60) {
+        // Safety fallback: if stuck off-ladder for 1 second, force-exit
         this.exitLadder();
       } else {
-        // Keep climbing during grace period
-        this.onLadder = true;
       }
     }
   }
