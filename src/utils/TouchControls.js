@@ -172,39 +172,25 @@ export default class TouchControls {
   }
 
   _drawSprayCan(scene, cx, cy) {
-    const g = scene.add.graphics().setScrollFactor(0).setDepth(201).setAlpha(0.6);
-    g.lineStyle(2.5, 0xffffff, 1);
-    // Can body
-    g.strokeRoundedRect(cx - 8, cy - 10, 16, 24, 3);
-    // Nozzle top
-    g.strokeRoundedRect(cx - 4, cy - 16, 8, 7, 2);
-    // Spray lines
-    g.lineStyle(1.5, 0xffffff, 0.7);
-    g.beginPath(); g.moveTo(cx, cy - 20); g.lineTo(cx, cy - 28); g.strokePath();
-    g.beginPath(); g.moveTo(cx - 5, cy - 19); g.lineTo(cx - 9, cy - 26); g.strokePath();
-    g.beginPath(); g.moveTo(cx + 5, cy - 19); g.lineTo(cx + 9, cy - 26); g.strokePath();
-    this.buttons.push(g);
+    // White spray can icon from can.png asset
+    const icon = scene.add.image(cx, cy, 'spray_can_base')
+      .setScale(36 / 72)   // ~36px tall
+      .setScrollFactor(0)
+      .setDepth(201)
+      .setAlpha(0.7)
+      .setTint(0xffffff);
+    this.buttons.push(icon);
   }
 
   _drawHand(scene, cx, cy) {
-    const g = scene.add.graphics().setScrollFactor(0).setDepth(201).setAlpha(0.6);
-    g.lineStyle(2.5, 0xffffff, 1);
-    // Palm
-    g.strokeRoundedRect(cx - 10, cy - 2, 20, 18, 4);
-    // Fingers (5 lines going up from palm)
-    const fingerX = [-8, -4, 0, 4, 8];
-    const fingerH = [10, 14, 16, 14, 10];
-    fingerX.forEach((fx, i) => {
-      g.lineStyle(2.5, 0xffffff, 1);
-      g.beginPath();
-      g.moveTo(cx + fx, cy - 2);
-      g.lineTo(cx + fx, cy - 2 - fingerH[i]);
-      g.strokePath();
-      // Fingertip round cap
-      g.fillStyle(0xffffff, 1);
-      g.fillCircle(cx + fx, cy - 2 - fingerH[i], 1.5);
-    });
-    this.buttons.push(g);
+    // White hand icon from paint_hand asset
+    const icon = scene.add.image(cx, cy, 'paint_hand')
+      .setDisplaySize(34, 34)
+      .setScrollFactor(0)
+      .setDepth(201)
+      .setAlpha(0.7)
+      .setTint(0xffffff);
+    this.buttons.push(icon);
   }
 
   addCircleButton(scene, x, y, radius, label, style, onDown, onUp) {
@@ -310,8 +296,8 @@ export default class TouchControls {
     const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88];
     const labels = ['1', '2', '3', '4'];
     const numColors = colorNames ? colorNames.length : 4;
-    const radius = 28;
-    const gap = 10;
+    const radius = 38;
+    const gap = 18;
     // Vertical stack above E button
     const x = this.eButtonX || (scene.cameras.main.width - 90);
     const eTop = (this.eButtonY || (scene.cameras.main.height - 195)) - 46 - gap - 30;
@@ -327,7 +313,7 @@ export default class TouchControls {
         .setStrokeStyle(2, 0xffffff, 0.5);
 
       const text = scene.add.text(x, y, labels[i], {
-        font: 'bold 20px monospace',
+        font: 'bold 26px monospace',
         fill: '#ffffff'
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.8);
 
