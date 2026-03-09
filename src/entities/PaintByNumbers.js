@@ -165,14 +165,13 @@ export default class PaintByNumbers {
 
     const flash = this.scene.add.rectangle(
       cx + this.cellW / 2, cy + this.cellH / 2,
-      this.cellW, this.cellH,
-      0xff0000, 0.6
-    ).setDepth(8);
+      this.cellW, this.cellH
+    ).setStrokeStyle(2, 0xff0000, 0.9).setFillStyle(0xff0000, 0).setDepth(3);
 
     this.scene.tweens.add({
       targets: flash,
       alpha: 0,
-      duration: 300,
+      duration: 400,
       onComplete: () => flash.destroy()
     });
   }
