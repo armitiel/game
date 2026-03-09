@@ -136,17 +136,56 @@ export default class TouchControls {
     }, () => { this._jumpJustPressed = true; },
        () => {});
 
-    // PAINT button (spray can icon) — was "ACT"
-    this.addCircleButton(scene, cam.width - 210, cam.height - 85, radius, '\uD83C\uDFA8', {
+    // PAINT button (spray can pictogram)
+    const paintX = cam.width - 210, paintY = cam.height - 85;
+    this.addCircleButton(scene, paintX, paintY, radius, null, {
       alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
     }, () => { this._actionJustPressed = true; }, () => {});
+    this._drawSprayCan(scene, paintX, paintY);
 
-    // GRAB/INTERACT button (hand icon) — was "E"
+    // GRAB/INTERACT button (hand pictogram)
     this.eButtonX = cam.width - 85;
     this.eButtonY = cam.height - 215;
-    this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, '\u270B', {
+    this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, null, {
       alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
     }, () => { this._eJustPressed = true; }, () => {});
+    this._drawHand(scene, this.eButtonX, this.eButtonY);
+  }
+
+  _drawSprayCan(scene, cx, cy) {
+    const g = scene.add.graphics().setScrollFactor(0).setDepth(201).setAlpha(0.6);
+    g.lineStyle(2.5, 0xffffff, 1);
+    // Can body
+    g.strokeRoundedRect(cx - 8, cy - 10, 16, 24, 3);
+    // Nozzle top
+    g.strokeRoundedRect(cx - 4, cy - 16, 8, 7, 2);
+    // Spray lines
+    g.lineStyle(1.5, 0xffffff, 0.7);
+    g.beginPath(); g.moveTo(cx, cy - 20); g.lineTo(cx, cy - 28); g.strokePath();
+    g.beginPath(); g.moveTo(cx - 5, cy - 19); g.lineTo(cx - 9, cy - 26); g.strokePath();
+    g.beginPath(); g.moveTo(cx + 5, cy - 19); g.lineTo(cx + 9, cy - 26); g.strokePath();
+    this.buttons.push(g);
+  }
+
+  _drawHand(scene, cx, cy) {
+    const g = scene.add.graphics().setScrollFactor(0).setDepth(201).setAlpha(0.6);
+    g.lineStyle(2.5, 0xffffff, 1);
+    // Palm
+    g.strokeRoundedRect(cx - 10, cy - 2, 20, 18, 4);
+    // Fingers (5 lines going up from palm)
+    const fingerX = [-8, -4, 0, 4, 8];
+    const fingerH = [10, 14, 16, 14, 10];
+    fingerX.forEach((fx, i) => {
+      g.lineStyle(2.5, 0xffffff, 1);
+      g.beginPath();
+      g.moveTo(cx + fx, cy - 2);
+      g.lineTo(cx + fx, cy - 2 - fingerH[i]);
+      g.strokePath();
+      // Fingertip round cap
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(cx + fx, cy - 2 - fingerH[i], 1.5);
+    });
+    this.buttons.push(g);
   }
 
   addCircleButton(scene, x, y, radius, label, style, onDown, onUp) {
@@ -155,33 +194,35 @@ export default class TouchControls {
       .setDepth(200)
       .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains);
 
-    // Use larger font for emoji icons, smaller for text labels
-    const isEmoji = label.length > 2 || label.charCodeAt(0) > 0x2000;
-    const fontSize = isEmoji ? 28 : 18;
-    const text = scene.add.text(x, y, label, {
-      font: `bold ${fontSize}px monospace`,
-      fill: '#ffffff'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.5);
+    let text = null;
+    if (label) {
+      const fontSize = 18;
+      text = scene.add.text(x, y, label, {
+        font: `bold ${fontSize}px monospace`,
+        fill: '#ffffff'
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.5);
+    }
 
     bg.on('pointerdown', () => {
       bg.setAlpha(style.activeAlpha);
-      text.setAlpha(0.9);
+      if (text) text.setAlpha(0.9);
       onDown();
     });
 
     bg.on('pointerup', () => {
       bg.setAlpha(style.alpha);
-      text.setAlpha(0.5);
+      if (text) text.setAlpha(0.5);
       onUp();
     });
 
     bg.on('pointerout', () => {
       bg.setAlpha(style.alpha);
-      text.setAlpha(0.5);
+      if (text) text.setAlpha(0.5);
       onUp();
     });
 
-    this.buttons.push(bg, text);
+    this.buttons.push(bg);
+    if (text) this.buttons.push(text);
     return bg;
   }
 
