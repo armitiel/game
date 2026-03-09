@@ -182,6 +182,10 @@ export default class GameScene extends Phaser.Scene {
       if (this.player.isPushingLadder) {
         this.player.stopLadderPush();
       }
+      // Clean up hiding if active
+      if (this.player.isHiding) {
+        this.player.stopHiding();
+      }
       this.sfx.caught();
       this.player.die(this.checkpointX, this.checkpointY);
       this.cops.forEach(cop => cop.resetState());
@@ -226,9 +230,19 @@ export default class GameScene extends Phaser.Scene {
     const bg = this.add.graphics();
     bg.setDepth(0);
 
-    // Night sky
-    bg.fillStyle(0x0a0a1a, 1);
-    bg.fillRect(0, 0, ww, wh);
+    // Night sky — vertical gradient (dark navy top → slightly lighter bottom)
+    const gradientSteps = 32;
+    for (let i = 0; i < gradientSteps; i++) {
+      const t = i / (gradientSteps - 1);
+      // Top: 0x06061a → Bottom: 0x101030
+      const r = Math.round(6 + t * 10);
+      const g = Math.round(6 + t * 10);
+      const b = Math.round(26 + t * 22);
+      bg.fillStyle((r << 16) | (g << 8) | b, 1);
+      const sy = Math.floor(wh * i / gradientSteps);
+      const sh = Math.ceil(wh / gradientSteps) + 1;
+      bg.fillRect(0, sy, ww, sh);
+    }
 
     // Stars
     const starCount = Math.floor(40 * (wh / GAME.HEIGHT));
@@ -441,7 +455,7 @@ export default class GameScene extends Phaser.Scene {
     const uiScale = isMobile ? 1.8 : 1;
     const slotColors = this.levelColors;
     // Can display: 102x72 scaled to 28px tall → tighter spacing
-    const slotSpacing = Math.round(34 * uiScale);
+    const slotSpacing = Math.round(26 * uiScale);
     const slotStartX = Math.round(28 * uiScale);
     const slotY = Math.round(26 * uiScale);
     this.hudBg = this.add.rectangle(Math.round(6 * uiScale), Math.round(6 * uiScale), slotColors.length * slotSpacing + Math.round(12 * uiScale), Math.round(42 * uiScale), 0x000000, 0.6)
@@ -634,8 +648,10 @@ export default class GameScene extends Phaser.Scene {
       const hints = [];
       let paintHint = false;
 
-      if (this.player.isHidden) {
+      if (this.player.isHiding) {
         hints.push('UKRYTY');
+      } else if (this.player.inShadowZone && !this.player.isHiding) {
+        hints.push('↓ schowaj się');
       }
 
       // Paint spot nearby
@@ -1125,7 +1141,9 @@ export default class GameScene extends Phaser.Scene {
 
     // 1. Apply overlap results to player state
     this.player.setOnLadder(this.playerOnLadderThisFrame, this.ladderCenterX, this.ladderTopY, this.currentLadderInfo);
-    this.player.setHidden(this.playerInShadow);
+    // Shadow zone: tell player whether they're in shadow (for hide mechanic availability)
+    // isHidden is now managed by Player — only true when actively hiding (DOWN + stopped + in shadow)
+    this.player.inShadowZone = this.playerInShadow;
 
     // 2. Check paint input (SPACE or touch ACT)
     // Allowed when: on solid ground OR on ladder (not mid-air)
