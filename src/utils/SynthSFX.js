@@ -6,7 +6,7 @@ export default class SynthSFX {
   constructor() {
     this.ctx = null;
     this.enabled = true;
-    this.volume = 0.3;
+    this.volume = 0.7;
   }
 
   init() {
