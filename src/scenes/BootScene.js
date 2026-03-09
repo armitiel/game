@@ -47,8 +47,8 @@ export default class BootScene extends Phaser.Scene {
     // === Load platform/environment textures ===
     this.load.image('platform_block', 'assets/sprites/elementy/blok.png');
     this.load.image('ladder_tile', 'assets/sprites/elementy/drabinka.png');
-    // Paint can sprites are all generated procedurally in generateOtherTextures()
-    // Colors are defined in PAINT.COLORS — no PNG files needed
+    // Spray can base image — green dome will be recolored per paint color
+    this.load.image('spray_can_base', 'assets/sprites/elementy/green.png');
     this.load.image('trash', 'assets/sprites/elementy/trash.png');
     this.load.image('trash2', 'assets/sprites/elementy/trash2.png');
 
@@ -400,21 +400,8 @@ export default class BootScene extends Phaser.Scene {
         const colorHex = parseInt(hex.replace('#', ''), 16);
         PAINT.COLORS[name] = colorHex;
 
-        // Generate world sprite (18x34) for paint can pickup
-        const SW = 18, SH = 34;
-        const sprGfx = this.make.graphics({ add: false });
-        sprGfx.fillStyle(colorHex, 1);
-        sprGfx.fillRoundedRect(1, 10, SW - 2, SH - 12, 2);
-        sprGfx.fillStyle(0xcccccc, 1);
-        sprGfx.fillRect(3, 6, SW - 6, 6);
-        sprGfx.lineStyle(1.5, 0xaaaaaa, 1);
-        sprGfx.strokeCircle(SW / 2, 4, 4);
-        sprGfx.fillStyle(0xffffff, 0.25);
-        sprGfx.fillRect(3, 12, 6, 2);
-        sprGfx.fillStyle(0x000000, 0.15);
-        sprGfx.fillRect(2, 20, SW - 4, 4);
-        sprGfx.generateTexture(`paint_can_sprite_${name.toLowerCase()}`, SW, SH);
-        sprGfx.destroy();
+        // Generate world sprite from green.png base — recolor green dome to target color
+        this._recolorSprayCan(`paint_can_sprite_${name.toLowerCase()}`, colorHex, 24, 34);
 
         // Generate mini icon (16x16)
         const canGfx = this.make.graphics({ add: false });
@@ -443,4 +430,68 @@ export default class BootScene extends Phaser.Scene {
       }
     }
   }
+
+  /**
+   * Recolor the white/gray dome of spray_can_base to a target color.
+   * Dome area (~top 40% of image): bright neutral pixels get colorized.
+   * Metal body stays untouched.
+   */
+  _recolorSprayCan(textureKey, targetHex, outW, outH) {
+    const srcTex = this.textures.get('spray_can_base');
+    const srcImg = srcTex.getSourceImage();
+
+    const canvas = document.createElement('canvas');
+    canvas.width = srcImg.width;
+    canvas.height = srcImg.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(srcImg, 0, 0);
+
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgData.data;
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Target color in RGB
+    const tR = (targetHex >> 16) & 0xff;
+    const tG = (targetHex >> 8) & 0xff;
+    const tB = targetHex & 0xff;
+
+    // Dome is in the top ~40% of the image
+    const domeBottom = Math.floor(h * 0.42);
+
+    for (let i = 0; i < d.length; i += 4) {
+      const a = d[i + 3];
+      if (a < 10) continue;
+
+      // Only process dome area
+      const pixelY = Math.floor((i / 4) / w);
+      if (pixelY > domeBottom) continue;
+
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      const lum = (r + g + b) / 3;
+      const sat = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
+
+      // Colorize neutral pixels (low saturation) that aren't too dark (outlines)
+      if (sat < 0.25 && lum > 80) {
+        // Blend: preserve luminance variation, apply target color
+        const factor = lum / 200; // keep highlights/shadows from original
+        d[i]     = Math.min(255, Math.round(tR * factor));
+        d[i + 1] = Math.min(255, Math.round(tG * factor));
+        d[i + 2] = Math.min(255, Math.round(tB * factor));
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+
+    // Scale down to game size
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = outW;
+    outCanvas.height = outH;
+    const outCtx = outCanvas.getContext('2d');
+    outCtx.imageSmoothingEnabled = true;
+    outCtx.drawImage(canvas, 0, 0, outW, outH);
+
+    this.textures.addCanvas(textureKey, outCanvas);
+  }
+
 }

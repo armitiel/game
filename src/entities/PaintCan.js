@@ -8,8 +8,9 @@ export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.colorName = colorName.toLowerCase();
-    // Procedural textures are already at display size (18x34)
-    this.setDepth(2.5);  // above murals (depth 1.5-2), below platforms (depth 3)
+    // Texture is recolored from green.png base (24x34)
+    this.setDepth(2.5);
+    this.body.setSize(20, 30);
     this.body.setAllowGravity(false);
     this.body.setImmovable(true);
     this.body.moves = false;  // let tween drive position — no physics velocity fighting
