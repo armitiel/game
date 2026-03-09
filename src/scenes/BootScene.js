@@ -113,18 +113,8 @@ export default class BootScene extends Phaser.Scene {
     // Paint cans — real textures generated in create() from can.png base
     // (can.png must be loaded first before pixel manipulation)
 
-    // HUD empty slot (procedural — no image needed)
-    const emptyGfx = this.make.graphics({ add: false });
-    emptyGfx.fillStyle(0x333344, 0.5);
-    emptyGfx.fillRoundedRect(3, 8, 18, 18, 2);
-    emptyGfx.fillRect(6, 4, 12, 5);
-    emptyGfx.lineStyle(1.5, 0x666688, 0.6);
-    emptyGfx.strokeCircle(12, 4, 4);
-    emptyGfx.lineStyle(1, 0x666688, 0.6);
-    emptyGfx.strokeRoundedRect(3, 8, 18, 18, 2);
-    emptyGfx.strokeRect(6, 4, 12, 5);
-    emptyGfx.generateTexture('hud_can_empty', 24, 28);
-    emptyGfx.destroy();
+    // HUD empty slot — semi-transparent silhouette of can.png
+    this._generateEmptyCanSlot();
 
     // Paint spots — brick wall with marked area (target + painted)
     const SW = PAINT.SPOT_W;  // 64
@@ -328,16 +318,44 @@ export default class BootScene extends Phaser.Scene {
   }
 
   /**
-   * Generate all paint can textures from green.png base.
-   * Recolors the dome for each color in PAINT.COLORS.
+   * Generate HUD empty slot: semi-transparent dark silhouette of can.png.
+   * Preserves original proportions of the spray can asset.
+   */
+  _generateEmptyCanSlot() {
+    const srcTex = this.textures.get('spray_can_base');
+    const srcImg = srcTex.getSourceImage();
+    const sw = srcImg.width, sh = srcImg.height;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(srcImg, 0, 0);
+
+    const imgData = ctx.getImageData(0, 0, sw, sh);
+    const d = imgData.data;
+
+    // Convert to dark semi-transparent silhouette
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 10) continue;
+      // Dark blue-gray tint, reduced opacity
+      d[i]     = 30;   // R
+      d[i + 1] = 30;   // G
+      d[i + 2] = 50;   // B
+      d[i + 3] = Math.min(d[i + 3], 100); // semi-transparent
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    this.textures.addCanvas('hud_can_empty', canvas);
+  }
+
+  /**
+   * Generate all paint can textures from can.png base.
+   * Recolors the body for each color in PAINT.COLORS.
    */
   _generateAllPaintCanTextures() {
     Object.entries(PAINT.COLORS).forEach(([name, colorHex]) => {
-      const key = name.toLowerCase();
-      // All textures at native can.png resolution (102x72) — scaled in-game
-      this._recolorSprayCan(`paint_can_sprite_${key}`, colorHex);
-      this._recolorSprayCan(`paint_can_${key}`, colorHex);
-      this._recolorSprayCan(`hud_can_${key}`, colorHex);
+      this._generateCanVariants(name.toLowerCase(), colorHex);
     });
   }
 
@@ -360,66 +378,69 @@ export default class BootScene extends Phaser.Scene {
         const colorHex = parseInt(hex.replace('#', ''), 16);
         PAINT.COLORS[name] = colorHex;
 
-        // All textures at native can.png resolution — scaled in-game
-        this._recolorSprayCan(`paint_can_sprite_${name.toLowerCase()}`, colorHex);
-        this._recolorSprayCan(`paint_can_${name.toLowerCase()}`, colorHex);
-        this._recolorSprayCan(`hud_can_${name.toLowerCase()}`, colorHex);
+        // Recolor once, create all texture variants
+        this._generateCanVariants(name.toLowerCase(), colorHex);
       }
     }
   }
 
   /**
-   * Recolor the grayscale body of can.png to a target color.
-   * Body area (Y 38-85%): neutral pixels get colorized.
-   * Dome, cap, bands and base stay untouched.
-   * Output at native source resolution (102x72) for max quality.
+   * Recolor can body ONCE, then create all 3 texture variants from the result.
+   * This avoids iterating 208k pixels multiple times per color.
    */
-  _recolorSprayCan(textureKey, targetHex) {
+  _generateCanVariants(colorKey, targetHex) {
     const srcTex = this.textures.get('spray_can_base');
     const srcImg = srcTex.getSourceImage();
+    const sw = srcImg.width, sh = srcImg.height;
 
+    // Recolor on a single canvas
     const canvas = document.createElement('canvas');
-    canvas.width = srcImg.width;
-    canvas.height = srcImg.height;
+    canvas.width = sw;
+    canvas.height = sh;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(srcImg, 0, 0);
 
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const imgData = ctx.getImageData(0, 0, sw, sh);
     const d = imgData.data;
-    const w = canvas.width;
-    const h = canvas.height;
 
-    // Target color in RGB
     const tR = (targetHex >> 16) & 0xff;
     const tG = (targetHex >> 8) & 0xff;
     const tB = targetHex & 0xff;
 
-    // Body band: skip dome/cap at top (~38%), stop before base (~85%)
-    const bodyTop = Math.floor(h * 0.38);
-    const bodyBottom = Math.floor(h * 0.85);
+    // Body band: start higher (~30%) and extend lower (~87%)
+    const bodyTop = Math.floor(sh * 0.30);
+    const bodyBottom = Math.floor(sh * 0.87);
 
     for (let i = 0; i < d.length; i += 4) {
-      const a = d[i + 3];
-      if (a < 10) continue;
-
-      const pixelY = Math.floor((i / 4) / w);
-      if (pixelY < bodyTop || pixelY > bodyBottom) continue;
+      if (d[i + 3] < 10) continue;
+      const py = (i >> 2) / sw | 0;
+      if (py < bodyTop || py > bodyBottom) continue;
 
       const r = d[i], g = d[i + 1], b = d[i + 2];
       const lum = (r + g + b) / 3;
-      const sat = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
-
-      // Colorize neutral pixels — skip dark edges/bands
-      if (sat < 0.25 && lum > 60) {
-        const factor = lum / 200;
-        d[i]     = Math.min(255, Math.round(tR * factor));
-        d[i + 1] = Math.min(255, Math.round(tG * factor));
-        d[i + 2] = Math.min(255, Math.round(tB * factor));
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      if ((mx - mn) / 255 < 0.25 && lum > 60) {
+        const f = lum / 200;
+        d[i]     = Math.min(255, tR * f + 0.5 | 0);
+        d[i + 1] = Math.min(255, tG * f + 0.5 | 0);
+        d[i + 2] = Math.min(255, tB * f + 0.5 | 0);
       }
     }
-
     ctx.putImageData(imgData, 0, 0);
-    this.textures.addCanvas(textureKey, canvas);
+
+    // World sprite — full resolution (PaintCan.js uses setScale)
+    this.textures.addCanvas(`paint_can_sprite_${colorKey}`, canvas);
+
+    // Mini icon & HUD icon — share the same full-res canvas
+    // (Phaser scales via setScale/displaySize, no need for separate small textures)
+    const cloneCanvas = (key) => {
+      const c = document.createElement('canvas');
+      c.width = sw; c.height = sh;
+      c.getContext('2d').drawImage(canvas, 0, 0);
+      this.textures.addCanvas(key, c);
+    };
+    cloneCanvas(`paint_can_${colorKey}`);
+    cloneCanvas(`hud_can_${colorKey}`);
   }
 
 }

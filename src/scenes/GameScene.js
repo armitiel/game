@@ -431,21 +431,24 @@ export default class GameScene extends Phaser.Scene {
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const uiScale = isMobile ? 1.8 : 1;
     const slotColors = this.levelColors;
-    const slotStartX = Math.round(22 * uiScale);
+    // Can display: 102x72 scaled to 28px tall → ~40px wide per slot
+    const slotSpacing = Math.round(44 * uiScale);
+    const slotStartX = Math.round(28 * uiScale);
     const slotY = Math.round(26 * uiScale);
-    const slotSpacing = Math.round(32 * uiScale);
-    this.hudBg = this.add.rectangle(Math.round(6 * uiScale), Math.round(8 * uiScale), slotColors.length * slotSpacing + Math.round(12 * uiScale), Math.round(40 * uiScale), 0x000000, 0.6)
+    this.hudBg = this.add.rectangle(Math.round(6 * uiScale), Math.round(6 * uiScale), slotColors.length * slotSpacing + Math.round(12 * uiScale), Math.round(42 * uiScale), 0x000000, 0.6)
       .setDepth(100).setScrollFactor(0).setOrigin(0, 0);
 
     this.hudSlots = [];
     for (let i = 0; i < slotColors.length; i++) {
       const sx = slotStartX + i * slotSpacing;
+      // Both textures are native 102x72 from can.png — scale to ~28px tall
+      const canScale = uiScale * 28 / 72;
       // Grey empty can (always visible as background)
       const empty = this.add.image(sx, slotY, 'hud_can_empty')
-        .setDepth(100.5).setScrollFactor(0).setScale(uiScale);
-      // Colored filled can (hidden until collected) — native 102x72 texture
+        .setDepth(100.5).setScrollFactor(0).setScale(canScale);
+      // Colored filled can (hidden until collected)
       const filled = this.add.image(sx, slotY, `hud_can_${slotColors[i]}`)
-        .setDepth(101).setScrollFactor(0).setVisible(false).setScale(uiScale * 28 / 72);
+        .setDepth(101).setScrollFactor(0).setVisible(false).setScale(canScale);
       // Count label below
       const count = this.add.text(sx, slotY + Math.round(17 * uiScale), '', {
         font: `bold ${Math.round(8 * uiScale)}px monospace`,
