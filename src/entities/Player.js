@@ -311,7 +311,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       const spaceJump = Phaser.Input.Keyboard.JustDown(this.cursors.space) ||
         (this.touch && this.touch.jumpJustPressed);
       if (spaceJump && !this.nearPaintSpot) {
-        this.exitLadder();
+        this.exitLadder('space-jump');
         this.setVelocityY(PLAYER.JUMP_VELOCITY);
         this.playAnim('player_jump');
         this.spawnJumpDust();
@@ -321,11 +321,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
       // Left/right to dismount ladder
       if (left && !up && !down) {
-        this.exitLadder();
+        this.exitLadder('move-left');
         this.setVelocityX(-PLAYER.SPEED);
         this.setFlipX(true);
       } else if (right && !up && !down) {
-        this.exitLadder();
+        this.exitLadder('move-right');
         this.setVelocityX(PLAYER.SPEED);
         this.setFlipX(false);
       }
@@ -337,7 +337,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       if (up && this.ladderTopY && playerFeetY <= this.ladderTopY - clearanceAbovePlatform) {
         // Position player precisely on the platform surface
         this.y = this.ladderTopY - PLAYER.BODY_H / 2 - PLAYER.BODY_OFFSET_Y;
-        this.exitLadder();
+        this.exitLadder('top-clearance');
         this.setVelocityY(0);
         this.setVelocityX(0);
         this.playAnim('player_idle');
@@ -353,7 +353,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         const feetY = this.body.y + this.body.height;
         const bodyLeft = this.body.x;
         const bodyRight = this.body.x + this.body.width;
-        const platforms = this.scene.platforms.getChildren();
+        // Check both platforms and ground blocks for landing
+        const platforms = [
+          ...this.scene.platforms.getChildren(),
+          ...(this.scene.ground ? this.scene.ground.getChildren() : [])
+        ];
         for (const plat of platforms) {
           const platTop = plat.body.y;
           const platLeft = plat.body.x;
@@ -367,7 +371,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
             // Snap body bottom to platform top
             const snapY = platTop - PLAYER.BODY_H + PLAYER.FRAME_H / 2 - PLAYER.BODY_OFFSET_Y;
             this.y = snapY;
-            this.exitLadder();
+            this.exitLadder('platform-edge-descend');
             this.setVelocityY(0);
             this.setVelocityX(0);
             this.playAnim('player_idle');
@@ -377,9 +381,25 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         }
       }
 
+      // Auto-dismount at ladder bottom: stop climbing when feet reach ladder's bottomY
+      if (down && this.ladderBottomY) {
+        const feetY = this.body.y + this.body.height;
+        if (feetY >= this.ladderBottomY) {
+          // Snap to ladder bottom
+          const snapY = this.ladderBottomY - PLAYER.BODY_H + PLAYER.FRAME_H / 2 - PLAYER.BODY_OFFSET_Y;
+          this.y = snapY;
+          this.exitLadder('ladder-bottom');
+          this.setVelocityY(0);
+          this.setVelocityX(0);
+          this.playAnim('player_idle');
+          this.updateHiddenIcon();
+          return;
+        }
+      }
+
       // Auto-dismount at bottom: reached ground while climbing down
       if (this.body.blocked.down) {
-        this.exitLadder();
+        this.exitLadder('ground-contact');
         this.setVelocityY(0);
         this.playAnim('player_idle');
       }
@@ -725,6 +745,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (isOn) {
       this.ladderX = ladderCenterX;
       this.ladderTopY = ladderTopY;
+      this.ladderBottomY = (ladderInfo && ladderInfo.bottomY) || null;
       this.nearbyLadderInfo = ladderInfo || null;
       this.ladderGraceFrames = 0;
     }
@@ -736,12 +757,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (!isOn && this.isClimbing) {
       // Keep climbing — auto-dismount in update() will detect platform edges
       this.onLadder = true;
-      this.ladderGraceFrames = (this.ladderGraceFrames || 0) + 1;
-      if (this.ladderGraceFrames > 60) {
-        // Safety fallback: if stuck off-ladder for 1 second, force-exit
-        this.exitLadder();
-      } else {
-      }
+      // No forced exit — player stays on ladder until:
+      // 1. Feet reach a platform (platform-edge detection in update)
+      // 2. Feet hit ground (body.blocked.down)
+      // 3. Player jumps off (SPACE)
+      // 4. Player moves left/right off ladder
+      // 5. Player reaches top of ladder
     }
   }
 
