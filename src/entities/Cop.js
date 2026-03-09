@@ -9,6 +9,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.setCollideWorldBounds(true);
+    this.setDepth(4.5); // in front of shadows (2) and ladders (4)
     this.body.setSize(COP.WIDTH - 4, COP.HEIGHT - 2);
 
     // Patrol bounds
