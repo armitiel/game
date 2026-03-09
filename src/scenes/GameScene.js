@@ -465,7 +465,15 @@ export default class GameScene extends Phaser.Scene {
     // Music toggle button (speaker icon)
     this.musicOn = true;
     this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
-    this.bgm.play();
+
+    // iOS Safari blocks audio autoplay — unlock on first user gesture
+    if (this.sound.locked) {
+      this.sound.once('unlocked', () => {
+        if (this.musicOn) this.bgm.play();
+      });
+    } else {
+      this.bgm.play();
+    }
 
     const muteBtnSize = Math.round(64 * uiScale);
     const muteBtnX = gw - Math.round(55 * uiScale);
@@ -1096,7 +1104,32 @@ export default class GameScene extends Phaser.Scene {
     // 3. Player movement & input (uses ladder/shadow state)
     this.player.update();
 
-    // 3a. Paint arm update — drive hand movement and rope simulation
+    // 3a. Ladder-to-platform landing: when climbing down, detect platform under feet
+    if (this.player.isClimbing && this.player.body.velocity.y > 0) {
+      const playerFeetY = this.player.y + this.player.body.halfHeight;
+      const playerX = this.player.x;
+      const BLOCK_H = 32;
+      let landed = false;
+      this.platforms.children.iterate(plat => {
+        if (landed || !plat || !plat.body) return;
+        const pTop = plat.body.y;
+        const pLeft = plat.body.x;
+        const pRight = pLeft + plat.body.width;
+        // Player feet just reached or passed the platform top, and horizontally overlapping
+        if (playerFeetY >= pTop - 2 && playerFeetY <= pTop + 10 &&
+            playerX >= pLeft && playerX <= pRight) {
+          // Snap player onto platform and exit ladder
+          this.player.y = pTop - this.player.body.halfHeight;
+          this.player.exitLadder();
+          this.player.setVelocityY(0);
+          this.player.setVelocityX(0);
+          this.player.playAnim('player_idle');
+          landed = true;
+        }
+      });
+    }
+
+    // 3b. Paint arm update — drive hand movement and rope simulation
     if (this.player.isPainting && this.paintArm.active) {
       // Color switching (keys 1-4)
       if (this.colorKeys && this.pbn) {
