@@ -81,6 +81,21 @@ function showInstallBanner(type) {
   const banner = document.createElement('div');
   banner.id = 'pwa-install-banner';
 
+  // iOS share icon (square with arrow up) recreated in CSS
+  const iosShareIcon = `<span style="display:inline-block;position:relative;width:22px;height:26px;vertical-align:middle;">
+    <span style="position:absolute;bottom:0;left:3px;width:16px;height:18px;border:2px solid #00ff88;border-top:none;border-radius:0 0 3px 3px;"></span>
+    <span style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:2px;height:16px;background:#00ff88;"></span>
+    <span style="position:absolute;top:0;left:50%;transform:translateX(-50%) rotate(-45deg);transform-origin:bottom left;width:2px;height:7px;background:#00ff88;"></span>
+    <span style="position:absolute;top:0;left:50%;transform:translateX(-50%) rotate(45deg);transform-origin:bottom right;width:2px;height:7px;background:#00ff88;"></span>
+  </span>`;
+
+  // iOS "Add to Home Screen" icon (plus in a square)
+  const iosAddIcon = `<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:2px solid #00ff88;border-radius:4px;font-size:18px;font-weight:bold;color:#00ff88;line-height:1;vertical-align:middle;">+</span>`;
+
+  const stepStyle = 'display:flex;align-items:center;gap:8px;margin:4px 0;';
+  const numStyle = 'display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;background:#00ff88;color:#000;font-weight:bold;font-size:13px;';
+  const arrowRight = '<span style="color:#00ff8888;font-size:18px;margin:0 2px;">&#10145;</span>';
+
   const messages = {
     'chromium': `
       <span>Zainstaluj Shadow Tagger na ekranie!</span>
@@ -88,8 +103,20 @@ function showInstallBanner(type) {
       <button id="pwa-dismiss">&times;</button>
     `,
     'ios-safari': `
-      <span>Zainstaluj: tap <strong style="font-size:18px">&#x2934;</strong> (Udostepnij) &rarr; <strong>Ekran poczatkowy</strong></span>
-      <button id="pwa-dismiss">&times;</button>
+      <button id="pwa-dismiss" style="position:absolute;top:6px;right:8px;">&times;</button>
+      <div style="font-size:13px;font-weight:bold;margin-bottom:6px;color:#00ff88;">Zainstaluj Shadow Tagger</div>
+      <div style="${stepStyle}">
+        <span style="${numStyle}">1</span>
+        <span>Tap</span> ${iosShareIcon} <span style="color:#aaa;">na pasku Safari</span>
+      </div>
+      <div style="${stepStyle}">
+        <span style="${numStyle}">2</span>
+        <span>Wybierz</span> ${iosAddIcon} <strong>Na ekranie poczatkowym</strong>
+      </div>
+      <div style="${stepStyle}">
+        <span style="${numStyle}">3</span>
+        <span>Tap</span> <strong>Dodaj</strong> ${arrowRight} <span style="color:#aaa;">Gotowe!</span>
+      </div>
     `,
     'ios-other': `
       <span>Otworz w <strong>Safari</strong> aby zainstalowac jako aplikacje</span>
@@ -98,11 +125,13 @@ function showInstallBanner(type) {
   };
   banner.innerHTML = messages[type] || '';
 
+  const isIOSGuide = type === 'ios-safari';
   banner.style.cssText = `
     position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
-    z-index: 10001; display: flex; align-items: center; gap: 12px;
+    z-index: 10001;
+    display: ${isIOSGuide ? 'block' : 'flex'}; align-items: center; gap: 12px;
     background: #111; color: #00ff88; font-family: monospace; font-size: 14px;
-    padding: 10px 16px; border-radius: 10px; border: 1px solid #00ff8855;
+    padding: ${isIOSGuide ? '14px 18px' : '10px 16px'}; border-radius: 10px; border: 1px solid #00ff8855;
     box-shadow: 0 4px 20px rgba(0,255,136,0.15);
     max-width: 90vw;
   `;
