@@ -668,20 +668,23 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
   spawnPaintSpray(x, y) {
     const color = this.paintColor;
-    const px = x + Phaser.Math.Between(-4, 4);
-    const py = y + Phaser.Math.Between(-4, 4);
-    const size = Phaser.Math.Between(1, 3);
-    const dot = this.scene.add.circle(px, py, size, color, 0.7).setDepth(3.5);
+    const count = Phaser.Math.Between(3, 5);
+    for (let i = 0; i < count; i++) {
+      const px = x + Phaser.Math.Between(-8, 8);
+      const py = y + Phaser.Math.Between(-8, 8);
+      const size = Phaser.Math.Between(1, 4);
+      const dot = this.scene.add.circle(px, py, size, color, 0.8).setDepth(3.5);
 
-    this.scene.tweens.add({
-      targets: dot,
-      x: dot.x + Phaser.Math.Between(-8, 8),
-      y: dot.y + Phaser.Math.Between(-8, 8),
-      alpha: 0,
-      scale: 0.2,
-      duration: Phaser.Math.Between(200, 400),
-      onComplete: () => dot.destroy()
-    });
+      this.scene.tweens.add({
+        targets: dot,
+        x: dot.x + Phaser.Math.Between(-14, 14),
+        y: dot.y + Phaser.Math.Between(-14, 14),
+        alpha: 0,
+        scale: 0.1,
+        duration: Phaser.Math.Between(250, 500),
+        onComplete: () => dot.destroy()
+      });
+    }
   }
 
   finishPainting() {
