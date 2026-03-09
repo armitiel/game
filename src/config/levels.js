@@ -31,7 +31,7 @@ export const LEVEL_1 = {
   ],
   shadows: [
     { x: 80, y: H - 135, w: 60, h: 100 },
-    { x: 720, y: H - 60, w: 60, h: 60 },
+    { x: 720, y: H - 135, w: 60, h: 100 },
   ],
   paintCans: [
     { x: 120, y: H - 170 },
