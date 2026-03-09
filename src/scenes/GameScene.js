@@ -1172,8 +1172,9 @@ export default class GameScene extends Phaser.Scene {
     if (this.player.isPushingTrash && this.collidingTrash) {
       const t = this.collidingTrash;
       // Use input direction, not velocity (velocity is 0 because collider blocks player)
-      const left = this.player.cursors.left.isDown || this.player.wasdKeys.left.isDown;
-      const right = this.player.cursors.right.isDown || this.player.wasdKeys.right.isDown;
+      const tc = this.touch;
+      const left = this.player.cursors.left.isDown || this.player.wasdKeys.left.isDown || (tc && tc.left);
+      const right = this.player.cursors.right.isDown || this.player.wasdKeys.right.isDown || (tc && tc.right);
       const trashIsRight = t.x > this.player.x;
       const pushingToward = (trashIsRight && right) || (!trashIsRight && left);
       if (pushingToward) {
