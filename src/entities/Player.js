@@ -442,32 +442,24 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // === Enter ladder: DOWN while near ladder ===
-    // Two modes:
-    // A) Player is nearly still → DOWN (with or without left/right) enters quickly (170ms)
-    // B) Player is moving → block descent entirely (prevent accidental entry while running)
-    const isNearlyStill = Math.abs(this.body.velocity.x) < 30;
-    const LADDER_DOWN_HOLD_THRESHOLD = 10; // ~170ms at 60fps — quick when standing still
-    if (this.onLadder && down && onGround && isNearlyStill && this.ladderCooldown <= 0) {
-      this._ladderDownHoldFrames++;
-      if (this._ladderDownHoldFrames >= LADDER_DOWN_HOLD_THRESHOLD) {
-        this._ladderDownHoldFrames = 0;
-        this.isClimbing = true;
-        this.isDroppingToLadder = true;  // disable platform collision until below platform
-        this.dropPlatformY = this.y;     // remember platform Y to know when we're past it
-        this.climbFrameIndex = this.climbTotalFrames - 1;
-        this.climbDirection = -1;  // start in reverse for descending
-        this.body.allowGravity = false;
-        this.setVelocityX(0);
-        this.setVelocityY(PLAYER.CLIMB_SPEED);
-        this.setFlipX(false);
-        this.anims.stop();
-        this.setFrame(PLAYER.CLIMB_FRAME_START + Math.floor(this.climbFrameIndex));
-        this.currentAnim = '_climb_manual';
-        this.updateHiddenIcon();
-        return;
-      }
-    } else {
-      this._ladderDownHoldFrames = 0;
+    // Allow descent when walking slowly or stopped — block only while sprinting
+    const absVx = Math.abs(this.body.velocity.x);
+    const isWalking = absVx < PLAYER.SPEED * 0.6;  // under 60% max speed = walking/stopped
+    if (this.onLadder && down && onGround && isWalking && this.ladderCooldown <= 0) {
+      this.isClimbing = true;
+      this.isDroppingToLadder = true;  // disable platform collision until below platform
+      this.dropPlatformY = this.y;     // remember platform Y to know when we're past it
+      this.climbFrameIndex = this.climbTotalFrames - 1;
+      this.climbDirection = -1;  // start in reverse for descending
+      this.body.allowGravity = false;
+      this.setVelocityX(0);
+      this.setVelocityY(PLAYER.CLIMB_SPEED);
+      this.setFlipX(false);
+      this.anims.stop();
+      this.setFrame(PLAYER.CLIMB_FRAME_START + Math.floor(this.climbFrameIndex));
+      this.currentAnim = '_climb_manual';
+      this.updateHiddenIcon();
+      return;
     }
 
     // === Movement with inertia ===
