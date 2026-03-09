@@ -440,8 +440,8 @@ export default class GameScene extends Phaser.Scene {
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const uiScale = isMobile ? 1.8 : 1;
     const slotColors = this.levelColors;
-    // Can display: 102x72 scaled to 28px tall → ~40px wide per slot
-    const slotSpacing = Math.round(44 * uiScale);
+    // Can display: 102x72 scaled to 28px tall → tighter spacing
+    const slotSpacing = Math.round(34 * uiScale);
     const slotStartX = Math.round(28 * uiScale);
     const slotY = Math.round(26 * uiScale);
     this.hudBg = this.add.rectangle(Math.round(6 * uiScale), Math.round(6 * uiScale), slotColors.length * slotSpacing + Math.round(12 * uiScale), Math.round(42 * uiScale), 0x000000, 0.6)
