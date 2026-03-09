@@ -34,9 +34,9 @@ export const LEVEL_1 = {
     { x: 720, y: H - 135, w: 60, h: 100 },
   ],
   paintCans: [
-    { x: 120, y: H - 170 },
-    { x: 250, y: H - 430 },
-    { x: 550, y: H - 300 },
+    { x: 120, y: H - 190 },
+    { x: 250, y: H - 450 },
+    { x: 550, y: H - 320 },
   ],
   paintSpots: [
     { x: 450, y: H - 175, w: 140, h: 190, paintingKey: 'painting_heart' },
@@ -101,12 +101,12 @@ export const LEVEL_2 = {
     { x: 100, y: L2_H - 730, w: 60, h: 140 },
   ],
   paintCans: [
-    { x: 120, y: L2_H - 270 },
-    { x: 650, y: L2_H - 520 },
-    { x: 180, y: L2_H - 520 },
-    { x: 600, y: L2_H - 770 },
-    { x: 150, y: L2_H - 770 },
-    { x: 400, y: L2_H - 1020 },
+    { x: 120, y: L2_H - 290 },
+    { x: 650, y: L2_H - 540 },
+    { x: 180, y: L2_H - 540 },
+    { x: 600, y: L2_H - 790 },
+    { x: 150, y: L2_H - 790 },
+    { x: 400, y: L2_H - 1040 },
   ],
   paintSpots: [
     // Pikachu mural — 20x24 grid, 24px cells → 480x576
