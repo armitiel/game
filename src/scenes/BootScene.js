@@ -47,8 +47,8 @@ export default class BootScene extends Phaser.Scene {
     // === Load platform/environment textures ===
     this.load.image('platform_block', 'assets/sprites/elementy/blok.png');
     this.load.image('ladder_tile', 'assets/sprites/elementy/drabinka.png');
-    // Spray can base image — green dome will be recolored per paint color
-    this.load.image('spray_can_base', 'assets/sprites/elementy/green.png');
+    // Spray can base image — grayscale body will be recolored per paint color
+    this.load.image('spray_can_base', 'assets/sprites/elementy/can.png');
     this.load.image('trash', 'assets/sprites/elementy/trash.png');
     this.load.image('trash2', 'assets/sprites/elementy/trash2.png');
 
@@ -110,8 +110,8 @@ export default class BootScene extends Phaser.Scene {
     shadowGfx.generateTexture('shadow_zone', 64, 64);
     shadowGfx.destroy();
 
-    // Paint cans — placeholder; real textures generated in create() from green.png base
-    // (green.png must be loaded first before pixel manipulation)
+    // Paint cans — real textures generated in create() from can.png base
+    // (can.png must be loaded first before pixel manipulation)
 
     // HUD empty slot (procedural — no image needed)
     const emptyGfx = this.make.graphics({ add: false });
@@ -318,7 +318,7 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
-    // === Generate paint can textures from green.png base (all colors) ===
+    // === Generate paint can textures from can.png base (all colors) ===
     this._generateAllPaintCanTextures();
 
     // === Register palette colors from painting JSONs ===
@@ -334,12 +334,10 @@ export default class BootScene extends Phaser.Scene {
   _generateAllPaintCanTextures() {
     Object.entries(PAINT.COLORS).forEach(([name, colorHex]) => {
       const key = name.toLowerCase();
-      // World sprite 3x oversampled (72x102) — scaled down in PaintCan for crisp look
-      this._recolorSprayCan(`paint_can_sprite_${key}`, colorHex, 72, 102);
-      // Mini icon 3x oversampled (48x48) for UI
-      this._recolorSprayCan(`paint_can_${key}`, colorHex, 48, 48);
-      // HUD filled icon 3x oversampled (72x84)
-      this._recolorSprayCan(`hud_can_${key}`, colorHex, 72, 84);
+      // All textures at native can.png resolution (102x72) — scaled in-game
+      this._recolorSprayCan(`paint_can_sprite_${key}`, colorHex);
+      this._recolorSprayCan(`paint_can_${key}`, colorHex);
+      this._recolorSprayCan(`hud_can_${key}`, colorHex);
     });
   }
 
@@ -362,24 +360,21 @@ export default class BootScene extends Phaser.Scene {
         const colorHex = parseInt(hex.replace('#', ''), 16);
         PAINT.COLORS[name] = colorHex;
 
-        // Generate world sprite 3x oversampled from green.png base
-        this._recolorSprayCan(`paint_can_sprite_${name.toLowerCase()}`, colorHex, 72, 102);
-
-        // Generate mini icon 3x oversampled from recolored spray can
-        this._recolorSprayCan(`paint_can_${name.toLowerCase()}`, colorHex, 48, 48);
-
-        // Generate HUD filled icon 3x oversampled from recolored spray can
-        this._recolorSprayCan(`hud_can_${name.toLowerCase()}`, colorHex, 72, 84);
+        // All textures at native can.png resolution — scaled in-game
+        this._recolorSprayCan(`paint_can_sprite_${name.toLowerCase()}`, colorHex);
+        this._recolorSprayCan(`paint_can_${name.toLowerCase()}`, colorHex);
+        this._recolorSprayCan(`hud_can_${name.toLowerCase()}`, colorHex);
       }
     }
   }
 
   /**
-   * Recolor the white/gray dome of spray_can_base to a target color.
-   * Dome area (~top 40% of image): bright neutral pixels get colorized.
-   * Metal body stays untouched.
+   * Recolor the grayscale body of can.png to a target color.
+   * Body area (Y 38-85%): neutral pixels get colorized.
+   * Dome, cap, bands and base stay untouched.
+   * Output at native source resolution (102x72) for max quality.
    */
-  _recolorSprayCan(textureKey, targetHex, outW, outH) {
+  _recolorSprayCan(textureKey, targetHex) {
     const srcTex = this.textures.get('spray_can_base');
     const srcImg = srcTex.getSourceImage();
 
@@ -399,26 +394,24 @@ export default class BootScene extends Phaser.Scene {
     const tG = (targetHex >> 8) & 0xff;
     const tB = targetHex & 0xff;
 
-    // Dome band: skip nozzle/cap at top (~15%), stop before metal body (~40%)
-    const domeTop = Math.floor(h * 0.15);
-    const domeBottom = Math.floor(h * 0.40);
+    // Body band: skip dome/cap at top (~38%), stop before base (~85%)
+    const bodyTop = Math.floor(h * 0.38);
+    const bodyBottom = Math.floor(h * 0.85);
 
     for (let i = 0; i < d.length; i += 4) {
       const a = d[i + 3];
       if (a < 10) continue;
 
-      // Only process dome band (skip nozzle at top, body at bottom)
       const pixelY = Math.floor((i / 4) / w);
-      if (pixelY < domeTop || pixelY > domeBottom) continue;
+      if (pixelY < bodyTop || pixelY > bodyBottom) continue;
 
       const r = d[i], g = d[i + 1], b = d[i + 2];
       const lum = (r + g + b) / 3;
       const sat = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
 
-      // Colorize neutral pixels (low saturation) that aren't too dark (outlines)
-      if (sat < 0.25 && lum > 80) {
-        // Blend: preserve luminance variation, apply target color
-        const factor = lum / 200; // keep highlights/shadows from original
+      // Colorize neutral pixels — skip dark edges/bands
+      if (sat < 0.25 && lum > 60) {
+        const factor = lum / 200;
         d[i]     = Math.min(255, Math.round(tR * factor));
         d[i + 1] = Math.min(255, Math.round(tG * factor));
         d[i + 2] = Math.min(255, Math.round(tB * factor));
@@ -426,16 +419,7 @@ export default class BootScene extends Phaser.Scene {
     }
 
     ctx.putImageData(imgData, 0, 0);
-
-    // Scale down to game size
-    const outCanvas = document.createElement('canvas');
-    outCanvas.width = outW;
-    outCanvas.height = outH;
-    const outCtx = outCanvas.getContext('2d');
-    outCtx.imageSmoothingEnabled = true;
-    outCtx.drawImage(canvas, 0, 0, outW, outH);
-
-    this.textures.addCanvas(textureKey, outCanvas);
+    this.textures.addCanvas(textureKey, canvas);
   }
 
 }

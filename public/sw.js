@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shadow-tagger-v9';
+const CACHE_NAME = 'shadow-tagger-v11';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -14,6 +14,10 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
+  const url = new URL(e.request.url);
+  // Only handle http/https requests — skip chrome-extension:// etc.
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
   // Network-first strategy: try network, fall back to cache
   e.respondWith(
     fetch(e.request)

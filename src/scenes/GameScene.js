@@ -174,6 +174,14 @@ export default class GameScene extends Phaser.Scene {
 
     // === Events ===
     this.events.on('player-caught', () => {
+      // Clean up painting state if active
+      if (this.player.isPainting) {
+        this.cleanupPaintState(true);
+      }
+      // Clean up ladder push if active
+      if (this.player.isPushingLadder) {
+        this.player.stopLadderPush();
+      }
       this.sfx.caught();
       this.player.die(this.checkpointX, this.checkpointY);
       this.cops.forEach(cop => cop.resetState());
@@ -435,9 +443,9 @@ export default class GameScene extends Phaser.Scene {
       // Grey empty can (always visible as background)
       const empty = this.add.image(sx, slotY, 'hud_can_empty')
         .setDepth(100.5).setScrollFactor(0).setScale(uiScale);
-      // Colored filled can (hidden until collected) — texture is 3x oversampled
+      // Colored filled can (hidden until collected) — native 102x72 texture
       const filled = this.add.image(sx, slotY, `hud_can_${slotColors[i]}`)
-        .setDepth(101).setScrollFactor(0).setVisible(false).setScale(uiScale / 3);
+        .setDepth(101).setScrollFactor(0).setVisible(false).setScale(uiScale * 28 / 72);
       // Count label below
       const count = this.add.text(sx, slotY + Math.round(17 * uiScale), '', {
         font: `bold ${Math.round(8 * uiScale)}px monospace`,

@@ -8,8 +8,8 @@ export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.colorName = colorName.toLowerCase();
-    // Texture is 3x oversampled (72x102) — scale down for crisp display
-    this.setScale(1/3);
+    // Native 102x72 texture — scale to ~34px tall in game
+    this.setScale(34 / 72);
     this.setDepth(2.5);
     this.body.setSize(20, 30);
     this.body.setAllowGravity(false);
