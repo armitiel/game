@@ -861,7 +861,7 @@ export default class GameScene extends Phaser.Scene {
     const boxSize = 16;
     const gap = 4;
     const totalH = numColors * (boxSize + gap) - gap;
-    const margin = 6;  // gap between paint area edge and selector
+    const margin = 20;  // gap between paint area edge and selector
 
     // Place selector to the right of the paint area; flip left if near camera edge
     const cam = this.cameras.main;
