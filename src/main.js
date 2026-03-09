@@ -73,7 +73,7 @@ function showInstallBanner(isIOSHint) {
 
   if (isIOSHint) {
     banner.innerHTML = `
-      <span>Dodaj do ekranu: tap <strong>Udostepnij</strong> &#x2934; &rarr; <strong>Dodaj do ekranu</strong></span>
+      <span>Aby zainstalowac: tap <strong style="font-size:18px">&#x2934;</strong> (Udostepnij) &rarr; <strong>Na ekranie poczatkowym</strong></span>
       <button id="pwa-dismiss">&times;</button>
     `;
   } else {
@@ -114,23 +114,10 @@ function showInstallBanner(isIOSHint) {
   setTimeout(() => { if (banner.parentNode) banner.remove(); }, 15000);
 }
 
-// Auto-fullscreen on mobile — show "Tap to play" overlay that triggers fullscreen
+// Auto-fullscreen on mobile — enter fullscreen on first tap anywhere
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 if (isTouchDevice) {
-  const overlay = document.createElement('div');
-  overlay.id = 'fullscreen-overlay';
-  overlay.innerHTML = '<p>Tap to play</p>';
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 10000;
-    display: flex; justify-content: center; align-items: center;
-    background: rgba(10,10,30,0.85);
-    color: #00ff88; font-family: monospace; font-size: 24px;
-    cursor: pointer; touch-action: none;
-  `;
-  document.body.appendChild(overlay);
-
-  overlay.addEventListener('pointerdown', () => {
-    overlay.remove();
+  document.addEventListener('pointerdown', () => {
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
     if (req) {
