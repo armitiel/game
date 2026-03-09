@@ -367,7 +367,7 @@ export default class BootScene extends Phaser.Scene {
     this.anims.create({
       key: 'player_side_walk',
       frames: this.anims.generateFrameNumbers('player_sheet', { start: SD + 1, end: SD + SDN - 1 }),
-      frameRate: 14,
+      frameRate: 36,
       repeat: -1
     });
 
