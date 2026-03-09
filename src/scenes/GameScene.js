@@ -324,10 +324,19 @@ export default class GameScene extends Phaser.Scene {
 
     const addShadow = (x, y, w, h) => {
       const visual = this.add.graphics();
+      // Dark fill — almost black
       visual.fillStyle(SHADOW.COLOR, SHADOW.ALPHA);
       visual.fillRect(x, y, w, h);
-      visual.lineStyle(1, 0x001122, 0.3);
-      visual.strokeRect(x, y, w, h);
+      // Side edge glow — subtle vertical lines to show entrance
+      const edgeAlpha = 0.45;
+      const edgeW = 2;
+      visual.fillStyle(0x3344aa, edgeAlpha);
+      visual.fillRect(x, y, edgeW, h);               // left edge
+      visual.fillRect(x + w - edgeW, y, edgeW, h);   // right edge
+      // Softer outer glow
+      visual.fillStyle(0x2233aa, 0.15);
+      visual.fillRect(x - 2, y, 2, h);               // left outer
+      visual.fillRect(x + w, y, 2, h);                // right outer
       visual.setDepth(2);
       this.shadowVisuals.add(visual);
 

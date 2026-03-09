@@ -37,11 +37,22 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   update(time, delta, player) {
     this.alertMark.setPosition(this.x, this.y - 30);
 
+    // Debug: log every 120 frames (~2s)
+    if (!this._dbgFrame) this._dbgFrame = 0;
+    this._dbgFrame++;
+    if (this._dbgFrame % 120 === 1) {
+      const canSee = this.canSeePlayer(player);
+      const dx = player ? (player.x - this.x).toFixed(0) : '?';
+      const dy = player ? Math.abs(player.y - this.y).toFixed(0) : '?';
+      console.log(`[COP] state=${this.state} pos=(${this.x.toFixed(0)},${this.y.toFixed(0)}) dir=${this.direction} player=(${player?.x?.toFixed(0)},${player?.y?.toFixed(0)}) dx=${dx} dy=${dy} hidden=${player?.isHidden} canSee=${canSee}`);
+    }
+
     switch (this.state) {
       case 'PATROL':
         this.patrol();
         this.drawDetectionZone();
         if (this.canSeePlayer(player)) {
+          console.log('[COP] DETECTED PLAYER! Entering DETECT state');
           this.enterDetect();
         }
         break;
@@ -83,7 +94,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
     // Must be in front and within range
     const inFront = (this.direction === 1 && dx > 0) || (this.direction === -1 && dx < 0);
-    return inFront && dist < COP.DETECTION_RANGE && dy < 50;
+    return inFront && dist < COP.DETECTION_RANGE && dy < 80;
   }
 
   drawDetectionZone() {

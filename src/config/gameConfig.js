@@ -47,7 +47,7 @@ export const PLAYER = {
 
 export const COP = {
   SPEED: 60,
-  DETECTION_RANGE: 120,
+  DETECTION_RANGE: 180,
   WIDTH: 24,
   HEIGHT: 36,
   COLOR: 0x3366ff,   // niebieski
@@ -56,7 +56,7 @@ export const COP = {
 
 export const SHADOW = {
   COLOR: 0x000000,
-  ALPHA: 0.5,
+  ALPHA: 0.82,
   PLAYER_HIDDEN_ALPHA: 0.3
 };
 
