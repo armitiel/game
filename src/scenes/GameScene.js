@@ -366,8 +366,8 @@ export default class GameScene extends Phaser.Scene {
       visual.lineStyle(2, 0xffdd33, 0.6);
       visual.strokeRect(x - w / 2 + 2, y - h / 2 + 2, w - 4, h - 4);
 
-      // Interaction zone — wider than visual to allow painting from ladders nearby
-      const interactPad = 30;  // extra reach on each side
+      // Interaction zone — slightly wider than visual for comfortable reach
+      const interactPad = 10;  // small extra reach on each side
       const zone = this.add.zone(x - w / 2 - interactPad, y - h / 2, w + interactPad * 2, h).setOrigin(0, 0);
       this.physics.add.existing(zone, true);
       zone.setData('painted', false);
@@ -464,17 +464,27 @@ export default class GameScene extends Phaser.Scene {
 
     // Music toggle button (speaker icon)
     this.musicOn = true;
-    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.35 });
 
-    // iOS Safari blocks audio autoplay — multiple unlock strategies
+    // iOS Safari blocks audio autoplay — requires user gesture + synchronous play
+    // Strategy: resume AudioContext AND call play() synchronously in the same gesture handler.
+    // iOS rejects play() inside .then() callbacks — it must be in the direct gesture path.
     const tryPlayBgm = () => {
       if (!this.musicOn || !this.bgm) return;
-      // Check if Web Audio context is suspended (iOS keeps it suspended until gesture)
-      const ctx = this.sound.context;
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().then(() => { this.bgm.play(); }).catch(() => {});
-      } else {
-        this.bgm.play();
+      try {
+        // Resume AudioContext (iOS keeps it suspended until gesture)
+        const ctx = this.sound.context;
+        if (ctx && ctx.state === 'suspended') {
+          ctx.resume().catch(e => console.warn('AudioContext resume failed:', e));
+        }
+        // Play synchronously — don't wait for resume() promise!
+        // iOS allows play() in the same call stack as the gesture even if context
+        // hasn't fully resumed yet — it queues the audio and starts when ready.
+        if (!this.bgm.isPlaying) {
+          this.bgm.play();
+        }
+      } catch (e) {
+        console.warn('BGM play failed:', e);
       }
     };
 
@@ -484,15 +494,10 @@ export default class GameScene extends Phaser.Scene {
       tryPlayBgm();
     }
 
-    // Fallback: if music still hasn't started after scene is interactive, retry on next tap
-    this.input.once('pointerdown', () => {
+    // Fallback: retry on EVERY tap until music starts (not just first tap)
+    this.input.on('pointerdown', () => {
       if (this.musicOn && this.bgm && !this.bgm.isPlaying) {
-        const ctx = this.sound.context;
-        if (ctx && ctx.state === 'suspended') {
-          ctx.resume().then(() => { this.bgm.play(); }).catch(() => {});
-        } else {
-          this.bgm.play();
-        }
+        tryPlayBgm();
       }
     });
 
@@ -1007,7 +1012,7 @@ export default class GameScene extends Phaser.Scene {
     if (onLadder) {
       const px = this.player.x;
       const py = this.player.y;
-      const LADDER_PAINT_RANGE = 200;
+      const LADDER_PAINT_RANGE = 80;
       let bestDist = Infinity;
       let bestSpot = null;
       this.paintSpotZones.getChildren().forEach(spot => {
@@ -1018,7 +1023,7 @@ export default class GameScene extends Phaser.Scene {
         const sh = spot.getData('spotH');
         const dx = Math.abs(px - sx);
         const inRangeX = dx < sw / 2 + LADDER_PAINT_RANGE;
-        const inRangeY = py > sy - sh / 2 - 120 && py < sy + sh / 2 + 120;
+        const inRangeY = py > sy - sh / 2 - 60 && py < sy + sh / 2 + 60;
         if (inRangeX && inRangeY && dx < bestDist) {
           bestDist = dx;
           bestSpot = spot;
