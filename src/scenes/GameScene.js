@@ -466,14 +466,35 @@ export default class GameScene extends Phaser.Scene {
     this.musicOn = true;
     this.bgm = this.sound.add('bgm', { loop: true, volume: 0.15 });
 
-    // iOS Safari blocks audio autoplay — unlock on first user gesture
+    // iOS Safari blocks audio autoplay — multiple unlock strategies
+    const tryPlayBgm = () => {
+      if (!this.musicOn || !this.bgm) return;
+      // Check if Web Audio context is suspended (iOS keeps it suspended until gesture)
+      const ctx = this.sound.context;
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().then(() => { this.bgm.play(); }).catch(() => {});
+      } else {
+        this.bgm.play();
+      }
+    };
+
     if (this.sound.locked) {
-      this.sound.once('unlocked', () => {
-        if (this.musicOn) this.bgm.play();
-      });
+      this.sound.once('unlocked', tryPlayBgm);
     } else {
-      this.bgm.play();
+      tryPlayBgm();
     }
+
+    // Fallback: if music still hasn't started after scene is interactive, retry on next tap
+    this.input.once('pointerdown', () => {
+      if (this.musicOn && this.bgm && !this.bgm.isPlaying) {
+        const ctx = this.sound.context;
+        if (ctx && ctx.state === 'suspended') {
+          ctx.resume().then(() => { this.bgm.play(); }).catch(() => {});
+        } else {
+          this.bgm.play();
+        }
+      }
+    });
 
     const muteBtnSize = Math.round(64 * uiScale);
     const muteBtnX = gw - Math.round(55 * uiScale);
@@ -1105,29 +1126,10 @@ export default class GameScene extends Phaser.Scene {
     this.player.update();
 
     // 3a. Ladder-to-platform landing: when climbing down, detect platform under feet
-    if (this.player.isClimbing && this.player.body.velocity.y > 0) {
-      const playerFeetY = this.player.y + this.player.body.halfHeight;
-      const playerX = this.player.x;
-      const BLOCK_H = 32;
-      let landed = false;
-      this.platforms.children.iterate(plat => {
-        if (landed || !plat || !plat.body) return;
-        const pTop = plat.body.y;
-        const pLeft = plat.body.x;
-        const pRight = pLeft + plat.body.width;
-        // Player feet just reached or passed the platform top, and horizontally overlapping
-        if (playerFeetY >= pTop - 2 && playerFeetY <= pTop + 10 &&
-            playerX >= pLeft && playerX <= pRight) {
-          // Snap player onto platform and exit ladder
-          this.player.y = pTop - this.player.body.halfHeight;
-          this.player.exitLadder();
-          this.player.setVelocityY(0);
-          this.player.setVelocityX(0);
-          this.player.playAnim('player_idle');
-          landed = true;
-        }
-      });
-    }
+    // NOTE: This is now handled entirely by Player.update() platform-edge detection
+    // which properly skips the ladder-top platform and checks isDroppingToLadder.
+    // The old GameScene check was causing premature detachment because it didn't
+    // account for isDroppingToLadder or the ladder-top platform.
 
     // 3b. Paint arm update — drive hand movement and rope simulation
     if (this.player.isPainting && this.paintArm.active) {
