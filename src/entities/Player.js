@@ -345,9 +345,39 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         return;
       }
 
+      // Auto-dismount onto platform: when descending, detect platform edges
+      // Platform collision is disabled during climbing, so we manually check feet vs platform tops.
+      // Skip the platform we just dropped FROM (isDroppingToLadder handles that).
+      if (down && !this.isDroppingToLadder && this.scene.platforms) {
+        const feetY = this.body.y + this.body.height;
+        const bodyLeft = this.body.x;
+        const bodyRight = this.body.x + this.body.width;
+        const platforms = this.scene.platforms.getChildren();
+        for (const plat of platforms) {
+          const platTop = plat.body.y;
+          const platLeft = plat.body.x;
+          const platRight = platLeft + plat.body.width;
+          // Player must be horizontally over the platform
+          if (bodyRight < platLeft + 4 || bodyLeft > platRight - 4) continue;
+          // Feet just reached or slightly passed the platform top (within one frame of movement)
+          if (feetY >= platTop - 2 && feetY <= platTop + 12) {
+            // Snap body bottom to platform top
+            const snapY = platTop - PLAYER.BODY_H + PLAYER.FRAME_H / 2 - PLAYER.BODY_OFFSET_Y;
+            this.y = snapY;
+            this.exitLadder();
+            this.setVelocityY(0);
+            this.setVelocityX(0);
+            this.playAnim('player_idle');
+            this.updateHiddenIcon();
+            return;
+          }
+        }
+      }
+
       // Auto-dismount at bottom: reached ground while climbing down
-      if (this.body.blocked.down && down) {
+      if (this.body.blocked.down) {
         this.exitLadder();
+        this.setVelocityY(0);
         this.playAnim('player_idle');
       }
 
