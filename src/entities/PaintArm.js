@@ -14,7 +14,8 @@ const ARM_SEGMENT_COUNT = 8;     // more segments = smoother curve
 const ARM_SEG_WIDTH = 16;        // display width (thickness) of each arm segment
 const HAND_DISPLAY_W = 18;       // display width of hand
 const HAND_DISPLAY_H = 18;       // display height of hand
-const HAND_SPEED = 80;           // pixels per second hand moves
+const HAND_SPEED = 80;           // pixels per second hand moves (keyboard)
+const HAND_SPEED_TOUCH = 45;     // slower on mobile for precision painting
 const ROPE_STIFFNESS = 0.7;     // high = stiff, nearly straight
 const GRAVITY_SAG = 1.5;        // minimal curve even at full extension
 const MAX_ARM_LENGTH = 55;      // max distance from shoulder to hand in pixels
@@ -103,13 +104,15 @@ export default class PaintArm {
    * @param {object} input - {left, right, up, down} booleans
    * @param {number} playerX - current player X
    * @param {number} playerY - current player Y
+   * @param {boolean} [isTouch] - true when using touch controls (slower, more precise)
    * @returns {{x, y}|null} - hand world position if actively painting, null otherwise
    */
-  update(delta, input, playerX, playerY) {
+  update(delta, input, playerX, playerY, isTouch) {
     if (!this.active) return null;
 
     const dt = delta / 1000;
     const dir = this.flipX ? -1 : 1;
+    const speed = isTouch ? HAND_SPEED_TOUCH : HAND_SPEED;
 
     // Update shoulder anchor to follow player
     const sx = playerX + dir * this.shoulderOffsetX;
@@ -122,10 +125,10 @@ export default class PaintArm {
     let hx = this.points[last].x;
     let hy = this.points[last].y;
 
-    if (input.left)  hx -= HAND_SPEED * dt;
-    if (input.right) hx += HAND_SPEED * dt;
-    if (input.up)    hy -= HAND_SPEED * dt;
-    if (input.down)  hy += HAND_SPEED * dt;
+    if (input.left)  hx -= speed * dt;
+    if (input.right) hx += speed * dt;
+    if (input.up)    hy -= speed * dt;
+    if (input.down)  hy += speed * dt;
 
     // Clamp hand to paint bounds
     const b = this.bounds;

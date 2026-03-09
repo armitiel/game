@@ -1188,7 +1188,8 @@ export default class GameScene extends Phaser.Scene {
         up:    cursors.up.isDown    || wasd.up.isDown    || (t && t.up),
         down:  cursors.down.isDown  || wasd.down.isDown  || (t && t.down),
       };
-      const handPos = this.paintArm.update(delta, input, this.player.x, this.player.y);
+      const isTouch = !!(t && t.enabled);
+      const handPos = this.paintArm.update(delta, input, this.player.x, this.player.y, isTouch);
       if (handPos) {
         this.onPaintMove(handPos.x, handPos.y);
         this.player.spawnPaintSpray(handPos.x, handPos.y);
