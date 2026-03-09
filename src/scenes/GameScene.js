@@ -795,8 +795,31 @@ export default class GameScene extends Phaser.Scene {
     const numPaintColors = this.pbn.colorMap.length;
     this.colorKeys = keyCodes.slice(0, numPaintColors).map(k => this.input.keyboard.addKey(k));
 
+    // --- Camera zoom into paint area ---
+    const cam = this.cameras.main;
+    const isMobile = !!(this.touch && this.touch.enabled);
+    this._preZoom = cam.zoom;                         // remember original zoom
+    this._preFollowOffsetX = cam.followOffset.x;
+    this._preFollowOffsetY = cam.followOffset.y;
+
+    // Target: center camera on paint area bounds
+    const paintCenterX = bounds.x + bounds.w / 2;
+    const paintCenterY = bounds.y + bounds.h / 2;
+    const targetZoom = isMobile ? 2.8 : 2.2;
+
+    // Temporarily stop following player, pan to paint area, then zoom
+    cam.stopFollow();
+    cam.pan(paintCenterX, paintCenterY, 400, 'Sine.easeInOut');
+    cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
+
     // Start paint arm (hand + rope)
     this.paintArm.start(this.player.x, this.player.y, this.player.flipX, bounds);
+
+    // --- Paint SFX ---
+    this.sfxSpray = this.sound.add('sfx_spray', { loop: true, volume: 0.18 });
+    this._paintIdleTimer = 0;
+    this._nextShakeDelay = Phaser.Math.Between(3000, 7000);
+    this._sprayPlaying = false;
 
     // Start active painting on player
     const paintHex = this.pbn.getSelectedColorHex();
@@ -997,6 +1020,29 @@ export default class GameScene extends Phaser.Scene {
   }
 
   cleanupPaintState(destroyPBN = true) {
+    // --- Camera zoom out & re-follow player ---
+    const cam = this.cameras.main;
+    if (this._preZoom != null) {
+      cam.zoomTo(this._preZoom, 350, 'Sine.easeInOut');
+      cam.pan(this.player.x, this.player.y, 350, 'Sine.easeInOut', false, (c, progress) => {
+        if (progress === 1) {
+          cam.startFollow(this.player, true, 0.1, 0.1);
+        }
+      });
+      this._preZoom = null;
+    } else {
+      cam.startFollow(this.player, true, 0.1, 0.1);
+    }
+
+    // Stop paint SFX
+    if (this.sfxSpray) {
+      this.sfxSpray.stop();
+      this.sfxSpray.destroy();
+      this.sfxSpray = null;
+    }
+    this._sprayPlaying = false;
+    this._paintIdleTimer = 0;
+
     this.paintArm.stop();
 
     if (this.paintProgressText) {
@@ -1232,9 +1278,34 @@ export default class GameScene extends Phaser.Scene {
       };
       const isTouch = !!(t && t.enabled);
       const handPos = this.paintArm.update(delta, input, this.player.x, this.player.y, isTouch);
+      const isMovingHand = !!(input.left || input.right || input.up || input.down);
       if (handPos) {
         this.onPaintMove(handPos.x, handPos.y);
         this.player.spawnPaintSpray(handPos.x, handPos.y);
+      }
+
+      // --- Spray SFX: play while hand is moving ---
+      if (this.sfxSpray) {
+        if (isMovingHand && !this._sprayPlaying) {
+          this.sfxSpray.play();
+          this._sprayPlaying = true;
+          this._paintIdleTimer = 0;
+        } else if (!isMovingHand && this._sprayPlaying) {
+          this.sfxSpray.stop();
+          this._sprayPlaying = false;
+          this._paintIdleTimer = 0;
+          this._nextShakeDelay = Phaser.Math.Between(2000, 5000);
+        }
+      }
+
+      // --- Can shake SFX: random during idle pauses ---
+      if (!isMovingHand) {
+        this._paintIdleTimer += delta;
+        if (this._paintIdleTimer >= this._nextShakeDelay) {
+          this.sound.play('sfx_canshake', { volume: 0.25 });
+          this._paintIdleTimer = 0;
+          this._nextShakeDelay = Phaser.Math.Between(3000, 8000);
+        }
       }
     }
 
