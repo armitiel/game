@@ -334,12 +334,12 @@ export default class BootScene extends Phaser.Scene {
   _generateAllPaintCanTextures() {
     Object.entries(PAINT.COLORS).forEach(([name, colorHex]) => {
       const key = name.toLowerCase();
-      // World sprite (24x34) — in-game pickup
-      this._recolorSprayCan(`paint_can_sprite_${key}`, colorHex, 24, 34);
-      // Mini icon (16x16) for UI
-      this._recolorSprayCan(`paint_can_${key}`, colorHex, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
-      // HUD filled icon (24x28)
-      this._recolorSprayCan(`hud_can_${key}`, colorHex, 24, 28);
+      // World sprite 3x oversampled (72x102) — scaled down in PaintCan for crisp look
+      this._recolorSprayCan(`paint_can_sprite_${key}`, colorHex, 72, 102);
+      // Mini icon 3x oversampled (48x48) for UI
+      this._recolorSprayCan(`paint_can_${key}`, colorHex, 48, 48);
+      // HUD filled icon 3x oversampled (72x84)
+      this._recolorSprayCan(`hud_can_${key}`, colorHex, 72, 84);
     });
   }
 
@@ -362,14 +362,14 @@ export default class BootScene extends Phaser.Scene {
         const colorHex = parseInt(hex.replace('#', ''), 16);
         PAINT.COLORS[name] = colorHex;
 
-        // Generate world sprite from green.png base — recolor green dome to target color
-        this._recolorSprayCan(`paint_can_sprite_${name.toLowerCase()}`, colorHex, 24, 34);
+        // Generate world sprite 3x oversampled from green.png base
+        this._recolorSprayCan(`paint_can_sprite_${name.toLowerCase()}`, colorHex, 72, 102);
 
-        // Generate mini icon (16x16) from recolored spray can
-        this._recolorSprayCan(`paint_can_${name.toLowerCase()}`, colorHex, PAINT.CAN_SIZE, PAINT.CAN_SIZE);
+        // Generate mini icon 3x oversampled from recolored spray can
+        this._recolorSprayCan(`paint_can_${name.toLowerCase()}`, colorHex, 48, 48);
 
-        // Generate HUD filled icon (24x28) from recolored spray can
-        this._recolorSprayCan(`hud_can_${name.toLowerCase()}`, colorHex, 24, 28);
+        // Generate HUD filled icon 3x oversampled from recolored spray can
+        this._recolorSprayCan(`hud_can_${name.toLowerCase()}`, colorHex, 72, 84);
       }
     }
   }

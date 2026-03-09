@@ -435,9 +435,9 @@ export default class GameScene extends Phaser.Scene {
       // Grey empty can (always visible as background)
       const empty = this.add.image(sx, slotY, 'hud_can_empty')
         .setDepth(100.5).setScrollFactor(0).setScale(uiScale);
-      // Colored filled can (hidden until collected)
+      // Colored filled can (hidden until collected) — texture is 3x oversampled
       const filled = this.add.image(sx, slotY, `hud_can_${slotColors[i]}`)
-        .setDepth(101).setScrollFactor(0).setVisible(false).setScale(uiScale);
+        .setDepth(101).setScrollFactor(0).setVisible(false).setScale(uiScale / 3);
       // Count label below
       const count = this.add.text(sx, slotY + Math.round(17 * uiScale), '', {
         font: `bold ${Math.round(8 * uiScale)}px monospace`,
