@@ -34,7 +34,9 @@ export default class BootScene extends Phaser.Scene {
     });
 
     // === Load music ===
-    this.load.audio('bgm', 'assets/sprites/Pixel Side Quest.mp3');
+    // Provide both mp3 and aac paths — Phaser picks the best for the platform
+    // (renamed to remove spaces which can cause issues on some CDNs/browsers)
+    this.load.audio('bgm', ['assets/sprites/bgm.mp3']);
 
     // === Load logo ===
     this.load.image('logo', 'assets/sprites/logo.png');
