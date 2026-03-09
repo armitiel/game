@@ -795,21 +795,16 @@ export default class GameScene extends Phaser.Scene {
     const numPaintColors = this.pbn.colorMap.length;
     this.colorKeys = keyCodes.slice(0, numPaintColors).map(k => this.input.keyboard.addKey(k));
 
-    // --- Camera zoom into paint area ---
+    // --- Camera zoom into paint area (keep following player) ---
     const cam = this.cameras.main;
     const isMobile = !!(this.touch && this.touch.enabled);
-    this._preZoom = cam.zoom;                         // remember original zoom
-    this._preFollowOffsetX = cam.followOffset.x;
-    this._preFollowOffsetY = cam.followOffset.y;
+    this._preZoom = cam.zoom;
 
-    // Target: center camera on paint area bounds
-    const paintCenterX = bounds.x + bounds.w / 2;
-    const paintCenterY = bounds.y + bounds.h / 2;
     const targetZoom = isMobile ? 2.8 : 2.2;
 
-    // Temporarily stop following player, pan to paint area, then zoom
-    cam.stopFollow();
-    cam.pan(paintCenterX, paintCenterY, 400, 'Sine.easeInOut');
+    // Keep following the player — just zoom in smoothly.
+    // Camera stays centered on player so we always see what's happening,
+    // even on large murals where the center is far from the player.
     cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
 
     // Start paint arm (hand + rope)
@@ -1021,18 +1016,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   cleanupPaintState(destroyPBN = true) {
-    // --- Camera zoom out & re-follow player ---
-    const cam = this.cameras.main;
+    // --- Camera zoom out (camera still follows player, just restore zoom) ---
     if (this._preZoom != null) {
-      cam.zoomTo(this._preZoom, 350, 'Sine.easeInOut');
-      cam.pan(this.player.x, this.player.y, 350, 'Sine.easeInOut', false, (c, progress) => {
-        if (progress === 1) {
-          cam.startFollow(this.player, true, 0.1, 0.1);
-        }
-      });
+      this.cameras.main.zoomTo(this._preZoom, 350, 'Sine.easeInOut');
       this._preZoom = null;
-    } else {
-      cam.startFollow(this.player, true, 0.1, 0.1);
     }
 
     // Stop paint SFX
