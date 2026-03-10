@@ -199,7 +199,7 @@ export default class TouchControls {
 
     let text = null;
     if (label) {
-      const fontSize = 18;
+      const fontSize = 22;
       text = scene.add.text(x, y, label, {
         font: `bold ${fontSize}px monospace`,
         fill: '#ffffff'
