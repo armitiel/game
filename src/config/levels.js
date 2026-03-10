@@ -80,11 +80,15 @@ export const LEVEL_2 = {
     { x: 150, topY: L2_H - 500, bottomY: L2_H - 250, minX: 50, maxX: 380 },
     { x: 620, topY: L2_H - 750, bottomY: L2_H - 500, minX: 450, maxX: 720 },
     { x: 250, topY: L2_H - 1000, bottomY: L2_H - 750, minX: 80, maxX: 420 },
+    { x: 120, topY: L2_H - 750, bottomY: L2_H - 500, minX: -50, maxX: 220 },
+    { x: 700, topY: L2_H - 1000, bottomY: L2_H - 750, minX: 530, maxX: 870 },
   ],
   shadows: [
-    { x: 50, y: L2_H - 220, w: 60, h: 140 },
-    { x: 620, y: L2_H - 480, w: 50, h: 140 },
-    { x: 100, y: L2_H - 730, w: 60, h: 140 },
+    { x: 510, y: L2_H - 170, w: 60, h: 140 },
+    { x: 690, y: L2_H - 390, w: 50, h: 140 },
+    { x: 30, y: L2_H - 640, w: 60, h: 140 },
+    { x: 40, y: L2_H - 890, w: 60, h: 140 },
+    { x: 730, y: L2_H - 890, w: 60, h: 140 },
   ],
   paintCans: [
     { x: 120, y: L2_H - 290 },
@@ -93,17 +97,19 @@ export const LEVEL_2 = {
     { x: 600, y: L2_H - 790 },
     { x: 150, y: L2_H - 790 },
     { x: 400, y: L2_H - 1040 },
+    { x: 70, y: L2_H - 1040 },
   ],
   paintSpots: [
     { x: 400, y: L2_H - 620, w: 480, h: 576, paintingKey: 'painting_mural_big' },
   ],
   trashCans: [
-    { x: 500, y: L2_H - 56 },
-    { x: 200, y: L2_H - 524 },
+    { x: 620, y: L2_H - 50 },
+    { x: 248, y: L2_H - 524 },
   ],
   cops: [
     { x: 500, y: L2_H - 55, minX: 100, maxX: L2_W - 40 },
     { x: 300, y: L2_H - 520, minX: 100, maxX: 500 },
+    { x: 450, y: L2_H - 770, minX: 250, maxX: 650 },
   ],
   foregroundWires: [
     { x1: 0, y1: L2_H - 380, x2: L2_W, y2: L2_H - 400 },

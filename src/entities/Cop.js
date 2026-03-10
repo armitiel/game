@@ -76,6 +76,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   }
 
   patrol() {
+    // --- Patrol bounds ---
     if (this.x <= this.patrolLeft) {
       this.direction = 1;
       this.setFlipX(false);
@@ -83,7 +84,38 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
       this.direction = -1;
       this.setFlipX(true);
     }
+
+    // --- Edge detection: don't walk off platforms ---
+    if (this.body.blocked.down) {
+      const probeX = this.x + this.direction * (this.body.halfWidth + 4);
+      const probeY = this.body.bottom + 6; // just below feet
+      if (!this._hasGroundAt(probeX, probeY)) {
+        // No ground ahead — reverse direction
+        this.direction *= -1;
+        this.setFlipX(this.direction === -1);
+      }
+    }
+
     this.setVelocityX(COP.SPEED * this.direction);
+  }
+
+  /**
+   * Check if there is any solid platform/ground body at the given point.
+   */
+  _hasGroundAt(px, py) {
+    const scene = this.scene;
+    const groups = [scene.platforms, scene.ground];
+    for (const group of groups) {
+      const bodies = group.getChildren();
+      for (let i = 0; i < bodies.length; i++) {
+        const b = bodies[i].body;
+        if (!b) continue;
+        if (px >= b.left && px <= b.right && py >= b.top && py <= b.bottom) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   canSeePlayer(player) {

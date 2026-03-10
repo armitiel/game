@@ -28,6 +28,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.isPushingLadder = false;     // grabbing and pushing a ladder left/right
     this.pushLadderInfo = null;       // reference to ladder data {visual, zone, minX, maxX, ...}
     this.pushLadderDx = 0;            // dx to move ladder this frame (consumed by GameScene)
+    this._droppingThroughBridge = false; // true briefly when dropping through a bridge plank
     this.isPushingTrash = false;      // true when actively pushing a trash can with E
     this.isClimbing2 = false;         // true during ledge climb animation onto platform
     this.isHiding = false;            // true when actively crouching in shadow zone
@@ -81,6 +82,18 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.y -= this._pushYShift;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
       this._pushYShift = 0;
+    }
+    // Remove walk Y shift if leaving walk animation
+    if (this._walkYShift && key !== 'player_walk') {
+      this.y -= this._walkYShift;
+      this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
+      this._walkYShift = 0;
+    }
+    // Apply walk Y shift — nudge sprite slightly down during walk
+    if (key === 'player_walk' && !this._walkYShift) {
+      this._walkYShift = 1;
+      this.y += 1;
+      this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 1);
     }
     // Any non-idle/non-twist animation resets the idle twist timer
     if (key !== 'player_idle' && key !== 'player_twist') {

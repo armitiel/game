@@ -81,11 +81,9 @@ export default class GameScene extends Phaser.Scene {
     // Player vs ground — always solid, never pass-through
     this.physics.add.collider(this.player, this.ground);
 
-    // Player vs platforms — disabled when climbing a ladder or dropping through bridge
+    // Player vs platforms — disabled when climbing a ladder
     this.physics.add.collider(this.player, this.platforms, null, (player, platform) => {
       if (player.isClimbing || player.isDroppingToLadder || player.isClimbing2) return false;
-      // Drop-through bridge plank when pressing DOWN
-      if (platform.getData && platform.getData('isBridgePlank') && player._droppingThroughBridge) return false;
       return true;
     });
     this.cops.forEach(cop => {
@@ -1408,33 +1406,30 @@ export default class GameScene extends Phaser.Scene {
     const bridgeWidth = Math.abs(bridgeEndX - bridgeStartX);
     const bridgeCenterX = (bridgeStartX + bridgeEndX) / 2;
 
-    // === Same scale as original ladder (createLadders uses LADDER_DISPLAY_W=34, tex=51) ===
-    const LADDER_DISPLAY_W = 34;
-    const ladderScale = LADDER_DISPLAY_W / 51; // ≈ 0.667 — identical to original
+    // === Plank visual: plain Image stretched to ladder height (no tiling) ===
+    // drabinka2.png is 10×31 — stretch length to match ladder, keep original thickness.
+    const PLANK_TEX_W = 10;  // original texture width (thickness)
+    const plankDisplayLength = ladderHeight;  // same length as original ladder
+    const plankDisplayThick = PLANK_TEX_W * 0.8;  // 80% of original thickness
 
-    const tileH = bridgeWidth / ladderScale; // unscaled tile height = bridge length
+    // Position: plank rests on top of platform edges
+    const avgPlatTop = (pivotY + landPlatTop) / 2;
+    const bridgeCenterY = avgPlatTop - 4;
 
-    // Position: lower the plank so it sits ON the platform edge, not above it
-    // After rotation, visual thickness = 34px. Place center below platform top.
-    const plankThickness = LADDER_DISPLAY_W; // 34px after scale
-    const bridgeCenterY = (pivotY + landPlatTop) / 2 + plankThickness / 2;
+    // Plank center: halfway along its full length from pivot
+    const plankCenterX = pivotX + dir * (plankDisplayLength / 2);
 
-    // ── Create tileSprite with this.make (does NOT add to scene display list) ──
-    // Then add ONLY to bridge layer (depth 50). This avoids display-list conflicts
-    // and guarantees the plank renders above all platforms.
-    const plankVisual = this.make.tileSprite({
-      x: bridgeCenterX,
-      y: bridgeCenterY,
-      width: 51,
-      height: tileH,
-      key: 'ladder_plank',
-      add: false   // CRITICAL: do not add to scene display list
-    });
-    plankVisual.setScale(ladderScale);
-    plankVisual.setAngle(dir * 90); // rotate to lay flat as a bridge
+    // Create as plain Image (no tiling), stretch to match ladder size
+    const plankVisual = this.add.image(plankCenterX, bridgeCenterY, 'ladder_plank');
+    plankVisual.setDisplaySize(plankDisplayThick, plankDisplayLength); // width=10px thick, height=ladderHeight long
+    plankVisual.setAngle(dir * 90); // rotate to lay flat
+    // When falling left, flip so asset top faces up
+    if (dir === -1) plankVisual.setFlipY(true);
+    // Move to bridge layer (depth 50, renders above platforms)
+    this.children.remove(plankVisual);
     this._bridgeLayer.add(plankVisual);
 
-    // Appear at once with a quick fade-in
+    // Quick fade-in
     plankVisual.setAlpha(0);
     this.tweens.add({
       targets: plankVisual,
@@ -1443,12 +1438,11 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Quad.easeOut'
     });
 
-    // === Physics collider — spans the full bridge, top of the plank ===
+    // === Physics collider — spans FULL plank length (including parts over platforms) ===
     const BRIDGE_H = 16;
-    const colliderY = bridgeCenterY - plankThickness / 2 + BRIDGE_H / 2;
-    const bridge = this.add.rectangle(bridgeCenterX, colliderY, bridgeWidth, BRIDGE_H, 0x000000, 0);
+    const colliderY = bridgeCenterY - plankDisplayThick / 2 + BRIDGE_H / 2;
+    const bridge = this.add.rectangle(plankCenterX, colliderY, plankDisplayLength, BRIDGE_H, 0x000000, 0);
     this.physics.add.existing(bridge, true);
-    this.platforms.add(bridge);
     bridge.body.checkCollision.down = false;
     bridge.body.checkCollision.left = false;
     bridge.body.checkCollision.right = false;
@@ -1456,7 +1450,7 @@ export default class GameScene extends Phaser.Scene {
     // Mark bridge so we can identify it in collider callbacks
     bridge.setData('isBridgePlank', true);
 
-    // Add collider for player — DOWN key drops through
+    // Dedicated collider for player — NOT in platforms group to avoid double-collision jitter
     this.physics.add.collider(this.player, bridge, null, (player) => {
       if (player.isClimbing || player.isDroppingToLadder || player.isClimbing2) return false;
       // DROP-THROUGH: pressing DOWN while on bridge → fall through
