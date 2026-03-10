@@ -75,9 +75,11 @@ export default class GameScene extends Phaser.Scene {
     // Player vs ground — always solid, never pass-through
     this.physics.add.collider(this.player, this.ground);
 
-    // Player vs platforms — disabled when climbing a ladder (pass-through)
+    // Player vs platforms — disabled when climbing a ladder or dropping through bridge
     this.physics.add.collider(this.player, this.platforms, null, (player, platform) => {
       if (player.isClimbing || player.isDroppingToLadder || player.isClimbing2) return false;
+      // Drop-through bridge plank when pressing DOWN
+      if (platform.getData && platform.getData('isBridgePlank') && player._droppingThroughBridge) return false;
       return true;
     });
     this.cops.forEach(cop => {
@@ -144,10 +146,13 @@ export default class GameScene extends Phaser.Scene {
     this.ladderTopY = 0;
     this.currentLadderInfo = null; // reference to ladderInfo for pushing
     this.physics.add.overlap(this.player, this.ladderZones, (player, ladder) => {
+      const info = ladder.getData('ladderInfo');
+      // Skip fallen/destroyed ladders — can't climb a bridge
+      if (info && (info.isFalling || info.isBridge || info.destroyed)) return;
       this.playerOnLadderThisFrame = true;
       this.ladderCenterX = ladder.x + ladder.width / 2;
       this.ladderTopY = ladder.getData('ladderTopY');
-      this.currentLadderInfo = ladder.getData('ladderInfo');
+      this.currentLadderInfo = info;
     });
 
     // Shadow overlap
@@ -346,7 +351,11 @@ export default class GameScene extends Phaser.Scene {
       zone.setData('ladderTopY', topY);
       this.ladderZones.add(zone);
 
-      const ladderInfo = { visual, zone, topY, bottomY, height, minX: minX || 40, maxX: maxX || ld.worldWidth - 40 };
+      const ladderInfo = {
+        visual, zone, topY, bottomY, height,
+        minX: minX || 40, maxX: maxX || ld.worldWidth - 40,
+        isFalling: false, isBridge: false, destroyed: false, bridgeBody: null
+      };
       zone.setData('ladderInfo', ladderInfo);
       this.ladderData.push(ladderInfo);
     };
@@ -1133,7 +1142,7 @@ export default class GameScene extends Phaser.Scene {
   // === LADDER PUSH SYSTEM ===
 
   moveLadder(ladderInfo, dx) {
-    if (!ladderInfo) return;
+    if (!ladderInfo || ladderInfo.isFalling || ladderInfo.isBridge) return 0;
     const newX = Phaser.Math.Clamp(
       ladderInfo.visual.x + dx,
       ladderInfo.minX,
@@ -1150,7 +1159,314 @@ export default class GameScene extends Phaser.Scene {
     ladderInfo.zone.x = newX - zoneW / 2;
     ladderInfo.zone.body.reset(ladderInfo.zone.x, ladderInfo.zone.y);
 
+    // --- Check if ladder base went past platform edge → trigger fall ---
+    this._checkLadderEdgeFall(ladderInfo, dx);
+
     return actualDx;
+  }
+
+  /**
+   * Check if the ladder's base is past the edge of its supporting platform.
+   * If so, trigger the falling/rotation animation.
+   */
+  _checkLadderEdgeFall(ladderInfo, pushDx) {
+    if (ladderInfo.isFalling || ladderInfo.isBridge) return;
+
+    const ladderX = ladderInfo.visual.x;
+    const ladderBottomY = ladderInfo.bottomY;
+
+    // Find the platform the ladder is standing on
+    const supportPlatform = this._findSupportingPlatform(ladderX, ladderBottomY);
+    if (!supportPlatform) return; // no platform below — shouldn't happen during push
+
+    const platLeft = supportPlatform.x - supportPlatform.width / 2;
+    const platRight = supportPlatform.x + supportPlatform.width / 2;
+
+    // Direction: which way was the ladder pushed?
+    let fallDir = 0;
+    if (ladderX <= platLeft + 8) fallDir = -1;  // past left edge
+    else if (ladderX >= platRight - 8) fallDir = 1;  // past right edge
+
+    if (fallDir === 0) return;
+
+    console.log('[LADDER FALL] Edge detected! dir:', fallDir, 'ladderX:', ladderX, 'plat:', platLeft, '-', platRight);
+    this._triggerLadderFall(ladderInfo, fallDir, supportPlatform);
+  }
+
+  /**
+   * Find the platform (or ground) directly below a given X,Y position.
+   */
+  _findSupportingPlatform(x, bottomY) {
+    const TOLERANCE = 12;
+    let best = null;
+    let bestDist = Infinity;
+
+    const checkGroup = (group) => {
+      group.getChildren().forEach(plat => {
+        const pTop = plat.y - plat.height / 2;
+        const pLeft = plat.x - plat.width / 2;
+        const pRight = plat.x + plat.width / 2;
+        const distY = Math.abs(bottomY - pTop);
+        if (distY < TOLERANCE && x >= pLeft - 20 && x <= pRight + 20 && distY < bestDist) {
+          bestDist = distY;
+          best = plat;
+        }
+      });
+    };
+
+    checkGroup(this.platforms);
+    checkGroup(this.ground);
+    return best;
+  }
+
+  /**
+   * Trigger ladder fall: rotate 90° around its base pivot, check for landing platform.
+   * @param {object} ladderInfo
+   * @param {number} dir — -1 (fall left) or +1 (fall right)
+   * @param {Phaser.GameObjects.TileSprite} sourcePlatform — the platform it was standing on
+   */
+  _triggerLadderFall(ladderInfo, dir, sourcePlatform) {
+    ladderInfo.isFalling = true;
+
+    // Force player to release ladder
+    if (this.player.isPushingLadder && this.player.pushLadderInfo === ladderInfo) {
+      this.player.stopLadderPush();
+    }
+
+    // Disable climb zone immediately
+    ladderInfo.zone.body.enable = false;
+
+    const visual = ladderInfo.visual;
+    const ladderHeight = ladderInfo.height;
+    const displayW = visual.displayWidth;   // 34px
+    const displayH = visual.displayHeight;  // ladder pixel height
+
+    // Pivot point: the base of the ladder on the platform edge
+    const pivotX = visual.x;
+    const pivotY = ladderInfo.bottomY;
+
+    // === Convert tileSprite to a plain Image via RenderTexture ===
+    // This avoids Phaser's tileSprite depth/rotation rendering bugs.
+    const rtKey = '__ladderFall_' + Date.now();
+    const rt = this.add.renderTexture(0, 0, Math.ceil(displayW), Math.ceil(displayH));
+    // Draw the tileSprite centered into the RT
+    rt.draw(visual, displayW / 2, displayH / 2);
+    rt.saveTexture(rtKey);
+    rt.destroy();
+
+    // Create a plain Image from the snapshot — depth works reliably on Image
+    const fallImg = this.add.image(pivotX, pivotY, rtKey);
+    fallImg.setOrigin(0.5, 1.0); // pivot at bottom-center
+    fallImg.setDepth(50);
+
+    // Hide original tileSprite
+    visual.setVisible(false);
+
+    // Target rotation: 90° in fall direction
+    const targetAngle = dir * (Math.PI / 2);
+
+    // Check if there's a landing platform within ladder reach
+    const landingPlatform = this._findLandingPlatform(pivotX, pivotY, ladderHeight, dir, sourcePlatform);
+
+    let finalAngle = targetAngle;
+
+    if (landingPlatform) {
+      const landPlatTop = landingPlatform.y - landingPlatform.height / 2;
+      const landPlatEdge = dir === 1
+        ? (landingPlatform.x - landingPlatform.width / 2)
+        : (landingPlatform.x + landingPlatform.width / 2);
+      const dy = pivotY - landPlatTop;
+      const dxToEdge = Math.abs(landPlatEdge - pivotX);
+      if (dxToEdge <= ladderHeight && dy >= 0 && dy <= ladderHeight) {
+        const angle = Math.acos(Phaser.Math.Clamp(dy / ladderHeight, -1, 1));
+        finalAngle = dir * angle;
+      }
+      console.log('[LADDER FALL] Landing platform found!');
+    } else {
+      console.log('[LADDER FALL] No landing platform — ladder will fall off.');
+    }
+
+    // === PHASE 1: Rotation — ladder tips over ===
+    this.tweens.add({
+      targets: fallImg,
+      rotation: finalAngle,
+      duration: 600,
+      ease: 'Bounce.easeOut',
+      onComplete: () => {
+        if (!landingPlatform) {
+          // No platform: fall off screen
+          this.tweens.add({
+            targets: fallImg,
+            y: fallImg.y + 500,
+            alpha: 0,
+            duration: 800,
+            ease: 'Quad.easeIn',
+            onComplete: () => {
+              fallImg.destroy();
+              visual.destroy();
+              ladderInfo.destroyed = true;
+              ladderInfo.isFalling = false;
+            }
+          });
+          return;
+        }
+
+        // === PHASE 2: Squeeze width to 0 — "collapse" the old ladder visual ===
+        this.tweens.add({
+          targets: fallImg,
+          scaleX: 0,
+          duration: 300,
+          ease: 'Quad.easeIn',
+          onComplete: () => {
+            fallImg.destroy();
+            visual.destroy();
+
+            // === PHASE 3: Create new plank (drabinka2) ===
+            this._createLadderBridge(ladderInfo, pivotX, pivotY, ladderHeight, dir, landingPlatform);
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * Find a platform that can catch the falling ladder.
+   * Search in the fall direction within ladder-height distance.
+   */
+  _findLandingPlatform(pivotX, pivotY, ladderHeight, dir, sourcePlatform) {
+    const SEARCH_TOLERANCE_Y = 60; // platform can be up to 60px higher or lower
+    let best = null;
+    let bestDist = Infinity;
+
+    const checkGroup = (group) => {
+      group.getChildren().forEach(plat => {
+        if (plat === sourcePlatform) return; // skip the platform the ladder was standing on
+        const pTop = plat.y - plat.height / 2;
+        const pLeft = plat.x - plat.width / 2;
+        const pRight = plat.x + plat.width / 2;
+
+        // Platform top must be near the pivot Y (within tolerance)
+        if (Math.abs(pTop - pivotY) > SEARCH_TOLERANCE_Y) return;
+
+        // Platform must be in the fall direction
+        if (dir === 1) {
+          // Falling right: platform's left edge should be reachable
+          const distToLeftEdge = pLeft - pivotX;
+          if (distToLeftEdge > 0 && distToLeftEdge <= ladderHeight + 10 && distToLeftEdge < bestDist) {
+            bestDist = distToLeftEdge;
+            best = plat;
+          }
+        } else {
+          // Falling left: platform's right edge should be reachable
+          const distToRightEdge = pivotX - pRight;
+          if (distToRightEdge > 0 && distToRightEdge <= ladderHeight + 10 && distToRightEdge < bestDist) {
+            bestDist = distToRightEdge;
+            best = plat;
+          }
+        }
+      });
+    };
+
+    checkGroup(this.platforms);
+    checkGroup(this.ground);
+    return best;
+  }
+
+  /**
+   * Convert a fallen ladder into a walkable bridge (static physics body).
+   */
+  _createLadderBridge(ladderInfo, pivotX, pivotY, ladderHeight, dir, landingPlatform) {
+    ladderInfo.isBridge = true;
+    ladderInfo.isFalling = false;
+
+    const landPlatTop = landingPlatform.y - landingPlatform.height / 2;
+
+    // Bridge spans from pivot point to landing platform edge
+    const bridgeStartX = pivotX;
+    const bridgeEndX = dir === 1
+      ? (landingPlatform.x - landingPlatform.width / 2)
+      : (landingPlatform.x + landingPlatform.width / 2);
+
+    const bridgeWidth = Math.abs(bridgeEndX - bridgeStartX);
+    const bridgeCenterX = (bridgeStartX + bridgeEndX) / 2;
+
+    // === Same scale as original ladder (createLadders uses LADDER_DISPLAY_W=34, tex=51) ===
+    const LADDER_DISPLAY_W = 34;
+    const ladderScale = LADDER_DISPLAY_W / 51; // ≈ 0.667 — identical to original
+
+    // Build bridge visual as a plain Image (via RenderTexture) to avoid
+    // Phaser's tileSprite depth-sorting bug that causes bridge to hide behind platforms.
+    const tileH = bridgeWidth / ladderScale; // unscaled tile height = bridge length
+
+    // Position: lower the plank so it sits ON the platform edge, not above it
+    // After rotation, visual thickness = 34px. Place center below platform top.
+    const plankThickness = LADDER_DISPLAY_W; // 34px after scale
+    const bridgeCenterY = (pivotY + landPlatTop) / 2 + plankThickness / 2;
+
+    // Create temporary tileSprite, snapshot it into an Image, then destroy the tileSprite
+    const tmpTile = this.add.tileSprite(0, 0, 51, tileH, 'ladder_plank');
+    tmpTile.setScale(ladderScale);
+    const snapW = Math.ceil(51 * ladderScale);
+    const snapH = Math.ceil(tileH * ladderScale);
+    const rtKey = '__ladderBridge_' + Date.now();
+    const rt = this.add.renderTexture(0, 0, snapW, snapH);
+    rt.draw(tmpTile, snapW / 2, snapH / 2);
+    rt.saveTexture(rtKey);
+    rt.destroy();
+    tmpTile.destroy();
+
+    const plankVisual = this.add.image(bridgeCenterX, bridgeCenterY, rtKey);
+    plankVisual.setDepth(10); // above ALL game objects (platforms=3, ladders=4, player=5, fg=8)
+
+    // Rotate 90° to lay flat — vertical tiling becomes horizontal bridge
+    plankVisual.setAngle(dir * 90);
+
+    // Appear at once with a quick fade-in
+    plankVisual.setAlpha(0);
+    this.tweens.add({
+      targets: plankVisual,
+      alpha: 1,
+      duration: 200,
+      ease: 'Quad.easeOut'
+    });
+
+    // === Physics collider — spans the full bridge, top of the plank ===
+    const BRIDGE_H = 16;
+    const colliderY = bridgeCenterY - plankThickness / 2 + BRIDGE_H / 2;
+    const bridge = this.add.rectangle(bridgeCenterX, colliderY, bridgeWidth, BRIDGE_H, 0x000000, 0);
+    this.physics.add.existing(bridge, true);
+    this.platforms.add(bridge);
+    bridge.body.checkCollision.down = false;
+    bridge.body.checkCollision.left = false;
+    bridge.body.checkCollision.right = false;
+
+    // Mark bridge so we can identify it in collider callbacks
+    bridge.setData('isBridgePlank', true);
+
+    // Add collider for player — DOWN key drops through
+    this.physics.add.collider(this.player, bridge, null, (player) => {
+      if (player.isClimbing || player.isDroppingToLadder || player.isClimbing2) return false;
+      // DROP-THROUGH: pressing DOWN while on bridge → fall through
+      if (player._droppingThroughBridge) return false;
+      const down = player.cursors.down.isDown || player.wasdKeys.down.isDown
+        || (player.touch && player.touch.down);
+      if (down && player.body.blocked.down) {
+        player._droppingThroughBridge = true;
+        // Re-enable collision after player drops past the bridge
+        this.time.delayedCall(300, () => { player._droppingThroughBridge = false; });
+        return false;
+      }
+      return true;
+    });
+    // Cops can also walk on bridge
+    this.cops.forEach(cop => {
+      this.physics.add.collider(cop, bridge);
+    });
+
+    ladderInfo.bridgeBody = bridge;
+    ladderInfo.bridgeVisual = plankVisual;
+
+    console.log('[LADDER BRIDGE] Plank created from', bridgeStartX, 'to', bridgeEndX, 'at Y:', bridgeCenterY, 'thickness:', plankThickness);
   }
 
   // === UPDATE ===
