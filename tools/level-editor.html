@@ -442,8 +442,9 @@ function draw() {
   });
 
   // Paint cans
+  const CAN_COLOR_MAP = { RED: '#ff3344', BLUE: '#3388ff', YELLOW: '#ffdd33', GREEN: '#33ff88' };
   (level.paintCans || []).forEach((c, i) => {
-    ctx.fillStyle = COLORS.paintCan;
+    ctx.fillStyle = c.color ? (CAN_COLOR_MAP[c.color] || COLORS.paintCan) : COLORS.paintCan;
     ctx.beginPath();
     ctx.arc(c.x * s, c.y * s, 8 * s, 0, Math.PI * 2);
     ctx.fill();
@@ -451,7 +452,7 @@ function draw() {
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(c.x * s, c.y * s, 12 * s, 0, Math.PI * 2); ctx.stroke();
     }
-    drawLabel(c.x, c.y - 14, 'CAN', s);
+    drawLabel(c.x, c.y - 14, c.color ? c.color : 'CAN', s);
   });
 
   // Cops
@@ -896,6 +897,12 @@ function showProps() {
       break;
     case 'paintCan':
       html += field('x', e.x) + field('y', e.y) + field('depth', e.depth ?? '');
+      html += ` <label>color: <select data-field="color" style="width:100px;background:#333;color:#eee;border:1px solid #555;font-family:monospace;font-size:12px">`;
+      ['', 'RED', 'BLUE', 'YELLOW', 'GREEN'].forEach(c => {
+        const sel = (e.color || '') === c ? ' selected' : '';
+        html += `<option value="${c}"${sel}>${c || '(auto)'}</option>`;
+      });
+      html += `</select></label>`;
       break;
     case 'cop':
       html += field('x', e.x) + field('y', e.y) + field('minX', e.minX) + field('maxX', e.maxX) + field('depth', e.depth ?? '');
@@ -913,13 +920,13 @@ function showProps() {
 
   panel.innerHTML = html;
 
-  // Bind inputs
-  panel.querySelectorAll('input').forEach(inp => {
+  // Bind inputs and selects
+  panel.querySelectorAll('input, select').forEach(inp => {
     inp.addEventListener('change', () => {
       pushUndo();
       const f = inp.dataset.field;
       let v;
-      if (f === 'paintingKey') { v = inp.value; }
+      if (f === 'paintingKey' || f === 'color') { v = inp.value || undefined; }
       else if (f === 'depth') { v = inp.value.trim() === '' ? undefined : parseFloat(inp.value); }
       else { v = parseInt(inp.value); }
       if (selected.type === 'checkpoint') {
@@ -1065,7 +1072,8 @@ function generateExport() {
     // Paint cans
     out += `  paintCans: [\n`;
     (lv.paintCans || []).forEach(c => {
-      out += `    { x: ${Math.round(c.x)}, y: ${rel(Math.round(c.y), HH, hVar)}${dp(c)} },\n`;
+      const col = c.color ? `, color: '${c.color}'` : '';
+      out += `    { x: ${Math.round(c.x)}, y: ${rel(Math.round(c.y), HH, hVar)}${col}${dp(c)} },\n`;
     });
     out += `  ],\n`;
 
