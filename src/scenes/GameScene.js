@@ -57,14 +57,6 @@ export default class GameScene extends Phaser.Scene {
     // regardless of when objects are created during gameplay.
     this._bridgeLayer = this.add.layer();
     this._bridgeLayer.setDepth(50);
-    console.log('[INIT] _bridgeLayer created, depth:', this._bridgeLayer.depth, 'type:', this._bridgeLayer.type);
-
-    // ── DEPTH DIAGNOSTIC: tiny marker at (100,100) proves layer renders on top ──
-    const _dbgMarker = this.make.graphics({ add: false });
-    _dbgMarker.fillStyle(0x00ff00, 0.8);
-    _dbgMarker.fillCircle(100, 50, 8);
-    this._bridgeLayer.add(_dbgMarker);
-    console.log('[INIT] Debug green dot added to _bridgeLayer at (100,50)');
 
     // === Trash cans (pushable) ===
     this.trashCans = [];
@@ -1290,10 +1282,6 @@ export default class GameScene extends Phaser.Scene {
     this.children.remove(visual);
     this._bridgeLayer.add(visual);
 
-    console.log('[LADDER FALL] visual moved to _bridgeLayer. Layer depth:', this._bridgeLayer.depth,
-      'Layer children:', this._bridgeLayer.list.length,
-      'visual pos:', visual.x, visual.y, 'visible:', visual.visible);
-
     // Target rotation: 90° in fall direction
     const targetAngle = dir * (Math.PI / 2);
 
@@ -1446,13 +1434,6 @@ export default class GameScene extends Phaser.Scene {
     plankVisual.setAngle(dir * 90); // rotate to lay flat as a bridge
     this._bridgeLayer.add(plankVisual);
 
-    console.log('[LADDER BRIDGE] plank added to _bridgeLayer.',
-      'Layer depth:', this._bridgeLayer.depth,
-      'Layer children:', this._bridgeLayer.list.length,
-      'plank pos:', plankVisual.x, plankVisual.y,
-      'angle:', plankVisual.angle, 'visible:', plankVisual.visible,
-      'displaySize:', plankVisual.displayWidth, 'x', plankVisual.displayHeight);
-
     // Appear at once with a quick fade-in
     plankVisual.setAlpha(0);
     this.tweens.add({
@@ -1461,13 +1442,6 @@ export default class GameScene extends Phaser.Scene {
       duration: 200,
       ease: 'Quad.easeOut'
     });
-
-    // ── DEBUG: red rectangle at the same position to verify depth/position ──
-    const debugRect = this.make.graphics({ add: false });
-    debugRect.fillStyle(0xff0000, 0.35);
-    debugRect.fillRect(-bridgeWidth / 2, -plankThickness / 2, bridgeWidth, plankThickness);
-    debugRect.setPosition(bridgeCenterX, bridgeCenterY);
-    this._bridgeLayer.add(debugRect);
 
     // === Physics collider — spans the full bridge, top of the plank ===
     const BRIDGE_H = 16;
