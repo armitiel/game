@@ -5,6 +5,7 @@ const vm = require('vm');
 
 const LEVELS_PATH = path.join(__dirname, '..', 'src', 'config', 'levels.js');
 const EDITOR_PATH = path.join(__dirname, 'level-editor.html');
+const PAINTINGS_DIR = path.join(__dirname, '..', 'public', 'assets', 'paintings');
 const PORT = 3333;
 
 /**
@@ -61,6 +62,35 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/levels') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end(fs.readFileSync(LEVELS_PATH, 'utf-8'));
+    return;
+  }
+
+  // List mural JSON files (for mural preview in editor)
+  if (req.method === 'GET' && req.url === '/mural-list') {
+    try {
+      const files = fs.readdirSync(PAINTINGS_DIR).filter(f => f.endsWith('.json'));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(files));
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('[]');
+    }
+    return;
+  }
+
+  // Load a single mural file
+  if (req.method === 'GET' && req.url.startsWith('/mural-load')) {
+    const url = new URL(req.url, `http://localhost:${PORT}`);
+    const file = url.searchParams.get('file');
+    if (!file || file.includes('..') || !file.endsWith('.json')) {
+      res.writeHead(400); res.end('Bad file'); return;
+    }
+    const filePath = path.join(PAINTINGS_DIR, file);
+    if (!fs.existsSync(filePath)) {
+      res.writeHead(404); res.end('Not found'); return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(fs.readFileSync(filePath, 'utf-8'));
     return;
   }
 
