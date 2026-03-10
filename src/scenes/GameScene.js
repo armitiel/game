@@ -26,7 +26,7 @@ export default class GameScene extends Phaser.Scene {
     const ld = this.levelData;
     this.cameras.main.setBackgroundColor(GAME.BACKGROUND_COLOR);
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    this.cameras.main.setZoom(isMobile ? 1.8 : 1.3);
+    this.cameras.main.setZoom(isMobile ? 1.26 : 0.91);
     this.cameras.main.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
 
     // === World bounds ===
