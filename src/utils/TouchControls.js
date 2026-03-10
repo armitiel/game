@@ -242,14 +242,14 @@ export default class TouchControls {
     if (name === 'paint' && this._paintBg) {
       if (on !== this._paintHighlight) {
         this._paintHighlight = on;
-        this._paintBg.setAlpha(on ? 0.45 : 0.2);
-        this._paintBg.setStrokeStyle(on ? 2 : 0, 0xffdd33, on ? 0.8 : 0);
+        this._paintBg.setAlpha(on ? 0.7 : 0.2);
+        this._paintBg.setStrokeStyle(on ? 4 : 0, 0xffdd33, on ? 1.0 : 0);
       }
     } else if (name === 'grab' && this._grabBg) {
       if (on !== this._grabHighlight) {
         this._grabHighlight = on;
-        this._grabBg.setAlpha(on ? 0.45 : 0.2);
-        this._grabBg.setStrokeStyle(on ? 2 : 0, 0xff8833, on ? 0.8 : 0);
+        this._grabBg.setAlpha(on ? 0.7 : 0.2);
+        this._grabBg.setStrokeStyle(on ? 4 : 0, 0xff8833, on ? 1.0 : 0);
       }
     }
   }
