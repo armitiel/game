@@ -173,7 +173,7 @@ export default class TouchControls {
 
   _drawSprayCan(scene, cx, cy) {
     const icon = scene.add.image(cx, cy, 'icon_spray')
-      .setDisplaySize(38, 38)
+      .setDisplaySize(44, 44)
       .setScrollFactor(0)
       .setDepth(201)
       .setAlpha(0.7)
@@ -183,7 +183,7 @@ export default class TouchControls {
 
   _drawHand(scene, cx, cy) {
     const icon = scene.add.image(cx, cy, 'icon_hand')
-      .setDisplaySize(38, 38)
+      .setDisplaySize(44, 44)
       .setScrollFactor(0)
       .setDepth(201)
       .setAlpha(0.7)
