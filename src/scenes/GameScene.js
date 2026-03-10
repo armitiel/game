@@ -857,7 +857,7 @@ export default class GameScene extends Phaser.Scene {
     const isMobile = !!(this.touch && this.touch.enabled);
     this._preZoom = cam.zoom;
 
-    const targetZoom = isMobile ? 2.8 : 2.2;
+    const targetZoom = isMobile ? 1.96 : 1.54;
 
     // Keep following the player — just zoom in smoothly.
     // Camera stays centered on player so we always see what's happening,
