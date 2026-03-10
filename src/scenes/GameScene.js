@@ -52,6 +52,20 @@ export default class GameScene extends Phaser.Scene {
     this.createPaintCans();
     this.createForeground();
 
+    // === High-depth layer for bridge/falling-ladder visuals ===
+    // Using a Layer guarantees everything inside renders ABOVE platforms,
+    // regardless of when objects are created during gameplay.
+    this._bridgeLayer = this.add.layer();
+    this._bridgeLayer.setDepth(50);
+    console.log('[INIT] _bridgeLayer created, depth:', this._bridgeLayer.depth, 'type:', this._bridgeLayer.type);
+
+    // ── DEPTH DIAGNOSTIC: tiny marker at (100,100) proves layer renders on top ──
+    const _dbgMarker = this.make.graphics({ add: false });
+    _dbgMarker.fillStyle(0x00ff00, 0.8);
+    _dbgMarker.fillCircle(100, 50, 8);
+    this._bridgeLayer.add(_dbgMarker);
+    console.log('[INIT] Debug green dot added to _bridgeLayer at (100,50)');
+
     // === Trash cans (pushable) ===
     this.trashCans = [];
     this.createTrashCans();
@@ -290,7 +304,17 @@ export default class GameScene extends Phaser.Scene {
 
     const BLOCK_H = 32;
     const addPlatform = (group, x, y, width, depth) => {
-      const tile = this.add.tileSprite(x + width / 2, y + BLOCK_H / 2, width, BLOCK_H, 'platform_block');
+      // Convert tileSprite → Image via RenderTexture to fix Phaser depth-sorting
+      // bug between tileSprites and Images (bridge plank is an Image).
+      const tmpTile = this.add.tileSprite(0, 0, width, BLOCK_H, 'platform_block');
+      const rtKey = '__plat_' + x + '_' + y + '_' + width;
+      const rt = this.add.renderTexture(0, 0, width, BLOCK_H);
+      rt.draw(tmpTile, width / 2, BLOCK_H / 2);
+      rt.saveTexture(rtKey);
+      rt.destroy();
+      tmpTile.destroy();
+
+      const tile = this.add.image(x + width / 2, y + BLOCK_H / 2, rtKey);
       tile.setDepth(depth ?? 3);
       this.physics.add.existing(tile, true);
       group.add(tile);
@@ -338,8 +362,20 @@ export default class GameScene extends Phaser.Scene {
       const height = bottomY - topY;
       const ladderScale = LADDER_DISPLAY_W / 51;
       const tileH = height / ladderScale;
-      const visual = this.add.tileSprite(x, topY + height / 2, 51, tileH, 'ladder_tile');
-      visual.setScale(ladderScale);
+
+      // Convert tileSprite → Image via RenderTexture to fix depth-sorting vs platforms
+      const tmpTile = this.add.tileSprite(0, 0, 51, tileH, 'ladder_tile');
+      tmpTile.setScale(ladderScale);
+      const snapW = Math.ceil(51 * ladderScale);
+      const snapH = Math.ceil(tileH * ladderScale);
+      const rtKey = '__ladder_' + x + '_' + topY;
+      const rt = this.add.renderTexture(0, 0, snapW, snapH);
+      rt.draw(tmpTile, snapW / 2, snapH / 2);
+      rt.saveTexture(rtKey);
+      rt.destroy();
+      tmpTile.destroy();
+
+      const visual = this.add.image(x, topY + height / 2, rtKey);
       visual.setDepth(ladderDepth ?? 4);
       this.ladderVisuals.add(visual);
 
@@ -1238,29 +1274,25 @@ export default class GameScene extends Phaser.Scene {
 
     const visual = ladderInfo.visual;
     const ladderHeight = ladderInfo.height;
-    const displayW = visual.displayWidth;   // 34px
-    const displayH = visual.displayHeight;  // ladder pixel height
 
     // Pivot point: the base of the ladder on the platform edge
     const pivotX = visual.x;
     const pivotY = ladderInfo.bottomY;
 
-    // === Convert tileSprite to a plain Image via RenderTexture ===
-    // This avoids Phaser's tileSprite depth/rotation rendering bugs.
-    const rtKey = '__ladderFall_' + Date.now();
-    const rt = this.add.renderTexture(0, 0, Math.ceil(displayW), Math.ceil(displayH));
-    // Draw the tileSprite centered into the RT
-    rt.draw(visual, displayW / 2, displayH / 2);
-    rt.saveTexture(rtKey);
-    rt.destroy();
+    // ── APPROACH: Move the ORIGINAL tileSprite into the bridge layer ──
+    // Instead of creating copies via RenderTexture (which can produce empty textures),
+    // we simply reparent the existing visual into the high-depth layer.
+    // The Layer (depth 50) guarantees it renders above all platforms (depth 3).
+    visual.setOrigin(0.5, 1.0);
+    // After changing origin, we must reposition so the bottom-center is at the pivot
+    visual.setPosition(pivotX, pivotY);
+    // Move from scene display list → bridge layer display list
+    this.children.remove(visual);
+    this._bridgeLayer.add(visual);
 
-    // Create a plain Image from the snapshot — depth works reliably on Image
-    const fallImg = this.add.image(pivotX, pivotY, rtKey);
-    fallImg.setOrigin(0.5, 1.0); // pivot at bottom-center
-    fallImg.setDepth(50);
-
-    // Hide original tileSprite
-    visual.setVisible(false);
+    console.log('[LADDER FALL] visual moved to _bridgeLayer. Layer depth:', this._bridgeLayer.depth,
+      'Layer children:', this._bridgeLayer.list.length,
+      'visual pos:', visual.x, visual.y, 'visible:', visual.visible);
 
     // Target rotation: 90° in fall direction
     const targetAngle = dir * (Math.PI / 2);
@@ -1288,7 +1320,7 @@ export default class GameScene extends Phaser.Scene {
 
     // === PHASE 1: Rotation — ladder tips over ===
     this.tweens.add({
-      targets: fallImg,
+      targets: visual,
       rotation: finalAngle,
       duration: 600,
       ease: 'Bounce.easeOut',
@@ -1296,13 +1328,12 @@ export default class GameScene extends Phaser.Scene {
         if (!landingPlatform) {
           // No platform: fall off screen
           this.tweens.add({
-            targets: fallImg,
-            y: fallImg.y + 500,
+            targets: visual,
+            y: visual.y + 500,
             alpha: 0,
             duration: 800,
             ease: 'Quad.easeIn',
             onComplete: () => {
-              fallImg.destroy();
               visual.destroy();
               ladderInfo.destroyed = true;
               ladderInfo.isFalling = false;
@@ -1313,12 +1344,11 @@ export default class GameScene extends Phaser.Scene {
 
         // === PHASE 2: Squeeze width to 0 — "collapse" the old ladder visual ===
         this.tweens.add({
-          targets: fallImg,
+          targets: visual,
           scaleX: 0,
           duration: 300,
           ease: 'Quad.easeIn',
           onComplete: () => {
-            fallImg.destroy();
             visual.destroy();
 
             // === PHASE 3: Create new plank (drabinka2) ===
@@ -1394,8 +1424,6 @@ export default class GameScene extends Phaser.Scene {
     const LADDER_DISPLAY_W = 34;
     const ladderScale = LADDER_DISPLAY_W / 51; // ≈ 0.667 — identical to original
 
-    // Build bridge visual as a plain Image (via RenderTexture) to avoid
-    // Phaser's tileSprite depth-sorting bug that causes bridge to hide behind platforms.
     const tileH = bridgeWidth / ladderScale; // unscaled tile height = bridge length
 
     // Position: lower the plank so it sits ON the platform edge, not above it
@@ -1403,23 +1431,27 @@ export default class GameScene extends Phaser.Scene {
     const plankThickness = LADDER_DISPLAY_W; // 34px after scale
     const bridgeCenterY = (pivotY + landPlatTop) / 2 + plankThickness / 2;
 
-    // Create temporary tileSprite, snapshot it into an Image, then destroy the tileSprite
-    const tmpTile = this.add.tileSprite(0, 0, 51, tileH, 'ladder_plank');
-    tmpTile.setScale(ladderScale);
-    const snapW = Math.ceil(51 * ladderScale);
-    const snapH = Math.ceil(tileH * ladderScale);
-    const rtKey = '__ladderBridge_' + Date.now();
-    const rt = this.add.renderTexture(0, 0, snapW, snapH);
-    rt.draw(tmpTile, snapW / 2, snapH / 2);
-    rt.saveTexture(rtKey);
-    rt.destroy();
-    tmpTile.destroy();
+    // ── Create tileSprite with this.make (does NOT add to scene display list) ──
+    // Then add ONLY to bridge layer (depth 50). This avoids display-list conflicts
+    // and guarantees the plank renders above all platforms.
+    const plankVisual = this.make.tileSprite({
+      x: bridgeCenterX,
+      y: bridgeCenterY,
+      width: 51,
+      height: tileH,
+      key: 'ladder_plank',
+      add: false   // CRITICAL: do not add to scene display list
+    });
+    plankVisual.setScale(ladderScale);
+    plankVisual.setAngle(dir * 90); // rotate to lay flat as a bridge
+    this._bridgeLayer.add(plankVisual);
 
-    const plankVisual = this.add.image(bridgeCenterX, bridgeCenterY, rtKey);
-    plankVisual.setDepth(10); // above ALL game objects (platforms=3, ladders=4, player=5, fg=8)
-
-    // Rotate 90° to lay flat — vertical tiling becomes horizontal bridge
-    plankVisual.setAngle(dir * 90);
+    console.log('[LADDER BRIDGE] plank added to _bridgeLayer.',
+      'Layer depth:', this._bridgeLayer.depth,
+      'Layer children:', this._bridgeLayer.list.length,
+      'plank pos:', plankVisual.x, plankVisual.y,
+      'angle:', plankVisual.angle, 'visible:', plankVisual.visible,
+      'displaySize:', plankVisual.displayWidth, 'x', plankVisual.displayHeight);
 
     // Appear at once with a quick fade-in
     plankVisual.setAlpha(0);
@@ -1429,6 +1461,13 @@ export default class GameScene extends Phaser.Scene {
       duration: 200,
       ease: 'Quad.easeOut'
     });
+
+    // ── DEBUG: red rectangle at the same position to verify depth/position ──
+    const debugRect = this.make.graphics({ add: false });
+    debugRect.fillStyle(0xff0000, 0.35);
+    debugRect.fillRect(-bridgeWidth / 2, -plankThickness / 2, bridgeWidth, plankThickness);
+    debugRect.setPosition(bridgeCenterX, bridgeCenterY);
+    this._bridgeLayer.add(debugRect);
 
     // === Physics collider — spans the full bridge, top of the plank ===
     const BRIDGE_H = 16;
@@ -1465,8 +1504,6 @@ export default class GameScene extends Phaser.Scene {
 
     ladderInfo.bridgeBody = bridge;
     ladderInfo.bridgeVisual = plankVisual;
-
-    console.log('[LADDER BRIDGE] Plank created from', bridgeStartX, 'to', bridgeEndX, 'at Y:', bridgeCenterY, 'thickness:', plankThickness);
   }
 
   // === UPDATE ===
