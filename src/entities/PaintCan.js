@@ -36,24 +36,24 @@ export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
     const py = (this.y + player.y) / 2;
 
     // Sparkle particles
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 25; i++) {
       const star = this.scene.add.star(
-        px + Phaser.Math.Between(-10, 10),
-        py + Phaser.Math.Between(-10, 10),
+        px + Phaser.Math.Between(-20, 20),
+        py + Phaser.Math.Between(-20, 20),
         5,                              // 5 points
-        Phaser.Math.Between(1, 3),      // inner radius
-        Phaser.Math.Between(3, 6),      // outer radius
+        Phaser.Math.Between(2, 5),      // inner radius
+        Phaser.Math.Between(5, 10),     // outer radius
         0xffdd33, 1
       ).setDepth(10);
 
       this.scene.tweens.add({
         targets: star,
-        x: star.x + Phaser.Math.Between(-25, 25),
-        y: star.y + Phaser.Math.Between(-30, -5),
+        x: star.x + Phaser.Math.Between(-40, 40),
+        y: star.y + Phaser.Math.Between(-50, -10),
         alpha: 0,
-        scale: 0.2,
+        scale: 0.3,
         angle: Phaser.Math.Between(-180, 180),
-        duration: Phaser.Math.Between(300, 600),
+        duration: Phaser.Math.Between(350, 700),
         onComplete: () => star.destroy()
       });
     }
