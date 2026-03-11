@@ -299,14 +299,24 @@ export default class GameScene extends Phaser.Scene {
     this.ground = this.physics.add.staticGroup();
 
     const BLOCK_H = 32;
+    const CORNER_R = 4;
     const addPlatform = (group, x, y, width, depth) => {
-      // Convert tileSprite → Image via RenderTexture to fix Phaser depth-sorting
-      // bug between tileSprites and Images (bridge plank is an Image).
+      // Draw tiled texture into a RenderTexture, then apply rounded-corner mask
       const tmpTile = this.add.tileSprite(0, 0, width, BLOCK_H, 'platform_block');
       const rtKey = '__plat_' + x + '_' + y + '_' + width;
       const rt = this.add.renderTexture(0, 0, width, BLOCK_H);
+
+      // Rounded-rect mask via Graphics geometry
+      const maskGfx = this.make.graphics({ add: false });
+      maskGfx.fillStyle(0xffffff);
+      maskGfx.fillRoundedRect(0, 0, width, BLOCK_H, CORNER_R);
+      const mask = maskGfx.createGeometryMask();
+      rt.setMask(mask);
+
       rt.draw(tmpTile, width / 2, BLOCK_H / 2);
       rt.saveTexture(rtKey);
+      rt.clearMask(true);
+      maskGfx.destroy();
       rt.destroy();
       tmpTile.destroy();
 
