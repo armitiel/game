@@ -802,13 +802,14 @@ export default class GameScene extends Phaser.Scene {
       fill: '#00ff88'
     }).setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
 
-    // Status text
+    // Status text (desktop only — mobile has no text hints)
     this.statusText = this.add.text(gw / 2, 10, '', {
       font: `${Math.round(12 * uiScale)}px monospace`,
       fill: '#00ff88',
       backgroundColor: '#000000aa',
       padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
     }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0);
+    if (isMobile) this.statusText.setVisible(false);
 
     // Music toggle button (speaker icon)
     this.musicOn = true;
