@@ -398,6 +398,7 @@ export default class GameScene extends Phaser.Scene {
   createShadowZones() {
     this.shadowZones = this.physics.add.staticGroup();
     this.shadowVisuals = this.add.group();
+    this._shadowArrows = [];   // down-arrow hints per shadow
 
     const addShadow = (x, y, w, h, shadowDepth) => {
       const visual = this.add.graphics();
@@ -420,9 +421,55 @@ export default class GameScene extends Phaser.Scene {
       const zone = this.add.zone(x, y, w, h).setOrigin(0, 0);
       this.physics.add.existing(zone, true);
       this.shadowZones.add(zone);
+
+      // Down-arrow indicator (shown when player is in this shadow)
+      const arrowX = x + w / 2;
+      const arrowY = y + 6;
+      const arrow = this.add.text(arrowX, arrowY, '\u25BC', {
+        font: 'bold 14px monospace',
+        fill: '#88bbff',
+      }).setOrigin(0.5, 0).setDepth((shadowDepth ?? 2) + 0.1).setAlpha(0).setVisible(false);
+      this._shadowArrows.push({ arrow, x, y, w, h });
     };
 
     this.levelData.shadows.forEach(s => addShadow(s.x, s.y, s.w, s.h, s.depth));
+  }
+
+  _updateShadowArrows() {
+    if (!this._shadowArrows) return;
+    const px = this.player.x;
+    const py = this.player.y;
+    const hiding = this.player.isHiding;
+    const PROXIMITY = 50; // horizontal proximity to show arrow
+
+    for (const sa of this._shadowArrows) {
+      const inX = px >= sa.x - PROXIMITY && px <= sa.x + sa.w + PROXIMITY;
+      const inY = py >= sa.y - 20 && py <= sa.y + sa.h + 10;
+      const shouldShow = inX && inY && !hiding;
+
+      if (shouldShow && !sa.arrow.visible) {
+        sa.arrow.setVisible(true);
+        // Bobbing tween
+        if (!sa._tween) {
+          sa.arrow.setAlpha(0.85);
+          sa._tween = this.tweens.add({
+            targets: sa.arrow,
+            y: sa.arrow.y + 5,
+            alpha: 0.4,
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        } else {
+          sa._tween.resume();
+        }
+      } else if (!shouldShow && sa.arrow.visible) {
+        sa.arrow.setVisible(false);
+        sa.arrow.setAlpha(0);
+        if (sa._tween) sa._tween.pause();
+      }
+    }
   }
 
   createPaintCans() {
@@ -784,18 +831,13 @@ export default class GameScene extends Phaser.Scene {
       this.statusText.setText('[ PRZESUWANIE KOSZA — E puść ]');
       this.statusText.setStyle({ fill: '#ffaa33' });
     } else {
-      // Build context hints
+      // Build context hints (desktop only — mobile uses visual indicators instead)
+      const isMob = !!(this.touch && this.touch.enabled);
       const hints = [];
       let paintHint = false;
 
-      if (this.player.isHiding) {
-        hints.push('UKRYTY');
-      } else if (this.player.inShadowZone && !this.player.isHiding) {
-        hints.push('↓ schowaj się');
-      }
-
-      // Paint spot nearby
-      if (this.interactablePaintSpot && !this.interactablePaintSpot.getData('painted')) {
+      // Paint spot nearby (desktop only)
+      if (!isMob && this.interactablePaintSpot && !this.interactablePaintSpot.getData('painted')) {
         const paintingKey = this.interactablePaintSpot.getData('paintingKey');
         if (paintingKey) {
           const gridData = this.cache.json.get(paintingKey);
@@ -809,20 +851,6 @@ export default class GameScene extends Phaser.Scene {
             paintHint = true;
           }
         }
-      }
-
-      // E key hint — show only one based on priority (ladder > trash)
-      const onGround = this.player.body.blocked.down || this.player.body.touching.down;
-      let nearLadderBottom = false;
-      if (onGround && this.playerOnLadderThisFrame && this.currentLadderInfo) {
-        const playerFeetY = this.player.body.y + this.player.body.height;
-        nearLadderBottom = playerFeetY >= this.currentLadderInfo.bottomY - 40;
-      }
-
-      if (nearLadderBottom) {
-        hints.push('E: przesuń drabinę');
-      } else if (this.nearbyTrash) {
-        hints.push('E: przesuń kosz');
       }
 
       if (hints.length > 0) {
@@ -1654,6 +1682,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.touch && this.touch.enabled) {
       this.touch.shadowBias = this.playerInShadow;
     }
+    // Update shadow down-arrow indicators
+    this._updateShadowArrows();
 
     // 2. Check paint input (SPACE or touch ACT)
     // Allowed when: on solid ground OR on ladder (not mid-air)
