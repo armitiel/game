@@ -820,14 +820,16 @@ export default class GameScene extends Phaser.Scene {
     // Painted spots counter
     this.hudCountText.setText(`${this.paintedSpots}/${this.totalSpots}`);
 
-    if (this.player.isPainting) {
+    const isMob = !!(this.touch && this.touch.enabled);
+
+    if (!isMob && this.player.isPainting) {
       const colorInfo = this.pbn ? ` | Kolor: ${this.pbn.getSelectedColorName()} (1-${this.pbn.colorMap.length})` : '';
       this.statusText.setText(`[ MALOWANIE${colorInfo} — SPACE anuluj ]`);
       this.statusText.setStyle({ fill: '#ffdd33' });
-    } else if (this.player.isPushingLadder) {
+    } else if (!isMob && this.player.isPushingLadder) {
       this.statusText.setText('[ PRZESUWANIE DRABINY — E puść ]');
       this.statusText.setStyle({ fill: '#ffaa33' });
-    } else if (this.player.isPushingTrash) {
+    } else if (!isMob && this.player.isPushingTrash) {
       this.statusText.setText('[ PRZESUWANIE KOSZA — E puść ]');
       this.statusText.setStyle({ fill: '#ffaa33' });
     } else {
