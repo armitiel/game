@@ -199,6 +199,7 @@ export default class PaintArm {
     const handNudgeX = -dir * 3;  // 3px closer to body
     const handNudgeY = -4;        // 4px up
     this.hand.setPosition(hx + handNudgeX, hy + handNudgeY);
+    this.hand.setFlipX(this.flipX);
     // Spray can follows hand, offset slightly below/behind
     this.canSprite.setPosition(hx + handNudgeX, hy + handNudgeY + 6);
     this.canSprite.setFlipX(this.flipX);
