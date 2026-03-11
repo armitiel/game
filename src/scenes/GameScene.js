@@ -18,6 +18,7 @@ export default class GameScene extends Phaser.Scene {
   init(data) {
     this.levelIndex = (data && data.levelIndex != null) ? data.levelIndex : 0;
     this.levelData = LEVELS[this.levelIndex] || LEVELS[0];
+    this.mode = this.levelData.mode || 'stealth'; // 'stealth' | 'puzzle' | 'tower'
   }
 
   create() {
@@ -185,6 +186,11 @@ export default class GameScene extends Phaser.Scene {
 
     // === HUD ===
     this.createHUD();
+
+    // === Tower mode: timer + color gates ===
+    if (this.mode === 'tower') {
+      this.setupTowerMode();
+    }
 
     // === Events ===
     this.events.on('player-caught', () => {
@@ -602,6 +608,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createCops() {
+    if (this.mode !== 'stealth') return; // no cops in puzzle/tower modes
     this.levelData.cops.forEach(c => {
       const cop = new Cop(this, c.x, c.y, c.minX, c.maxX);
       this.cops.push(cop);
@@ -615,6 +622,131 @@ export default class GameScene extends Phaser.Scene {
       fg.lineStyle(1, 0x334455, 0.4);
       fg.lineBetween(w.x1, w.y1, w.x2, w.y2);
     });
+  }
+
+  // === TOWER MODE ===
+
+  setupTowerMode() {
+    const tc = this.levelData.timer || { startSeconds: 120, bonusPerMural: 30, warningAt: 20 };
+    this._towerTimeLeft = tc.startSeconds;
+    this._towerBonus = tc.bonusPerMural;
+    this._towerWarningAt = tc.warningAt;
+    this._towerMuralsDone = 0;
+    this._towerGameOver = false;
+
+    // Timer HUD text (on UI camera)
+    this._addingHud = true;
+    const gw = this.sys.game.config.width;
+    this._towerTimerText = this.add.text(gw / 2, 12, '', {
+      font: 'bold 22px monospace', fill: '#00ff88'
+    }).setOrigin(0.5, 0).setDepth(300);
+    this._addingHud = false;
+    this.cameras.main.ignore(this._towerTimerText);
+
+    // Color gates — physical barriers
+    this._colorGates = [];
+    (this.levelData.colorGates || []).forEach(g => {
+      const gate = this.add.rectangle(g.x + g.w / 2, g.y, g.w, 8, 0xff4444, 0.7)
+        .setDepth(10);
+      this.physics.add.existing(gate, true); // static
+
+      // Message text floating above gate
+      const msg = this.add.text(g.x + g.w / 2, g.y - 16, g.message || '', {
+        font: 'bold 10px monospace', fill: '#ff6666',
+        stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5, 1).setDepth(10.1);
+      gate.msgText = msg;
+      gate.gateData = g;
+
+      // Collider — blocks player until they have the required color
+      this.physics.add.collider(this.player, gate, null, () => {
+        const hasColor = this.player.hasPaint(g.requiredColor.toLowerCase());
+        if (hasColor) {
+          this.cameras.main.flash(200, 50, 255, 50);
+          msg.destroy();
+          gate.destroy();
+          this._colorGates = this._colorGates.filter(x => x !== gate);
+          return false;
+        }
+        return true;
+      });
+
+      this._colorGates.push(gate);
+    });
+  }
+
+  updateTowerTimer(delta) {
+    if (!this._towerTimerText || this._towerGameOver) return;
+
+    this._towerTimeLeft -= delta / 1000;
+    if (this._towerTimeLeft <= 0) {
+      this._towerTimeLeft = 0;
+      this._towerGameOver = true;
+      this._towerTimerText.setText('CZAS MINĄŁ!').setFill('#ff3333');
+      this.player.setVelocity(0, 0);
+      this.player.body.allowGravity = false;
+      this.time.delayedCall(2000, () => {
+        this.scene.start('LevelSelectScene');
+      });
+      return;
+    }
+
+    const secs = Math.ceil(this._towerTimeLeft);
+    const min = Math.floor(secs / 60);
+    const sec = secs % 60;
+    this._towerTimerText.setText(`${min}:${String(sec).padStart(2, '0')}`);
+
+    if (secs <= this._towerWarningAt) {
+      this._towerTimerText.setFill('#ff3333');
+      const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 200);
+      this._towerTimerText.setScale(1 + pulse * 0.15);
+    } else {
+      this._towerTimerText.setFill('#00ff88');
+      this._towerTimerText.setScale(1);
+    }
+  }
+
+  onTowerMuralComplete() {
+    if (this.mode !== 'tower') return;
+    this._towerMuralsDone++;
+
+    // Time bonus
+    this._towerTimeLeft += this._towerBonus;
+
+    // Flash bonus text on UI cam
+    this._addingHud = true;
+    const gw = this.sys.game.config.width;
+    const bonusText = this.add.text(gw / 2, 42, `+${this._towerBonus}s`, {
+      font: 'bold 18px monospace', fill: '#ffdd33'
+    }).setOrigin(0.5, 0).setDepth(301);
+    this._addingHud = false;
+    this.cameras.main.ignore(bonusText);
+    this.tweens.add({
+      targets: bonusText, y: bonusText.y - 30, alpha: 0,
+      duration: 1200, onComplete: () => bonusText.destroy()
+    });
+
+    // Color unlock
+    const unlocks = this.levelData.colorUnlocks || [];
+    const muralIdx = this._towerMuralsDone - 1;
+    if (unlocks[muralIdx]) {
+      const colorName = unlocks[muralIdx].toLowerCase();
+      if (!this.player.hasPaint(colorName)) {
+        this.player.collectPaint(colorName);
+        this._addingHud = true;
+        const unlockText = this.add.text(gw / 2, 70,
+          `NOWY KOLOR: ${unlocks[muralIdx]}!`, {
+          font: 'bold 14px monospace', fill: '#33ff88',
+          stroke: '#000000', strokeThickness: 3
+        }).setOrigin(0.5, 0).setDepth(301);
+        this._addingHud = false;
+        this.cameras.main.ignore(unlockText);
+        this.tweens.add({
+          targets: unlockText, y: unlockText.y - 40, alpha: 0,
+          duration: 2500, onComplete: () => unlockText.destroy()
+        });
+      }
+    }
   }
 
   // === HUD ===
@@ -1222,8 +1354,7 @@ export default class GameScene extends Phaser.Scene {
     // Keep brick wall visible behind the painted mural
     // Hide only the template grid overlay
     if (this.pbn) {
-      this.pbn.templateGfx.setVisible(false);
-      this.pbn.numberTexts.forEach(t => t.text.setVisible(false));
+      this.pbn.hide();
     }
 
     // Paint splash effect
@@ -1245,6 +1376,9 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.cleanupPaintState(false);
+
+    // Tower mode: time bonus + color unlock
+    this.onTowerMuralComplete();
 
     // Check win
     if (this.paintedSpots >= this.totalSpots) {
@@ -1966,6 +2100,9 @@ export default class GameScene extends Phaser.Scene {
 
     // 4. Cops AI
     this.cops.forEach(cop => cop.update(time, delta, this.player));
+
+    // 4a2. Tower mode timer
+    if (this.mode === 'tower') this.updateTowerTimer(delta);
 
     // 4b. Touch button highlights — signal nearby interactables
     if (this.touch && this.touch.enabled) {

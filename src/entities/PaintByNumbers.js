@@ -84,33 +84,52 @@ export default class PaintByNumbers {
       }
     }
 
-    // Add number labels as text objects (grouped for cleanup)
-    this.numberTexts = [];
+    // Draw all number labels onto a single canvas texture (avoids 1000s of Text objects)
+    this.numberTexts = []; // kept empty for compat — numbers drawn on canvas
     const cellMin = Math.min(this.cellW, this.cellH);
     const fontSize = Math.max(6, Math.round(cellMin * 0.75));
+    const strokeW = cellMin < 14 ? 2 : 1;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(b.w);
+    canvas.height = Math.ceil(b.h);
+    const ctx = canvas.getContext('2d');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.globalAlpha = 0.8;
 
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const ci = this.targetGrid[r][c];
         if (ci < 0) continue;
 
-        const cx = b.x + c * this.cellW + this.cellW / 2;
-        const cy = b.y + r * this.cellH + this.cellH / 2;
+        const lx = c * this.cellW + this.cellW / 2;
+        const ly = r * this.cellH + this.cellH / 2;
+        const label = String(ci + 1);
 
-        // Colored number matching target color for better readability
         const targetHex = PAINT.COLORS[this.colorMap[ci]] || 0xffffff;
         const hexStr = '#' + targetHex.toString(16).padStart(6, '0');
 
-        const txt = this.scene.add.text(cx, cy, String(ci + 1), {
-          font: `bold ${fontSize}px monospace`,
-          fill: hexStr,
-          stroke: '#000000',
-          strokeThickness: cellMin < 14 ? 2 : 1,
-        }).setOrigin(0.5).setDepth(7.2).setAlpha(0.8);
-
-        this.numberTexts.push({ text: txt, row: r, col: c });
+        // Stroke (outline)
+        if (strokeW > 0) {
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = strokeW * 2;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(label, lx, ly);
+        }
+        // Fill
+        ctx.fillStyle = hexStr;
+        ctx.fillText(label, lx, ly);
       }
     }
+
+    const texKey = '__pbn_nums_' + b.x + '_' + b.y;
+    if (scene.textures.exists(texKey)) scene.textures.remove(texKey);
+    scene.textures.addCanvas(texKey, canvas);
+    this._numbersTexKey = texKey;
+    this.numbersImage = scene.add.image(b.x, b.y, texKey)
+      .setOrigin(0, 0).setDepth(7.2);
   }
 
   /**
@@ -155,9 +174,8 @@ export default class PaintByNumbers {
       this.paintGfx.fillRect(cx + 1, cy + this.cellH * 0.3, this.cellW - 2, 1);
     }
 
-    // Hide the number text for this cell
-    const entry = this.numberTexts.find(t => t.row === row && t.col === col);
-    if (entry) entry.text.setVisible(false);
+    // Clear number from canvas for this cell
+    this._clearNumberCell(col, row);
 
     return true;
   }
@@ -263,11 +281,22 @@ export default class PaintByNumbers {
         this.paintGfx.fillStyle(hex, 0.75);
         this.paintGfx.fillRect(cx, cy, this.cellW, this.cellH);
 
-        // Hide number text
-        const entry = this.numberTexts.find(t => t.row === r && t.col === c);
-        if (entry) entry.text.setVisible(false);
+        // Clear number from canvas
+        this._clearNumberCell(c, r);
       }
     }
+  }
+
+  /** Clear a single cell's number from the canvas texture */
+  _clearNumberCell(col, row) {
+    if (!this._numbersTexKey) return;
+    const tex = this.scene.textures.get(this._numbersTexKey);
+    if (!tex || !tex.source || !tex.source[0]) return;
+    const canvas = tex.source[0].image;
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(col * this.cellW, row * this.cellH, this.cellW, this.cellH);
+    tex.update();  // tell Phaser the texture changed
   }
 
   /**
@@ -276,7 +305,10 @@ export default class PaintByNumbers {
   destroy() {
     this.templateGfx.destroy();
     this.paintGfx.destroy();
-    this.numberTexts.forEach(t => t.text.destroy());
+    if (this.numbersImage) this.numbersImage.destroy();
+    if (this._numbersTexKey && this.scene.textures.exists(this._numbersTexKey)) {
+      this.scene.textures.remove(this._numbersTexKey);
+    }
     this.numberTexts = [];
   }
 
@@ -285,8 +317,7 @@ export default class PaintByNumbers {
    */
   hide() {
     this.templateGfx.setVisible(false);
-    // paintGfx stays visible — shows progress on the wall!
-    this.numberTexts.forEach(t => t.text.setVisible(false));
+    if (this.numbersImage) this.numbersImage.setVisible(false);
   }
 
   /**
@@ -295,9 +326,6 @@ export default class PaintByNumbers {
   show() {
     this.templateGfx.setVisible(true);
     this.paintGfx.setVisible(true);
-    // Show only unfilled number texts
-    this.numberTexts.forEach(t => {
-      t.text.setVisible(!this.filledGrid[t.row][t.col]);
-    });
+    if (this.numbersImage) this.numbersImage.setVisible(true);
   }
 }
