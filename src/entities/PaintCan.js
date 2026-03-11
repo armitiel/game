@@ -35,26 +35,36 @@ export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
     const px = (this.x + player.x) / 2;
     const py = (this.y + player.y) / 2;
 
-    // Sparkle particles
+    // Rounded 3D-style sparkle particles
+    const baseColor = 0xffdd33;
     for (let i = 0; i < 25; i++) {
-      const star = this.scene.add.star(
-        px + Phaser.Math.Between(-20, 20),
-        py + Phaser.Math.Between(-20, 20),
-        5,                              // 5 points
-        Phaser.Math.Between(2, 5),      // inner radius
-        Phaser.Math.Between(5, 10),     // outer radius
-        0xffdd33, 1
-      ).setDepth(10);
+      const size = Phaser.Math.Between(4, 9);
+      const r = Math.round(size * 0.4); // corner radius
+      const sx = px + Phaser.Math.Between(-20, 20);
+      const sy = py + Phaser.Math.Between(-20, 20);
+
+      const gfx = this.scene.add.graphics().setDepth(10);
+      // Shadow / darker bottom
+      gfx.fillStyle(0x997700, 0.6);
+      gfx.fillRoundedRect(sx - size / 2 + 1, sy - size / 2 + 1, size, size, r);
+      // Main body
+      gfx.fillStyle(baseColor, 1);
+      gfx.fillRoundedRect(sx - size / 2, sy - size / 2, size, size, r);
+      // Highlight / lighter top-left
+      const hlSize = Math.max(2, Math.round(size * 0.45));
+      gfx.fillStyle(0xffffff, 0.5);
+      gfx.fillRoundedRect(sx - size / 2 + 1, sy - size / 2 + 1, hlSize, hlSize, Math.round(hlSize * 0.3));
 
       this.scene.tweens.add({
-        targets: star,
-        x: star.x + Phaser.Math.Between(-40, 40),
-        y: star.y + Phaser.Math.Between(-50, -10),
+        targets: gfx,
+        x: Phaser.Math.Between(-40, 40),
+        y: Phaser.Math.Between(-50, -10),
         alpha: 0,
-        scale: 0.3,
-        angle: Phaser.Math.Between(-180, 180),
+        scaleX: 0.3,
+        scaleY: 0.3,
+        angle: Phaser.Math.Between(-90, 90),
         duration: Phaser.Math.Between(350, 700),
-        onComplete: () => star.destroy()
+        onComplete: () => gfx.destroy()
       });
     }
 
