@@ -37,7 +37,7 @@ export default class Trash extends Phaser.Physics.Arcade.Sprite {
     this.jumpCount = 0;         // how many times player jumped on top
     this.isCrushed = false;     // true after transforming to trash2
     this._playerWasOnTop = false; // track landing vs standing
-    this._landCooldown = 0;     // ms — prevents double-counting a single landing
+    this._offTopFrames = 0;     // consecutive frames player is NOT on top
   }
 
   /** Enable pushing (called each frame while E is held near this trash) */
@@ -63,10 +63,9 @@ export default class Trash extends Phaser.Physics.Arcade.Sprite {
    */
   onPlayerOnTop() {
     if (this.isCrushed) return;
-    const now = this.scene.time.now;
-    if (!this._playerWasOnTop && now > this._landCooldown) {
+    this._offTopFrames = 0; // player is on top — reset off-counter
+    if (!this._playerWasOnTop) {
       this._playerWasOnTop = true;
-      this._landCooldown = now + 400; // ignore further landings for 400ms
       this.jumpCount++;
 
       // Squash effect on each landing
@@ -84,10 +83,13 @@ export default class Trash extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  /** Called when player leaves the top */
+  /** Called when player is NOT touching the top this frame */
   onPlayerOffTop() {
-    // Only reset after cooldown to prevent touch-flicker double-counting
-    if (this.scene.time.now > this._landCooldown) {
+    if (!this._playerWasOnTop) return;
+    this._offTopFrames++;
+    // Require 6+ consecutive frames off top to count as truly leaving
+    // (prevents physics flicker from resetting mid-stand)
+    if (this._offTopFrames >= 6) {
       this._playerWasOnTop = false;
     }
   }
