@@ -300,25 +300,38 @@ export default class GameScene extends Phaser.Scene {
 
     const BLOCK_H = 32;
     const CORNER_R = 4;
+    const srcImg = this.textures.get('platform_block').getSourceImage();
+
     const addPlatform = (group, x, y, width, depth) => {
-      // Draw tiled texture into a RenderTexture, then apply rounded-corner mask
-      const tmpTile = this.add.tileSprite(0, 0, width, BLOCK_H, 'platform_block');
       const rtKey = '__plat_' + x + '_' + y + '_' + width;
-      const rt = this.add.renderTexture(0, 0, width, BLOCK_H);
 
-      // Rounded-rect mask via Graphics geometry
-      const maskGfx = this.make.graphics({ add: false });
-      maskGfx.fillStyle(0xffffff);
-      maskGfx.fillRoundedRect(0, 0, width, BLOCK_H, CORNER_R);
-      const mask = maskGfx.createGeometryMask();
-      rt.setMask(mask);
+      // Use offscreen canvas with rounded-rect clip for true pixel rounding
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = BLOCK_H;
+      const ctx = canvas.getContext('2d');
 
-      rt.draw(tmpTile, width / 2, BLOCK_H / 2);
-      rt.saveTexture(rtKey);
-      rt.clearMask(true);
-      maskGfx.destroy();
-      rt.destroy();
-      tmpTile.destroy();
+      // Clip to rounded rectangle
+      ctx.beginPath();
+      ctx.moveTo(CORNER_R, 0);
+      ctx.lineTo(width - CORNER_R, 0);
+      ctx.quadraticCurveTo(width, 0, width, CORNER_R);
+      ctx.lineTo(width, BLOCK_H - CORNER_R);
+      ctx.quadraticCurveTo(width, BLOCK_H, width - CORNER_R, BLOCK_H);
+      ctx.lineTo(CORNER_R, BLOCK_H);
+      ctx.quadraticCurveTo(0, BLOCK_H, 0, BLOCK_H - CORNER_R);
+      ctx.lineTo(0, CORNER_R);
+      ctx.quadraticCurveTo(0, 0, CORNER_R, 0);
+      ctx.closePath();
+      ctx.clip();
+
+      // Tile the source image across the clipped area
+      const srcW = srcImg.width;
+      for (let tx = 0; tx < width; tx += srcW) {
+        ctx.drawImage(srcImg, tx, 0);
+      }
+
+      this.textures.addCanvas(rtKey, canvas);
 
       const tile = this.add.image(x + width / 2, y + BLOCK_H / 2, rtKey);
       tile.setDepth(depth ?? 3);
