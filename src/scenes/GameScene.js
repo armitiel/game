@@ -1130,13 +1130,14 @@ export default class GameScene extends Phaser.Scene {
     const progress = this.pbn.getProgress();
     const isMob = !!(this.touch && this.touch.enabled);
     if (isMob) {
-      // On mobile: fixed to screen via uiCam (world zoom makes world-space text invisible)
+      // On mobile: fixed to screen on HUD line (same Y as paint cans / hearts)
       const gw = this.sys.game.config.width;
+      const hudY = Math.round(26 * 1.8); // matches slotY on mobile
       this._addingHud = true;
       this.paintProgressText = this.add.text(
-        gw / 2, 12,
+        gw / 2, hudY,
         `${Math.round(progress * 100)}%`,
-        { font: 'bold 16px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 6, y: 3 } }
+        { font: 'bold 22px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 8, y: 4 } }
       ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
       this.cameras.main.ignore(this.paintProgressText);
       this._addingHud = false;
