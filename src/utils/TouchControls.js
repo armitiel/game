@@ -205,87 +205,159 @@ export default class TouchControls {
 
   createActionButtons(scene) {
     const cam = scene.cameras.main;
-    const radius = 50; // ~10% larger circular buttons
+    const zoneW = cam.width * 0.45;
+    const zoneH = cam.height;
+    const zoneX = cam.width - zoneW / 2;
 
-    // JUMP button (right side, lower)
-    this.addCircleButton(scene, cam.width - 85, cam.height - 85, radius, 'JUMP', {
-      alpha: 0.2, activeAlpha: 0.5, color: 0x00ff88
-    }, () => { this._jumpJustPressed = true; },
-       () => {});
+    // Invisible touch zone covering right ~45% of screen
+    const zone = scene.add.rectangle(zoneX, zoneH / 2, zoneW, zoneH, 0xffffff, 0)
+      .setScrollFactor(0)
+      .setDepth(199)
+      .setInteractive();
 
-    // GRAB/INTERACT button (hand pictogram) — middle right
-    this._grabBg = this.addCircleButton(scene, cam.width - 210, cam.height - 85, radius, null, {
-      alpha: 0.2, activeAlpha: 0.5, color: 0xff8833
-    }, () => { this._eJustPressed = true; }, () => {});
-    this._drawHand(scene, cam.width - 210, cam.height - 85);
-    this._grabHighlight = false;
+    // --- Radial action wheel visuals ---
+    const BASE_RADIUS = 52;
+    const THUMB_RADIUS = 22;
+    const SWIPE_THRESHOLD = 28; // min drag distance to count as swipe
+    const HINT_DIST = BASE_RADIUS + 6;
 
-    // PAINT button (spray can pictogram) — top right
-    this.eButtonX = cam.width - 85;
-    this.eButtonY = cam.height - 215;
-    this._paintBg = this.addCircleButton(scene, this.eButtonX, this.eButtonY, radius, null, {
-      alpha: 0.2, activeAlpha: 0.5, color: 0xffdd33
-    }, () => { this._actionJustPressed = true; }, () => {});
-    this._drawSprayCan(scene, this.eButtonX, this.eButtonY);
+    // Base ring — appears at touch origin
+    this._actBase = scene.add.circle(0, 0, BASE_RADIUS, 0xffffff, 0.08)
+      .setScrollFactor(0).setDepth(199).setVisible(false)
+      .setStrokeStyle(2, 0xffffff, 0.25);
+    // Thumb knob
+    this._actThumb = scene.add.circle(0, 0, THUMB_RADIUS, 0xffffff, 0.25)
+      .setScrollFactor(0).setDepth(200).setVisible(false);
+
+    // Direction hint icons (up = paint, left = interact)
+    this._actHintUp = scene.add.image(0, 0, 'icon_spray')
+      .setDisplaySize(30, 30).setScrollFactor(0).setDepth(201).setAlpha(0.4).setVisible(false);
+    this._actHintLeft = scene.add.image(0, 0, 'icon_hand')
+      .setDisplaySize(30, 30).setScrollFactor(0).setDepth(201).setAlpha(0.4).setVisible(false);
+    // Center jump label
+    this._actHintCenter = scene.add.text(0, 0, 'JUMP', {
+      font: 'bold 12px monospace', fill: '#ffffff'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.3).setVisible(false);
+
+    this.buttons.push(this._actBase, this._actThumb, this._actHintUp, this._actHintLeft, this._actHintCenter);
+
+    // --- Static hint (shown before first touch) ---
+    const hintX = cam.width - 110;
+    const hintY = cam.height - 130;
+
+    this._actStaticBase = scene.add.circle(hintX, hintY, BASE_RADIUS, 0xffffff, 0.06)
+      .setScrollFactor(0).setDepth(199).setStrokeStyle(2, 0xffffff, 0.2);
+    this._actStaticThumb = scene.add.circle(hintX, hintY, THUMB_RADIUS, 0xffffff, 0.15)
+      .setScrollFactor(0).setDepth(200);
+    this._actStaticUp = scene.add.image(hintX, hintY - HINT_DIST, 'icon_spray')
+      .setDisplaySize(26, 26).setScrollFactor(0).setDepth(201).setAlpha(0.4);
+    this._actStaticLeft = scene.add.image(hintX - HINT_DIST, hintY, 'icon_hand')
+      .setDisplaySize(26, 26).setScrollFactor(0).setDepth(201).setAlpha(0.4);
+    this._actStaticCenter = scene.add.text(hintX, hintY + 2, 'JUMP', {
+      font: 'bold 10px monospace', fill: '#ffffff'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.3);
+
+    scene.tweens.add({
+      targets: this._actStaticThumb,
+      alpha: { from: 0.15, to: 0.35 },
+      duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    });
+
+    const staticHintEls = [this._actStaticBase, this._actStaticThumb, this._actStaticUp, this._actStaticLeft, this._actStaticCenter];
+    this.buttons.push(...staticHintEls);
+    this._actHintVisible = true;
+
+    // Track active selection for highlight
+    this._actSelection = null; // null | 'up' | 'left'
+
+    let originX = 0, originY = 0;
+    let pointerDown = false;
+
+    zone.on('pointerdown', (pointer) => {
+      // Fade static hint on first use
+      if (this._actHintVisible) {
+        this._actHintVisible = false;
+        scene.tweens.add({
+          targets: staticHintEls, alpha: 0, duration: 300,
+          onComplete: () => staticHintEls.forEach(el => el.setVisible(false))
+        });
+      }
+
+      originX = pointer.x;
+      originY = pointer.y;
+      pointerDown = true;
+      this._actSelection = null;
+
+      // Show radial at touch point
+      this._actBase.setPosition(originX, originY).setVisible(true);
+      this._actThumb.setPosition(originX, originY).setVisible(true);
+      this._actHintUp.setPosition(originX, originY - HINT_DIST).setVisible(true).setAlpha(0.4);
+      this._actHintLeft.setPosition(originX - HINT_DIST, originY).setVisible(true).setAlpha(0.4);
+      this._actHintCenter.setPosition(originX, originY + 2).setVisible(true).setAlpha(0.3);
+    });
+
+    zone.on('pointermove', (pointer) => {
+      if (!pointerDown || !pointer.isDown) return;
+      const dx = pointer.x - originX;
+      const dy = pointer.y - originY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Clamp thumb
+      const MAX_DIST = BASE_RADIUS - 4;
+      let cx = dx, cy = dy;
+      if (dist > MAX_DIST) { const r = MAX_DIST / dist; cx = dx * r; cy = dy * r; }
+      this._actThumb.setPosition(originX + cx, originY + cy);
+
+      // Determine selection
+      let sel = null;
+      if (dist >= SWIPE_THRESHOLD) {
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI; // -180..180
+        // Up: -135 to -45
+        if (angle >= -135 && angle <= -45) sel = 'up';
+        // Left: 135..180 or -180..-135
+        else if (angle >= 135 || angle <= -135) sel = 'left';
+      }
+
+      if (sel !== this._actSelection) {
+        this._actSelection = sel;
+        // Highlight selected direction
+        this._actHintUp.setAlpha(sel === 'up' ? 0.9 : 0.4);
+        this._actHintLeft.setAlpha(sel === 'left' ? 0.9 : 0.4);
+        this._actHintCenter.setAlpha(sel === null ? 0.6 : 0.3);
+      }
+    });
+
+    const release = () => {
+      if (!pointerDown) return;
+      pointerDown = false;
+
+      // Fire action based on selection
+      if (this._actSelection === 'up') {
+        this._actionJustPressed = true;
+      } else if (this._actSelection === 'left') {
+        this._eJustPressed = true;
+      } else {
+        // Tap or no clear direction = jump
+        this._jumpJustPressed = true;
+      }
+      this._actSelection = null;
+
+      // Hide radial
+      this._actBase.setVisible(false);
+      this._actThumb.setVisible(false);
+      this._actHintUp.setVisible(false);
+      this._actHintLeft.setVisible(false);
+      this._actHintCenter.setVisible(false);
+    };
+
+    zone.on('pointerup', release);
+    zone.on('pointerout', release);
+
+    this.buttons.push(zone);
+
+    // Keep references for highlight API compatibility
     this._paintHighlight = false;
-  }
-
-  _drawSprayCan(scene, cx, cy) {
-    const icon = scene.add.image(cx, cy, 'icon_spray')
-      .setDisplaySize(44, 44)
-      .setScrollFactor(0)
-      .setDepth(201)
-      .setAlpha(0.7)
-      .setTint(0xffffff);
-    this.buttons.push(icon);
-  }
-
-  _drawHand(scene, cx, cy) {
-    const icon = scene.add.image(cx, cy, 'icon_hand')
-      .setDisplaySize(44, 44)
-      .setScrollFactor(0)
-      .setDepth(201)
-      .setAlpha(0.7)
-      .setTint(0xffffff);
-    this.buttons.push(icon);
-  }
-
-  addCircleButton(scene, x, y, radius, label, style, onDown, onUp) {
-    const bg = scene.add.circle(x, y, radius, style.color, style.alpha)
-      .setScrollFactor(0)
-      .setDepth(200)
-      .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains);
-
-    let text = null;
-    if (label) {
-      const fontSize = 22;
-      text = scene.add.text(x, y, label, {
-        font: `bold ${fontSize}px monospace`,
-        fill: '#ffffff'
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.5);
-    }
-
-    bg.on('pointerdown', () => {
-      bg.setAlpha(style.activeAlpha);
-      if (text) text.setAlpha(0.9);
-      onDown();
-    });
-
-    bg.on('pointerup', () => {
-      bg.setAlpha(style.alpha);
-      if (text) text.setAlpha(0.5);
-      onUp();
-    });
-
-    bg.on('pointerout', () => {
-      bg.setAlpha(style.alpha);
-      if (text) text.setAlpha(0.5);
-      onUp();
-    });
-
-    this.buttons.push(bg);
-    if (text) this.buttons.push(text);
-    return bg;
+    this._grabHighlight = false;
   }
 
   setPaintMode(on) {
@@ -298,19 +370,9 @@ export default class TouchControls {
    * @param {boolean} on
    */
   highlightButton(name, on) {
-    if (name === 'paint' && this._paintBg) {
-      if (on !== this._paintHighlight) {
-        this._paintHighlight = on;
-        this._paintBg.setAlpha(on ? 0.7 : 0.2);
-        this._paintBg.setStrokeStyle(on ? 4 : 0, 0xffdd33, on ? 1.0 : 0);
-      }
-    } else if (name === 'grab' && this._grabBg) {
-      if (on !== this._grabHighlight) {
-        this._grabHighlight = on;
-        this._grabBg.setAlpha(on ? 0.7 : 0.2);
-        this._grabBg.setStrokeStyle(on ? 4 : 0, 0xff8833, on ? 1.0 : 0);
-      }
-    }
+    // Radial menu has no persistent buttons to highlight — no-op
+    if (name === 'paint') this._paintHighlight = on;
+    else if (name === 'grab') this._grabHighlight = on;
   }
 
   get jumpJustPressed() {
@@ -355,9 +417,9 @@ export default class TouchControls {
     const numColors = colorNames ? colorNames.length : 4;
     const radius = 38;
     const gap = 18;
-    // Vertical stack above E button
-    const x = this.eButtonX || (scene.cameras.main.width - 90);
-    const eTop = (this.eButtonY || (scene.cameras.main.height - 195)) - 46 - gap - 30;
+    // Vertical stack on right side of screen
+    const x = scene.cameras.main.width - 90;
+    const eTop = scene.cameras.main.height - 195 - 46 - gap - 30;
 
     for (let i = 0; i < numColors; i++) {
       // Bottom color = index 0, stack upward
