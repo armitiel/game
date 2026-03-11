@@ -1212,7 +1212,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.touch) this.touch.setPaintMode(true);
 
     // --- Paint SFX ---
-    this.sfxSpray = this.sound.add('sfx_spray', { loop: true, volume: 0.18 });
+    this.sfxSpray = this.sound.add('sfx_spray', { loop: true, volume: 0.135 });
     this._paintIdleTimer = 0;
     this._nextShakeDelay = Phaser.Math.Between(3000, 7000);
     this._sprayPlaying = false;
