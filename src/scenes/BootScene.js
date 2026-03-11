@@ -52,6 +52,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('spray_can_base', 'assets/sprites/elementy/can.png');
     this.load.image('trash', 'assets/sprites/elementy/trash.png');
     this.load.image('trash2', 'assets/sprites/elementy/trash2.png');
+    this.load.image('heart_icon', 'assets/sprites/elementy/serce.png');
     // UI pictograms (SVG)
     this.load.svg('icon_hand', 'assets/sprites/elementy/hand.svg', { width: 64, height: 64 });
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });

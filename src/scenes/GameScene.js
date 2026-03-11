@@ -899,27 +899,32 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // === HEART HUD ===
-    this._addingHud = true;
-    const heartSize = Math.round(14 * uiScale);
-    const heartSpacing = Math.round(16 * uiScale);
-    const heartY = Math.round(46 * uiScale);
-    const heartStartX = Math.round(14 * uiScale);
+    // === HEART HUD (stealth mode only) — on same line as paint cans, to the right ===
     this.hudHearts = [];
-    for (let i = 0; i < this.player.maxHp; i++) {
-      const hx = heartStartX + i * heartSpacing;
-      // Heart shape drawn as text emoji — filled vs empty
-      const full = this.add.text(hx, heartY, '\u2764', {
-        font: `${heartSize}px sans-serif`,
-        fill: '#ff2255'
-      }).setDepth(101).setScrollFactor(0).setOrigin(0, 0);
-      const empty = this.add.text(hx, heartY, '\u2661', {
-        font: `${heartSize}px sans-serif`,
-        fill: '#663333'
-      }).setDepth(100.5).setScrollFactor(0).setOrigin(0, 0);
-      this.hudHearts.push({ full, empty });
+    if (this.mode === 'stealth') {
+      this._addingHud = true;
+      // Place hearts after counter text, on the same Y as paint slots
+      const heartScale = uiScale * 22 / 535; // 535px source → ~22px display
+      const heartSpacing = Math.round(20 * uiScale);
+      const heartStartX = counterX + Math.round(50 * uiScale);
+      for (let i = 0; i < this.player.maxHp; i++) {
+        const hx = heartStartX + i * heartSpacing;
+        const full = this.add.image(hx, slotY, 'heart_icon')
+          .setDepth(101).setScrollFactor(0).setScale(heartScale);
+        const empty = this.add.image(hx, slotY, 'heart_icon')
+          .setDepth(100.5).setScrollFactor(0).setScale(heartScale)
+          .setTint(0x331111).setAlpha(0.5);
+        this.hudHearts.push({ full, empty });
+      }
+      this._addingHud = false;
     }
-    this._addingHud = false;
+
+    // Resize HUD background to cover hearts too
+    if (this.hudHearts.length > 0) {
+      const lastHeart = this.hudHearts[this.hudHearts.length - 1];
+      const bgRight = lastHeart.full.x + Math.round(14 * uiScale);
+      this.hudBg.width = bgRight - this.hudBg.x;
+    }
 
     // Collect all HUD elements for camera management
     const slotElements = [];
