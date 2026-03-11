@@ -807,9 +807,8 @@ export default class GameScene extends Phaser.Scene {
       this.statusText = this.add.text(gw / 2, 10, '', {
         font: `${Math.round(12 * uiScale)}px monospace`,
         fill: '#00ff88',
-        backgroundColor: '#000000aa',
         padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
-      }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0);
+      }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0).setVisible(false);
     }
 
     // Music toggle button (speaker icon)
@@ -987,46 +986,55 @@ export default class GameScene extends Phaser.Scene {
 
     const isMob = !!(this.touch && this.touch.enabled);
 
-    if (!isMob && this.player.isPainting) {
-      const colorInfo = this.pbn ? ` | Kolor: ${this.pbn.getSelectedColorName()} (1-${this.pbn.colorMap.length})` : '';
-      this.statusText.setText(`[ MALOWANIE${colorInfo} — SPACE anuluj ]`);
-      this.statusText.setStyle({ fill: '#ffdd33' });
-    } else if (!isMob && this.player.isPushingLadder) {
-      this.statusText.setText('[ PRZESUWANIE DRABINY — E puść ]');
-      this.statusText.setStyle({ fill: '#ffaa33' });
-    } else if (!isMob && this.player.isPushingTrash) {
-      this.statusText.setText('[ PRZESUWANIE KOSZA — E puść ]');
-      this.statusText.setStyle({ fill: '#ffaa33' });
-    } else {
-      // Build context hints (desktop only — mobile uses visual indicators instead)
-      const isMob = !!(this.touch && this.touch.enabled);
-      const hints = [];
-      let paintHint = false;
+    if (!isMob && this.statusText) {
+      let msg = '';
+      let color = '#00ff88';
 
-      // Paint spot nearby (desktop only)
-      if (!isMob && this.interactablePaintSpot && !this.interactablePaintSpot.getData('painted')) {
-        const paintingKey = this.interactablePaintSpot.getData('paintingKey');
-        if (paintingKey) {
-          const gridData = this.cache.json.get(paintingKey);
-          const reqColors = gridData ? gridData.colors : [];
-          const hasAny = reqColors.some(c => this.player.hasPaint(c.toLowerCase()));
-          if (hasAny) {
-            hints.push('SPACE: maluj mural');
-            paintHint = true;
-          } else {
-            hints.push(`brak farb: ${reqColors.join(', ')}`);
-            paintHint = true;
+      if (this.player.isPainting) {
+        const colorInfo = this.pbn ? ` | Kolor: ${this.pbn.getSelectedColorName()} (1-${this.pbn.colorMap.length})` : '';
+        msg = `[ MALOWANIE${colorInfo} — SPACE anuluj ]`;
+        color = '#ffdd33';
+      } else if (this.player.isPushingLadder) {
+        msg = '[ PRZESUWANIE DRABINY — E puść ]';
+        color = '#ffaa33';
+      } else if (this.player.isPushingTrash) {
+        msg = '[ PRZESUWANIE KOSZA — E puść ]';
+        color = '#ffaa33';
+      } else {
+        // Build context hints
+        const hints = [];
+        let paintHint = false;
+
+        if (this.interactablePaintSpot && !this.interactablePaintSpot.getData('painted')) {
+          const paintingKey = this.interactablePaintSpot.getData('paintingKey');
+          if (paintingKey) {
+            const gridData = this.cache.json.get(paintingKey);
+            const reqColors = gridData ? gridData.colors : [];
+            const hasAny = reqColors.some(c => this.player.hasPaint(c.toLowerCase()));
+            if (hasAny) {
+              hints.push('SPACE: maluj mural');
+              paintHint = true;
+            } else {
+              hints.push(`brak farb: ${reqColors.join(', ')}`);
+              paintHint = true;
+            }
           }
+        }
+
+        if (hints.length > 0) {
+          msg = `[ ${hints.join('  |  ')} ]`;
+          color = paintHint ? '#ffdd33' : '#00ff88';
         }
       }
 
-      if (this.statusText) {
-        if (hints.length > 0) {
-          this.statusText.setText(`[ ${hints.join('  |  ')} ]`);
-          this.statusText.setStyle({ fill: paintHint ? '#ffdd33' : '#00ff88' });
-        } else {
-          this.statusText.setText('');
-        }
+      if (msg) {
+        this.statusText.setText(msg);
+        this.statusText.setStyle({ fill: color, backgroundColor: '#000000aa' });
+        this.statusText.setVisible(true);
+      } else {
+        this.statusText.setText('');
+        this.statusText.setStyle({ backgroundColor: '' });
+        this.statusText.setVisible(false);
       }
     }
   }
