@@ -35,34 +35,31 @@ export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
     const px = (this.x + player.x) / 2;
     const py = (this.y + player.y) / 2;
 
-    // Rounded 3D-style sparkle particles
-    const baseColor = 0xffdd33;
+    // Rounded 3D-style sparkle particles (same spread as original stars)
     for (let i = 0; i < 25; i++) {
       const size = Phaser.Math.Between(4, 9);
-      const r = Math.round(size * 0.4); // corner radius
+      const r = Math.round(size * 0.4);
       const sx = px + Phaser.Math.Between(-20, 20);
       const sy = py + Phaser.Math.Between(-20, 20);
+      const half = size / 2;
 
-      const gfx = this.scene.add.graphics().setDepth(10);
-      // Shadow / darker bottom
+      // Draw around (0,0) so position/scale/angle tweens work naturally
+      const gfx = this.scene.add.graphics().setPosition(sx, sy).setDepth(10);
       gfx.fillStyle(0x997700, 0.6);
-      gfx.fillRoundedRect(sx - size / 2 + 1, sy - size / 2 + 1, size, size, r);
-      // Main body
-      gfx.fillStyle(baseColor, 1);
-      gfx.fillRoundedRect(sx - size / 2, sy - size / 2, size, size, r);
-      // Highlight / lighter top-left
-      const hlSize = Math.max(2, Math.round(size * 0.45));
+      gfx.fillRoundedRect(-half + 1, -half + 1, size, size, r);
+      gfx.fillStyle(0xffdd33, 1);
+      gfx.fillRoundedRect(-half, -half, size, size, r);
+      const hl = Math.max(2, Math.round(size * 0.45));
       gfx.fillStyle(0xffffff, 0.5);
-      gfx.fillRoundedRect(sx - size / 2 + 1, sy - size / 2 + 1, hlSize, hlSize, Math.round(hlSize * 0.3));
+      gfx.fillRoundedRect(-half + 1, -half + 1, hl, hl, Math.round(hl * 0.3));
 
       this.scene.tweens.add({
         targets: gfx,
-        x: Phaser.Math.Between(-40, 40),
-        y: Phaser.Math.Between(-50, -10),
+        x: sx + Phaser.Math.Between(-40, 40),
+        y: sy + Phaser.Math.Between(-50, -10),
         alpha: 0,
-        scaleX: 0.3,
-        scaleY: 0.3,
-        angle: Phaser.Math.Between(-90, 90),
+        scale: 0.3,
+        angle: Phaser.Math.Between(-180, 180),
         duration: Phaser.Math.Between(350, 700),
         onComplete: () => gfx.destroy()
       });
