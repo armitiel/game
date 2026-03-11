@@ -904,8 +904,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.mode === 'stealth') {
       this._addingHud = true;
       // Place hearts after counter text, on the same Y as paint slots
-      const heartScale = uiScale * 22 / 535; // 535px source → ~22px display
-      const heartSpacing = Math.round(20 * uiScale);
+      const heartScale = uiScale * 16 / 535; // 535px source → ~16px display
+      const heartSpacing = Math.round(24 * uiScale);
       const heartStartX = counterX + Math.round(50 * uiScale);
       for (let i = 0; i < this.player.maxHp; i++) {
         const hx = heartStartX + i * heartSpacing;
