@@ -944,12 +944,22 @@ export default class GameScene extends Phaser.Scene {
       this.pbn = new PaintByNumbers(this, bounds, gridData);
     }
 
-    // Set initial selected color to first available paint the player has
+    // Restore last selected color if player still has it, otherwise pick first available
     const paintingColors = gridData.colors || ['RED', 'BLUE', 'YELLOW'];
-    for (let i = 0; i < paintingColors.length; i++) {
-      if (this.player.hasPaint(paintingColors[i].toLowerCase())) {
-        this.pbn.setSelectedColor(i);
-        break;
+    let restored = false;
+    if (this._lastPaintColorIndex != null && this._lastPaintColorIndex < paintingColors.length) {
+      const lastColorName = paintingColors[this._lastPaintColorIndex];
+      if (lastColorName && this.player.hasPaint(lastColorName.toLowerCase())) {
+        this.pbn.setSelectedColor(this._lastPaintColorIndex);
+        restored = true;
+      }
+    }
+    if (!restored) {
+      for (let i = 0; i < paintingColors.length; i++) {
+        if (this.player.hasPaint(paintingColors[i].toLowerCase())) {
+          this.pbn.setSelectedColor(i);
+          break;
+        }
       }
     }
 
@@ -1241,6 +1251,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   cleanupPaintState(destroyPBN = true) {
+    // Remember last selected color for next paint session
+    if (this.pbn) {
+      this._lastPaintColorIndex = this.pbn.selectedColorIndex;
+    }
     // --- Camera zoom out (camera still follows player, just restore zoom) ---
     if (this._preZoom != null) {
       // Always restore to the reliable base zoom, not a possibly mid-animation value
