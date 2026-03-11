@@ -803,13 +803,14 @@ export default class GameScene extends Phaser.Scene {
     }).setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
 
     // Status text (desktop only — mobile has no text hints)
-    this.statusText = this.add.text(gw / 2, 10, '', {
-      font: `${Math.round(12 * uiScale)}px monospace`,
-      fill: '#00ff88',
-      backgroundColor: '#000000aa',
-      padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
-    }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0);
-    if (isMobile) this.statusText.setVisible(false);
+    if (!isMobile) {
+      this.statusText = this.add.text(gw / 2, 10, '', {
+        font: `${Math.round(12 * uiScale)}px monospace`,
+        fill: '#00ff88',
+        backgroundColor: '#000000aa',
+        padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
+      }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0);
+    }
 
     // Music toggle button (speaker icon)
     this.musicOn = true;
@@ -938,7 +939,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Main camera ignores HUD + touch controls, UI camera ignores everything else
     const hudElements = [this.hudBg, this.hudCountText, this.statusText, this.muteBtn, this.muteBtnHit,
-      ...slotElements, ...heartElements, ...this.touch.getElements()];
+      ...slotElements, ...heartElements, ...this.touch.getElements()].filter(Boolean);
     this.cameras.main.ignore(hudElements);
 
     // Ignore all existing world objects on UI cam
@@ -1019,11 +1020,13 @@ export default class GameScene extends Phaser.Scene {
         }
       }
 
-      if (hints.length > 0) {
-        this.statusText.setText(`[ ${hints.join('  |  ')} ]`);
-        this.statusText.setStyle({ fill: paintHint ? '#ffdd33' : '#00ff88' });
-      } else {
-        this.statusText.setText('');
+      if (this.statusText) {
+        if (hints.length > 0) {
+          this.statusText.setText(`[ ${hints.join('  |  ')} ]`);
+          this.statusText.setStyle({ fill: paintHint ? '#ffdd33' : '#00ff88' });
+        } else {
+          this.statusText.setText('');
+        }
       }
     }
   }
