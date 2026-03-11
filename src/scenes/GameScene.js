@@ -1125,12 +1125,26 @@ export default class GameScene extends Phaser.Scene {
 
     // Paint progress HUD text
     const progress = this.pbn.getProgress();
-    this.paintProgressText = this.add.text(
-      bounds.x + bounds.w / 2,
-      bounds.y - 14,
-      `${Math.round(progress * 100)}%`,
-      { font: 'bold 11px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 4, y: 2 } }
-    ).setOrigin(0.5).setDepth(15);
+    const isMob = !!(this.touch && this.touch.enabled);
+    if (isMob) {
+      // On mobile: fixed to screen via uiCam (world zoom makes world-space text invisible)
+      const gw = this.sys.game.config.width;
+      this._addingHud = true;
+      this.paintProgressText = this.add.text(
+        gw / 2, 12,
+        `${Math.round(progress * 100)}%`,
+        { font: 'bold 16px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 6, y: 3 } }
+      ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
+      this.cameras.main.ignore(this.paintProgressText);
+      this._addingHud = false;
+    } else {
+      this.paintProgressText = this.add.text(
+        bounds.x + bounds.w / 2,
+        bounds.y - 14,
+        `${Math.round(progress * 100)}%`,
+        { font: 'bold 11px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 4, y: 2 } }
+      ).setOrigin(0.5).setDepth(15);
+    }
 
     // Color selector HUD — touch buttons on mobile, world-space boxes on desktop
     const isMobileDevice = this.touch && this.touch.enabled;
