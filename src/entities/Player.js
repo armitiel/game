@@ -276,10 +276,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         const headDist = Math.abs(playerHeadY - platTop);
         if (headDist > headRange) continue;
 
-        // Player's feet must be ABOVE or near platform top — reject if feet are well below
-        // (prevents triggering climb2 when jumping up from underneath)
-        const playerFeetY = this.body.y + this.body.height;
-        if (playerFeetY > platTop + this.body.height * 0.5) continue;
+        // Reject if player is horizontally underneath the platform (jumping up from below)
+        const playerCenterX = this.body.x + this.body.width / 2;
+        if (playerCenterX > platLeft + 5 && playerCenterX < platRight - 5) continue;
 
         // Player must be BESIDE the platform, not under or on top
         // Check left edge: player is to the left of platform, close to its left edge
