@@ -45,7 +45,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('logo', 'assets/sprites/logo.png');
 
     // === Load platform/environment textures ===
-    this.load.image('platform_block', 'assets/sprites/elementy/blok.png');
+    this.load.image('platform_block', 'assets/sprites/elementy/p1.png');
     this.load.image('ladder_tile', 'assets/sprites/elementy/drabinka.png');
     this.load.image('ladder_plank', 'assets/sprites/elementy/drabinka2.png');
     // Spray can base image — grayscale body will be recolored per paint color
