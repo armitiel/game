@@ -50,62 +50,70 @@ export default class TouchControls {
       .setDepth(199)
       .setInteractive();
 
-    // Visual D-pad with colored circle backgrounds + arrow pictograms
-    const hintX = 110;
-    const hintY = cam.height - 130;
-    const hintGap = 65;
-    const dpadRadius = 30;
-    const bgAlpha = 0.15;
-    const hintFont = 'bold 36px monospace';
-    const hintAlpha = 0.4;
+    // --- Floating virtual joystick ---
+    const BASE_RADIUS = 52;   // outer ring radius
+    const THUMB_RADIUS = 22;  // inner knob radius
+    const MAX_DIST = BASE_RADIUS - 4; // max thumb travel from center
 
-    const positions = [
-      { x: hintX - hintGap, y: hintY, arrow: '\u25C0', color: 0x88aaff },  // LEFT
-      { x: hintX + hintGap, y: hintY, arrow: '\u25B6', color: 0x88aaff },  // RIGHT
-      { x: hintX, y: hintY - hintGap, arrow: '\u25B2', color: 0x88ffaa },  // UP
-      { x: hintX, y: hintY + hintGap, arrow: '\u25BC', color: 0xff8888 },  // DOWN
-    ];
+    // Base ring — appears at touch origin
+    this._joyBase = scene.add.circle(0, 0, BASE_RADIUS, 0xffffff, 0.08)
+      .setScrollFactor(0).setDepth(199).setVisible(false)
+      .setStrokeStyle(2, 0xffffff, 0.25);
+    // Thumb knob — follows finger within the ring
+    this._joyThumb = scene.add.circle(0, 0, THUMB_RADIUS, 0xffffff, 0.25)
+      .setScrollFactor(0).setDepth(200).setVisible(false);
 
-    this._dpadBgs = [];
-    this._dpadHints = [];
-    positions.forEach(p => {
-      const bg = scene.add.circle(p.x, p.y, dpadRadius, p.color, bgAlpha)
-        .setScrollFactor(0).setDepth(199);
-      const arrow = scene.add.text(p.x, p.y, p.arrow, { font: hintFont, fill: '#ffffff' })
-        .setOrigin(0.5).setScrollFactor(0).setDepth(200).setAlpha(hintAlpha);
-      this._dpadBgs.push(bg);
-      this._dpadHints.push(arrow);
-      this.buttons.push(bg, arrow);
-    });
+    this.buttons.push(this._joyBase, this._joyThumb);
 
     let originX = 0, originY = 0;
-    const DEAD_ZONE = 12; // pixels before direction registers
-    const DEAD_ZONE_PAINT = 30; // larger dead zone during painting to avoid accidental moves
+    const DEAD_ZONE = 12;
+    const DEAD_ZONE_PAINT = 30;
 
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
       originY = pointer.y;
+      // Show joystick at touch point
+      this._joyBase.setPosition(originX, originY).setVisible(true);
+      this._joyThumb.setPosition(originX, originY).setVisible(true);
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
       this._updateDirection(0, 0, dz);
     });
 
     zone.on('pointermove', (pointer) => {
       if (!pointer.isDown) return;
-      const dx = pointer.x - originX;
-      const dy = pointer.y - originY;
+      let dx = pointer.x - originX;
+      let dy = pointer.y - originY;
+
+      // Clamp thumb to circle radius
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      let clampedDx = dx, clampedDy = dy;
+      if (dist > MAX_DIST) {
+        const ratio = MAX_DIST / dist;
+        clampedDx = dx * ratio;
+        clampedDy = dy * ratio;
+      }
+      this._joyThumb.setPosition(originX + clampedDx, originY + clampedDy);
+
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
       this._updateDirection(dx, dy, dz);
     });
 
     zone.on('pointerup', () => {
+      this._hideJoystick();
       this._clearDirection();
     });
 
     zone.on('pointerout', () => {
+      this._hideJoystick();
       this._clearDirection();
     });
 
     this.buttons.push(zone);
+  }
+
+  _hideJoystick() {
+    if (this._joyBase) this._joyBase.setVisible(false);
+    if (this._joyThumb) this._joyThumb.setVisible(false);
   }
 
   _updateDirection(dx, dy, deadZone) {
@@ -120,15 +128,6 @@ export default class TouchControls {
     if (dx > deadZone) this.right = true;
     if (dy < -deadZone) this.up = true;
     if (dy > deadZone) this.down = true;
-
-    // Update hint visuals — bg fades on press, arrows stay bright
-    const active = [this.left, this.right, this.up, this.down];
-    if (this._dpadBgs) {
-      this._dpadBgs.forEach((bg, i) => bg.setAlpha(active[i] ? 0.35 : 0.15));
-    }
-    if (this._dpadHints) {
-      this._dpadHints.forEach((h, i) => h.setAlpha(active[i] ? 0.8 : 0.4));
-    }
   }
 
   _clearDirection() {

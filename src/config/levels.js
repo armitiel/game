@@ -28,7 +28,7 @@ export const LEVEL_1 = {
     { x: 500, topY: H - 270, bottomY: H - 32, minX: 310, maxX: 590 },
   ],
   shadows: [
-    { x: 80, y: H - 135, w: 60, h: 100 },
+    { x: 80, y: H - 135, w: 66, h: 100 },
     { x: 568, y: H - 135, w: 60, h: 100 },
   ],
   paintCans: [
@@ -85,11 +85,11 @@ export const LEVEL_2 = {
     { x: 510, topY: L2_H - 500, bottomY: L2_H - 250, minX: 410, maxX: 740 },
   ],
   shadows: [
-    { x: 510, y: L2_H - 170, w: 60, h: 140 },
-    { x: 690, y: L2_H - 390, w: 50, h: 140 },
-    { x: 30, y: L2_H - 640, w: 60, h: 140 },
-    { x: 40, y: L2_H - 890, w: 60, h: 140 },
-    { x: 730, y: L2_H - 890, w: 60, h: 140 },
+    { x: 510, y: L2_H - 170, w: 66, h: 140 },
+    { x: 690, y: L2_H - 390, w: 66, h: 140 },
+    { x: 30, y: L2_H - 640, w: 66, h: 140 },
+    { x: 40, y: L2_H - 890, w: 66, h: 140 },
+    { x: 730, y: L2_H - 890, w: 66, h: 140 },
   ],
   paintCans: [
     { x: 120, y: L2_H - 290 },
@@ -105,7 +105,7 @@ export const LEVEL_2 = {
     { x: 400, y: L2_H - 620, w: 480, h: 576, paintingKey: 'painting_mural_big' },
   ],
   trashCans: [
-    { x: 620, y: L2_H - 50 },
+    { x: 620, y: L2_H - 55 },
     { x: 248, y: L2_H - 524 },
   ],
   cops: [

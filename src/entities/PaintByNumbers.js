@@ -86,7 +86,8 @@ export default class PaintByNumbers {
 
     // Add number labels as text objects (grouped for cleanup)
     this.numberTexts = [];
-    const fontSize = Math.max(5, Math.floor(Math.min(this.cellW, this.cellH) * 0.7));
+    const cellMin = Math.min(this.cellW, this.cellH);
+    const fontSize = Math.max(6, Math.round(cellMin * 0.75));
 
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
@@ -96,10 +97,16 @@ export default class PaintByNumbers {
         const cx = b.x + c * this.cellW + this.cellW / 2;
         const cy = b.y + r * this.cellH + this.cellH / 2;
 
+        // Colored number matching target color for better readability
+        const targetHex = PAINT.COLORS[this.colorMap[ci]] || 0xffffff;
+        const hexStr = '#' + targetHex.toString(16).padStart(6, '0');
+
         const txt = this.scene.add.text(cx, cy, String(ci + 1), {
-          font: `${fontSize}px monospace`,
-          fill: '#ffffff',
-        }).setOrigin(0.5).setDepth(7.2).setAlpha(0.5);
+          font: `bold ${fontSize}px monospace`,
+          fill: hexStr,
+          stroke: '#000000',
+          strokeThickness: cellMin < 14 ? 2 : 1,
+        }).setOrigin(0.5).setDepth(7.2).setAlpha(0.8);
 
         this.numberTexts.push({ text: txt, row: r, col: c });
       }

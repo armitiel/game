@@ -1058,8 +1058,26 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       }
     });
 
+    // Force exit any locked state (climbing, painting, pushing, hiding)
+    if (this.isClimbing) {
+      this.isClimbing = false;
+      this.onLadder = false;
+      this.body.allowGravity = true;
+      this.body.setSize(PLAYER.BODY_W, PLAYER.BODY_H);
+      this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
+    }
+    if (this.isDroppingToLadder) this.isDroppingToLadder = false;
+    if (this.isClimbing2) {
+      this.isClimbing2 = false;
+      this.body.enable = true;
+      this.body.allowGravity = true;
+    }
+    if (this.isPushingLadder) this.stopLadderPush();
+    if (this.isPushingTrash) this.isPushingTrash = false;
+
     // Knockback — small push away from cop
     this.setVelocityY(-150);
+    this.playAnim('player_fall');
 
     if (this.hp <= 0) {
       this.scene.events.emit('player-died');

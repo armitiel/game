@@ -27,6 +27,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(GAME.BACKGROUND_COLOR);
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     this.cameras.main.setZoom(isMobile ? 2.7 : 1.95);
+    this._baseZoom = this.cameras.main.zoom;  // remember base zoom for paint restore
     this.cameras.main.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
 
     // === World bounds ===
@@ -967,6 +968,11 @@ export default class GameScene extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.TWO,
       Phaser.Input.Keyboard.KeyCodes.THREE,
       Phaser.Input.Keyboard.KeyCodes.FOUR,
+      Phaser.Input.Keyboard.KeyCodes.FIVE,
+      Phaser.Input.Keyboard.KeyCodes.SIX,
+      Phaser.Input.Keyboard.KeyCodes.SEVEN,
+      Phaser.Input.Keyboard.KeyCodes.EIGHT,
+      Phaser.Input.Keyboard.KeyCodes.NINE,
     ];
     const numPaintColors = this.pbn.colorMap.length;
     this.colorKeys = keyCodes.slice(0, numPaintColors).map(k => this.input.keyboard.addKey(k));
@@ -974,7 +980,10 @@ export default class GameScene extends Phaser.Scene {
     // --- Camera zoom into paint area (keep following player) ---
     const cam = this.cameras.main;
     const isMobile = !!(this.touch && this.touch.enabled);
-    this._preZoom = cam.zoom;
+    // Only capture base zoom if not already saved (avoid capturing mid-animation value)
+    if (this._preZoom == null) {
+      this._preZoom = this._baseZoom || cam.zoom;
+    }
 
     const targetZoom = isMobile ? 4.2 : 3.3;
 
@@ -1005,25 +1014,32 @@ export default class GameScene extends Phaser.Scene {
 
   createColorSelector(bounds) {
     this.colorSelectorElements = [];
-    this._colorSelectorBounds = bounds;  // store for position updates
-    // Use the painting's own color list
+    this._colorSelectorBounds = bounds;
     const colorNames = this.pbn.colorMap;
-    const boxSize = 16;   // 15% bigger than old 14
-    const gap = 4;
+    const boxSize = 28;   // screen-space pixels (UI camera, zoom=1)
+    const gap = 6;
+    this._cselBoxSize = boxSize;
+    this._cselGap = gap;
 
+    // Create on UI camera so they're always visible regardless of world zoom
+    this._addingHud = true;
     for (let i = 0; i < colorNames.length; i++) {
       const hex = PAINT.COLORS[colorNames[i]] || 0xffffff;
       const hasColor = this.player.hasPaint(colorNames[i].toLowerCase());
-      const alpha = hasColor ? 0.9 : 0.2;
+      const alpha = hasColor ? 0.9 : 0.25;
 
       const box = this.add.rectangle(0, 0, boxSize, boxSize, hex, alpha)
-        .setDepth(15).setStrokeStyle(1, 0xffffff, 0.5);
+        .setDepth(200).setStrokeStyle(1, 0xffffff, 0.5);
       const num = this.add.text(0, 0, String(i + 1), {
-        font: 'bold 8px monospace', fill: '#000000'
-      }).setOrigin(0.5).setDepth(15.1).setAlpha(hasColor ? 1 : 0.3);
+        font: 'bold 11px monospace', fill: '#000000'
+      }).setOrigin(0.5).setDepth(200.1).setAlpha(hasColor ? 1 : 0.3);
 
       this.colorSelectorElements.push(box, num);
     }
+    this._addingHud = false;
+
+    // Hide from main camera — they live on uiCam only
+    this.cameras.main.ignore(this.colorSelectorElements);
 
     this.updateColorSelectorPosition();
     this.updateColorSelectorHighlight();
@@ -1031,39 +1047,41 @@ export default class GameScene extends Phaser.Scene {
 
   updateColorSelectorPosition() {
     if (!this.colorSelectorElements || this.colorSelectorElements.length === 0) return;
-    if (!this._colorSelectorBounds) return;
 
-    const b = this._colorSelectorBounds; // {x, y, w, h}
     const numColors = this.colorSelectorElements.length / 2;
-    const boxSize = 16;
-    const gap = 4;
+    const boxSize = this._cselBoxSize || 28;
+    const gap = this._cselGap || 6;
     const totalH = numColors * (boxSize + gap) - gap;
-    const margin = 20;  // gap between paint area edge and selector
 
-    // Place selector to the right of the paint area; flip left if near camera edge
+    // Elements live on uiCam (zoom=1, scroll=0) — use screen coordinates
     const cam = this.cameras.main;
-    const camRight = cam.scrollX + cam.width;
-    const camLeft = cam.scrollX;
-    const areaRight = b.x + b.w;
-    const areaLeft = b.x;
+    const gw = this.sys.game.config.width;
+    const gh = this.sys.game.config.height;
+    const margin = 14;
 
-    let baseX;
-    if (areaRight + margin + boxSize + 4 < camRight) {
-      baseX = areaRight + margin + boxSize / 2;
-    } else if (areaLeft - margin - boxSize / 2 - 4 > camLeft) {
-      baseX = areaLeft - margin - boxSize / 2;
-    } else {
-      baseX = areaRight + margin + boxSize / 2;
-    }
+    // Decide side based on player position relative to the MURAL center
+    // so the selector stays on one side consistently while painting
+    const wv = cam.worldView;
+    const playerScreenY = ((this.player.y - wv.y) / wv.height) * gh;
 
-    // Vertically center on the paint area
-    const areaCenterY = b.y + b.h / 2;
-    const baseY = areaCenterY - totalH / 2;
+    const b = this._colorSelectorBounds;
+    const muralCenterX = b ? (b.x + b.w / 2) : this.player.x;
+    const playerOnLeftOfMural = this.player.x < muralCenterX;
+    const baseX = playerOnLeftOfMural
+      ? margin + boxSize / 2                   // left edge
+      : gw - margin - boxSize / 2;             // right edge
+
+    // Vertically centred on player's screen Y, clamped to viewport
+    const clampedY = Phaser.Math.Clamp(
+      playerScreenY - totalH / 2,
+      margin,
+      gh - totalH - margin
+    );
 
     for (let i = 0; i < numColors; i++) {
       const box = this.colorSelectorElements[i * 2];
       const num = this.colorSelectorElements[i * 2 + 1];
-      const cy = baseY + i * (boxSize + gap);
+      const cy = clampedY + i * (boxSize + gap) + boxSize / 2;
       box.setPosition(baseX, cy);
       num.setPosition(baseX, cy);
     }
@@ -1195,7 +1213,9 @@ export default class GameScene extends Phaser.Scene {
   cleanupPaintState(destroyPBN = true) {
     // --- Camera zoom out (camera still follows player, just restore zoom) ---
     if (this._preZoom != null) {
-      this.cameras.main.zoomTo(this._preZoom, 350, 'Sine.easeInOut');
+      // Always restore to the reliable base zoom, not a possibly mid-animation value
+      const restoreZoom = this._baseZoom || this._preZoom;
+      this.cameras.main.zoomTo(restoreZoom, 350, 'Sine.easeInOut');
       this._preZoom = null;
     }
 
@@ -1787,6 +1807,9 @@ export default class GameScene extends Phaser.Scene {
           }
         }
       }
+
+      // Keep color selector following player
+      this.updateColorSelectorPosition();
 
       const cursors = this.player.cursors;
       const wasd = this.player.wasdKeys;
