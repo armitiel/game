@@ -1650,6 +1650,10 @@ export default class GameScene extends Phaser.Scene {
     // Shadow zone: tell player whether they're in shadow (for hide mechanic availability)
     // isHidden is now managed by Player — only true when actively hiding (DOWN + stopped + in shadow)
     this.player.inShadowZone = this.playerInShadow;
+    // Tell touch controls to bias down-diagonals as pure down near shadows
+    if (this.touch && this.touch.enabled) {
+      this.touch.shadowBias = this.playerInShadow;
+    }
 
     // 2. Check paint input (SPACE or touch ACT)
     // Allowed when: on solid ground OR on ladder (not mid-air)

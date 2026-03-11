@@ -53,6 +53,7 @@ export default class TouchControls {
     // --- Floating virtual joystick ---
     const BASE_RADIUS = 52;   // outer ring radius
     const THUMB_RADIUS = 22;  // inner knob radius
+    const HINT_RADIUS = 14;   // small direction hint circles
     const MAX_DIST = BASE_RADIUS - 4; // max thumb travel from center
 
     // Base ring — appears at touch origin
@@ -65,11 +66,64 @@ export default class TouchControls {
 
     this.buttons.push(this._joyBase, this._joyThumb);
 
+    // --- Initial hint: static joystick preview so user knows where controls are ---
+    const hintX = 110;
+    const hintY = cam.height - 130;
+    const hintDist = BASE_RADIUS + 6; // distance from center to direction dots
+
+    this._hintBase = scene.add.circle(hintX, hintY, BASE_RADIUS, 0xffffff, 0.06)
+      .setScrollFactor(0).setDepth(199)
+      .setStrokeStyle(2, 0xffffff, 0.2);
+    this._hintThumb = scene.add.circle(hintX, hintY, THUMB_RADIUS, 0xffffff, 0.15)
+      .setScrollFactor(0).setDepth(200);
+
+    // 4 small direction indicator circles around the ring
+    this._hintDots = [
+      scene.add.circle(hintX - hintDist, hintY, HINT_RADIUS, 0x88aaff, 0.25),  // left
+      scene.add.circle(hintX + hintDist, hintY, HINT_RADIUS, 0x88aaff, 0.25),  // right
+      scene.add.circle(hintX, hintY - hintDist, HINT_RADIUS, 0x88ffaa, 0.25),  // up
+      scene.add.circle(hintX, hintY + hintDist, HINT_RADIUS, 0xff8888, 0.25),  // down
+    ];
+    // Small arrows inside direction dots
+    const arrowStyle = { font: 'bold 16px monospace', fill: '#ffffff' };
+    this._hintArrows = [
+      scene.add.text(hintX - hintDist, hintY, '\u25C0', arrowStyle).setOrigin(0.5).setAlpha(0.5),
+      scene.add.text(hintX + hintDist, hintY, '\u25B6', arrowStyle).setOrigin(0.5).setAlpha(0.5),
+      scene.add.text(hintX, hintY - hintDist, '\u25B2', arrowStyle).setOrigin(0.5).setAlpha(0.5),
+      scene.add.text(hintX, hintY + hintDist, '\u25BC', arrowStyle).setOrigin(0.5).setAlpha(0.5),
+    ];
+    this._hintDots.forEach(d => d.setScrollFactor(0).setDepth(199));
+    this._hintArrows.forEach(a => a.setScrollFactor(0).setDepth(200));
+
+    // Gentle pulse on the hint thumb to draw attention
+    scene.tweens.add({
+      targets: this._hintThumb,
+      alpha: { from: 0.15, to: 0.35 },
+      duration: 1000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    const hintElements = [this._hintBase, this._hintThumb, ...this._hintDots, ...this._hintArrows];
+    this.buttons.push(...hintElements);
+    this._hintVisible = true;
+
     let originX = 0, originY = 0;
     const DEAD_ZONE = 12;
     const DEAD_ZONE_PAINT = 30;
 
     zone.on('pointerdown', (pointer) => {
+      // First touch — fade out the static hint permanently
+      if (this._hintVisible) {
+        this._hintVisible = false;
+        scene.tweens.add({
+          targets: hintElements,
+          alpha: 0,
+          duration: 300,
+          onComplete: () => hintElements.forEach(el => el.setVisible(false))
+        });
+      }
       originX = pointer.x;
       originY = pointer.y;
       // Show joystick at touch point
@@ -128,6 +182,18 @@ export default class TouchControls {
     if (dx > deadZone) this.right = true;
     if (dy < -deadZone) this.up = true;
     if (dy > deadZone) this.down = true;
+
+    // Shadow bias: when near a shadow, diagonal-down → pure down
+    // Makes it much easier to trigger hiding on a joystick
+    if (this.shadowBias && this.down && (this.left || this.right)) {
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      // Only keep horizontal if it clearly dominates (2x stronger than vertical)
+      if (absDx < absDy * 2) {
+        this.left = false;
+        this.right = false;
+      }
+    }
   }
 
   _clearDirection() {
@@ -135,12 +201,6 @@ export default class TouchControls {
     this.right = false;
     this.up = false;
     this.down = false;
-    if (this._dpadBgs) {
-      this._dpadBgs.forEach(bg => bg.setAlpha(0.15));
-    }
-    if (this._dpadHints) {
-      this._dpadHints.forEach(h => h.setAlpha(0.4));
-    }
   }
 
   createActionButtons(scene) {

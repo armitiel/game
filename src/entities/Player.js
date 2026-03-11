@@ -943,6 +943,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   startHiding() {
     this.isHiding = true;
     this.isHidden = true;
+    this._hideLockedUntil = this.scene.time.now + 600; // min 600ms before exit
     this.setVelocity(0, 0);
     this.body.setAccelerationX(0);
 
@@ -969,6 +970,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // Keep player frozen
     this.setVelocity(0, 0);
+
+    // Lock period — prevent accidental exit right after entering (especially on mobile joystick)
+    if (this._hideLockedUntil && this.scene.time.now < this._hideLockedUntil) {
+      return;
+    }
 
     // Exit hiding if: any movement key (left/right/up), jump, or player leaves shadow zone
     if (left || right || up || jump || !this.inShadowZone) {
