@@ -230,19 +230,19 @@ export default class TouchControls {
       .setScrollFactor(0).setDepth(200).setVisible(false);
 
     // Direction hint backgrounds (colored circles behind icons)
-    this._actHintUpBg = scene.add.circle(0, 0, 22, 0xffdd33, 0.35)
+    this._actHintUpBg = scene.add.circle(0, 0, 32, 0xffdd33, 0.35)
       .setScrollFactor(0).setDepth(200.5).setVisible(false);
-    this._actHintLeftBg = scene.add.circle(0, 0, 22, 0xff8833, 0.35)
+    this._actHintLeftBg = scene.add.circle(0, 0, 32, 0xff8833, 0.35)
       .setScrollFactor(0).setDepth(200.5).setVisible(false);
 
     // Direction hint icons (up = paint, left = interact)
     this._actHintUp = scene.add.image(0, 0, 'icon_spray')
-      .setDisplaySize(28, 28).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
+      .setDisplaySize(36, 36).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
     this._actHintLeft = scene.add.image(0, 0, 'icon_hand')
-      .setDisplaySize(28, 28).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
+      .setDisplaySize(36, 36).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
     // Center jump label — green
     this._actHintCenter = scene.add.text(0, 0, 'JUMP', {
-      font: 'bold 12px monospace', fill: '#00ff88'
+      font: 'bold 18px monospace', fill: '#00ff88'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.4).setVisible(false);
 
     this.buttons.push(this._actBase, this._actThumb, this._actHintUpBg, this._actHintLeftBg, this._actHintUp, this._actHintLeft, this._actHintCenter);
@@ -256,16 +256,16 @@ export default class TouchControls {
     this._actStaticThumb = scene.add.circle(hintX, hintY, THUMB_RADIUS, 0x00ff88, 0.15)
       .setScrollFactor(0).setDepth(200);
     // Static hint backgrounds
-    this._actStaticUpBg = scene.add.circle(hintX, hintY - HINT_DIST, 20, 0xffdd33, 0.25)
+    this._actStaticUpBg = scene.add.circle(hintX, hintY - HINT_DIST, 28, 0xffdd33, 0.25)
       .setScrollFactor(0).setDepth(199.5);
-    this._actStaticLeftBg = scene.add.circle(hintX - HINT_DIST, hintY, 20, 0xff8833, 0.25)
+    this._actStaticLeftBg = scene.add.circle(hintX - HINT_DIST, hintY, 28, 0xff8833, 0.25)
       .setScrollFactor(0).setDepth(199.5);
     this._actStaticUp = scene.add.image(hintX, hintY - HINT_DIST, 'icon_spray')
-      .setDisplaySize(24, 24).setScrollFactor(0).setDepth(201).setAlpha(0.5);
+      .setDisplaySize(32, 32).setScrollFactor(0).setDepth(201).setAlpha(0.5);
     this._actStaticLeft = scene.add.image(hintX - HINT_DIST, hintY, 'icon_hand')
-      .setDisplaySize(24, 24).setScrollFactor(0).setDepth(201).setAlpha(0.5);
+      .setDisplaySize(32, 32).setScrollFactor(0).setDepth(201).setAlpha(0.5);
     this._actStaticCenter = scene.add.text(hintX, hintY + 2, 'JUMP', {
-      font: 'bold 10px monospace', fill: '#00ff88'
+      font: 'bold 14px monospace', fill: '#00ff88'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.3);
 
     scene.tweens.add({
