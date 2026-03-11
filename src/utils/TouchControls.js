@@ -219,27 +219,33 @@ export default class TouchControls {
     const BASE_RADIUS = 52;
     const THUMB_RADIUS = 22;
     const SWIPE_THRESHOLD = 28; // min drag distance to count as swipe
-    const HINT_DIST = BASE_RADIUS + 6;
+    const HINT_DIST = BASE_RADIUS + 28; // icons well outside the ring
 
     // Base ring — appears at touch origin
     this._actBase = scene.add.circle(0, 0, BASE_RADIUS, 0xffffff, 0.08)
       .setScrollFactor(0).setDepth(199).setVisible(false)
       .setStrokeStyle(2, 0xffffff, 0.25);
-    // Thumb knob
-    this._actThumb = scene.add.circle(0, 0, THUMB_RADIUS, 0xffffff, 0.25)
+    // Thumb knob — green tint (jump color)
+    this._actThumb = scene.add.circle(0, 0, THUMB_RADIUS, 0x00ff88, 0.25)
       .setScrollFactor(0).setDepth(200).setVisible(false);
+
+    // Direction hint backgrounds (colored circles behind icons)
+    this._actHintUpBg = scene.add.circle(0, 0, 22, 0xffdd33, 0.35)
+      .setScrollFactor(0).setDepth(200.5).setVisible(false);
+    this._actHintLeftBg = scene.add.circle(0, 0, 22, 0xff8833, 0.35)
+      .setScrollFactor(0).setDepth(200.5).setVisible(false);
 
     // Direction hint icons (up = paint, left = interact)
     this._actHintUp = scene.add.image(0, 0, 'icon_spray')
-      .setDisplaySize(30, 30).setScrollFactor(0).setDepth(201).setAlpha(0.4).setVisible(false);
+      .setDisplaySize(28, 28).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
     this._actHintLeft = scene.add.image(0, 0, 'icon_hand')
-      .setDisplaySize(30, 30).setScrollFactor(0).setDepth(201).setAlpha(0.4).setVisible(false);
-    // Center jump label
+      .setDisplaySize(28, 28).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
+    // Center jump label — green
     this._actHintCenter = scene.add.text(0, 0, 'JUMP', {
-      font: 'bold 12px monospace', fill: '#ffffff'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.3).setVisible(false);
+      font: 'bold 12px monospace', fill: '#00ff88'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.4).setVisible(false);
 
-    this.buttons.push(this._actBase, this._actThumb, this._actHintUp, this._actHintLeft, this._actHintCenter);
+    this.buttons.push(this._actBase, this._actThumb, this._actHintUpBg, this._actHintLeftBg, this._actHintUp, this._actHintLeft, this._actHintCenter);
 
     // --- Static hint (shown before first touch) ---
     const hintX = cam.width - 110;
@@ -247,14 +253,19 @@ export default class TouchControls {
 
     this._actStaticBase = scene.add.circle(hintX, hintY, BASE_RADIUS, 0xffffff, 0.06)
       .setScrollFactor(0).setDepth(199).setStrokeStyle(2, 0xffffff, 0.2);
-    this._actStaticThumb = scene.add.circle(hintX, hintY, THUMB_RADIUS, 0xffffff, 0.15)
+    this._actStaticThumb = scene.add.circle(hintX, hintY, THUMB_RADIUS, 0x00ff88, 0.15)
       .setScrollFactor(0).setDepth(200);
+    // Static hint backgrounds
+    this._actStaticUpBg = scene.add.circle(hintX, hintY - HINT_DIST, 20, 0xffdd33, 0.25)
+      .setScrollFactor(0).setDepth(199.5);
+    this._actStaticLeftBg = scene.add.circle(hintX - HINT_DIST, hintY, 20, 0xff8833, 0.25)
+      .setScrollFactor(0).setDepth(199.5);
     this._actStaticUp = scene.add.image(hintX, hintY - HINT_DIST, 'icon_spray')
-      .setDisplaySize(26, 26).setScrollFactor(0).setDepth(201).setAlpha(0.4);
+      .setDisplaySize(24, 24).setScrollFactor(0).setDepth(201).setAlpha(0.5);
     this._actStaticLeft = scene.add.image(hintX - HINT_DIST, hintY, 'icon_hand')
-      .setDisplaySize(26, 26).setScrollFactor(0).setDepth(201).setAlpha(0.4);
+      .setDisplaySize(24, 24).setScrollFactor(0).setDepth(201).setAlpha(0.5);
     this._actStaticCenter = scene.add.text(hintX, hintY + 2, 'JUMP', {
-      font: 'bold 10px monospace', fill: '#ffffff'
+      font: 'bold 10px monospace', fill: '#00ff88'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.3);
 
     scene.tweens.add({
@@ -263,7 +274,7 @@ export default class TouchControls {
       duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
     });
 
-    const staticHintEls = [this._actStaticBase, this._actStaticThumb, this._actStaticUp, this._actStaticLeft, this._actStaticCenter];
+    const staticHintEls = [this._actStaticBase, this._actStaticThumb, this._actStaticUpBg, this._actStaticLeftBg, this._actStaticUp, this._actStaticLeft, this._actStaticCenter];
     this.buttons.push(...staticHintEls);
     this._actHintVisible = true;
 
@@ -291,9 +302,11 @@ export default class TouchControls {
       // Show radial at touch point
       this._actBase.setPosition(originX, originY).setVisible(true);
       this._actThumb.setPosition(originX, originY).setVisible(true);
-      this._actHintUp.setPosition(originX, originY - HINT_DIST).setVisible(true).setAlpha(0.4);
-      this._actHintLeft.setPosition(originX - HINT_DIST, originY).setVisible(true).setAlpha(0.4);
-      this._actHintCenter.setPosition(originX, originY + 2).setVisible(true).setAlpha(0.3);
+      this._actHintUpBg.setPosition(originX, originY - HINT_DIST).setVisible(true).setAlpha(0.35);
+      this._actHintLeftBg.setPosition(originX - HINT_DIST, originY).setVisible(true).setAlpha(0.35);
+      this._actHintUp.setPosition(originX, originY - HINT_DIST).setVisible(true).setAlpha(0.7);
+      this._actHintLeft.setPosition(originX - HINT_DIST, originY).setVisible(true).setAlpha(0.7);
+      this._actHintCenter.setPosition(originX, originY + 2).setVisible(true).setAlpha(0.4);
     });
 
     zone.on('pointermove', (pointer) => {
@@ -321,9 +334,11 @@ export default class TouchControls {
       if (sel !== this._actSelection) {
         this._actSelection = sel;
         // Highlight selected direction
-        this._actHintUp.setAlpha(sel === 'up' ? 0.9 : 0.4);
-        this._actHintLeft.setAlpha(sel === 'left' ? 0.9 : 0.4);
-        this._actHintCenter.setAlpha(sel === null ? 0.6 : 0.3);
+        this._actHintUpBg.setAlpha(sel === 'up' ? 0.7 : 0.35);
+        this._actHintLeftBg.setAlpha(sel === 'left' ? 0.7 : 0.35);
+        this._actHintUp.setAlpha(sel === 'up' ? 1.0 : 0.7);
+        this._actHintLeft.setAlpha(sel === 'left' ? 1.0 : 0.7);
+        this._actHintCenter.setAlpha(sel === null ? 0.7 : 0.3);
       }
     });
 
@@ -345,6 +360,8 @@ export default class TouchControls {
       // Hide radial
       this._actBase.setVisible(false);
       this._actThumb.setVisible(false);
+      this._actHintUpBg.setVisible(false);
+      this._actHintLeftBg.setVisible(false);
       this._actHintUp.setVisible(false);
       this._actHintLeft.setVisible(false);
       this._actHintCenter.setVisible(false);
