@@ -1139,18 +1139,6 @@ export default class GameScene extends Phaser.Scene {
         { font: 'bold 16px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 6, y: 3 } }
       ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
       this.cameras.main.ignore(this.paintProgressText);
-
-      // EXIT button — top-left corner
-      this.paintExitBtn = this.add.text(14, 10, '✕ EXIT', {
-        font: 'bold 16px monospace', fill: '#ff6666', backgroundColor: '#000000aa', padding: { x: 8, y: 4 }
-      }).setDepth(200).setScrollFactor(0).setInteractive();
-      this.paintExitBtn.on('pointerdown', () => {
-        if (this.player.isPainting) {
-          this.player.stopPainting();
-          this.cancelPainting();
-        }
-      });
-      this.cameras.main.ignore(this.paintExitBtn);
       this._addingHud = false;
     } else {
       this.paintProgressText = this.add.text(
@@ -1173,7 +1161,12 @@ export default class GameScene extends Phaser.Scene {
           this.paintArm.setCanColor(this.pbn.getSelectedColorName());
           this.updateTouchColorHighlight();
         }
-      }, this.pbn.colorMap);
+      }, this.pbn.colorMap, () => {
+        if (this.player.isPainting) {
+          this.player.stopPainting();
+          this.cancelPainting();
+        }
+      });
       this._addingHud = false;
       // Hide from main cam (they render on uiCam only)
       if (this.touch.colorButtons) {
@@ -1470,11 +1463,6 @@ export default class GameScene extends Phaser.Scene {
       this.paintProgressText.destroy();
       this.paintProgressText = null;
     }
-    if (this.paintExitBtn) {
-      this.paintExitBtn.destroy();
-      this.paintExitBtn = null;
-    }
-
     if (this.colorSelectorElements) {
       this.colorSelectorElements.forEach(e => e.destroy());
       this.colorSelectorElements = null;

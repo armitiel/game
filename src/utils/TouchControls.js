@@ -423,24 +423,28 @@ export default class TouchControls {
 
   /**
    * Create color selector buttons for paint-by-numbers mode.
-   * Positioned on the right side above the E button, circular.
+   * Vertical stack on right side + EXIT button at the bottom.
+   * Sized to fit up to 6 colors + EXIT within mobile viewport.
    */
-  createColorButtons(scene, onSelect, colorNames) {
+  createColorButtons(scene, onSelect, colorNames, onExit) {
     if (!this.enabled) return;
     this.colorButtons = [];
 
-    const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88];
-    const labels = ['1', '2', '3', '4'];
+    const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88, 0xff88ff, 0x88ffff];
     const numColors = colorNames ? colorNames.length : 4;
-    const radius = 38;
-    const gap = 18;
-    // Vertical stack on right side of screen
-    const x = scene.cameras.main.width - 90;
-    const eTop = scene.cameras.main.height - 195 - 46 - gap - 30;
+    const camH = scene.cameras.main.height;
+    const radius = 28;
+    const gap = 10;
+    const step = radius * 2 + gap;
+    // Total slots: numColors + 1 (exit)
+    const totalSlots = numColors + 1;
+    // Center the stack vertically
+    const stackH = totalSlots * step - gap;
+    const topY = (camH - stackH) / 2 + radius;
+    const x = scene.cameras.main.width - 60;
 
     for (let i = 0; i < numColors; i++) {
-      // Bottom color = index 0, stack upward
-      const y = eTop - i * (radius * 2 + gap);
+      const y = topY + i * step;
 
       const bg = scene.add.circle(x, y, radius, colorHexes[i] || 0xffffff, 0.6)
         .setScrollFactor(0)
@@ -448,13 +452,14 @@ export default class TouchControls {
         .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains)
         .setStrokeStyle(2, 0xffffff, 0.5);
 
-      const text = scene.add.text(x, y, labels[i], {
-        font: 'bold 26px monospace',
+      const text = scene.add.text(x, y, String(i + 1), {
+        font: 'bold 20px monospace',
         fill: '#ffffff'
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.8);
 
       bg.on('pointerdown', () => {
         this.colorButtons.forEach((btn, idx) => {
+          if (idx >= numColors) return; // skip exit button
           btn.bg.setStrokeStyle(idx === i ? 3 : 2, 0xffffff, idx === i ? 1 : 0.3);
         });
         onSelect(i);
@@ -462,6 +467,23 @@ export default class TouchControls {
 
       this.colorButtons.push({ bg, text });
     }
+
+    // EXIT button at bottom of stack
+    const exitY = topY + numColors * step;
+    const exitBg = scene.add.circle(x, exitY, radius, 0xff3333, 0.5)
+      .setScrollFactor(0)
+      .setDepth(200)
+      .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains)
+      .setStrokeStyle(2, 0xff6666, 0.7);
+    const exitText = scene.add.text(x, exitY, '✕', {
+      font: 'bold 22px monospace', fill: '#ffffff'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.9);
+
+    exitBg.on('pointerdown', () => {
+      if (onExit) onExit();
+    });
+
+    this.colorButtons.push({ bg: exitBg, text: exitText });
   }
 
   destroyColorButtons() {
