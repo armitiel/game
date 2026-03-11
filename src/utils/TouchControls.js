@@ -468,15 +468,15 @@ export default class TouchControls {
       this.colorButtons.push({ bg, text });
     }
 
-    // EXIT button at bottom of stack
-    const exitY = topY + numColors * step;
-    const exitBg = scene.add.circle(x, exitY, radius, 0xff3333, 0.5)
+    // EXIT button at bottom of stack — extra gap to separate from colors
+    const exitY = topY + numColors * step + 14;
+    const exitBg = scene.add.circle(x, exitY, radius, 0x111111, 0.7)
       .setScrollFactor(0)
       .setDepth(200)
       .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains)
-      .setStrokeStyle(2, 0xff6666, 0.7);
+      .setStrokeStyle(2, 0x444444, 0.7);
     const exitText = scene.add.text(x, exitY, '✕', {
-      font: 'bold 22px monospace', fill: '#ffffff'
+      font: 'bold 22px monospace', fill: '#ff6666'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.9);
 
     exitBg.on('pointerdown', () => {
