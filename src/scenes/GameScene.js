@@ -197,8 +197,11 @@ export default class GameScene extends Phaser.Scene {
       // Deal damage instead of instant death
       const took = this.player.takeDamage(1);
       if (!took) return; // invincible — ignore
-      // Clean up active states
-      if (this.player.isPainting) this.cleanupPaintState(true);
+      // Clean up active states — cancel painting (saves progress) instead of destroying
+      if (this.player.isPainting) {
+        this.player.stopPainting();
+        this.cancelPainting();
+      }
       if (this.player.isPushingLadder) this.player.stopLadderPush();
       if (this.player.isHiding) this.player.stopHiding();
       this.sfx.caught();
