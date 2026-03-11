@@ -125,10 +125,10 @@ export default class PaintByNumbers {
     }
 
     const texKey = '__pbn_nums_' + b.x + '_' + b.y;
-    if (scene.textures.exists(texKey)) scene.textures.remove(texKey);
-    scene.textures.addCanvas(texKey, canvas);
+    if (this.scene.textures.exists(texKey)) this.scene.textures.remove(texKey);
+    this.scene.textures.addCanvas(texKey, canvas);
     this._numbersTexKey = texKey;
-    this.numbersImage = scene.add.image(b.x, b.y, texKey)
+    this.numbersImage = this.scene.add.image(b.x, b.y, texKey)
       .setOrigin(0, 0).setDepth(7.2);
   }
 
