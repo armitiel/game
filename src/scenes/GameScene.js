@@ -57,6 +57,7 @@ export default class GameScene extends Phaser.Scene {
     // regardless of when objects are created during gameplay.
     this._bridgeLayer = this.add.layer();
     this._bridgeLayer.setDepth(50);
+    this._bridgeBodies = []; // track all bridge collider bodies for step-up logic
 
     // === Trash cans (pushable) ===
     this.trashCans = [];
@@ -76,6 +77,9 @@ export default class GameScene extends Phaser.Scene {
     // === Cop ===
     this.cops = [];
     this.createCops();
+
+    // === Heart pickups (must be after player creation for overlap) ===
+    this.createHeartPickups();
 
     // === Collisions ===
     // Player vs ground — always solid, never pass-through
@@ -183,19 +187,20 @@ export default class GameScene extends Phaser.Scene {
 
     // === Events ===
     this.events.on('player-caught', () => {
-      // Clean up painting state if active
-      if (this.player.isPainting) {
-        this.cleanupPaintState(true);
-      }
-      // Clean up ladder push if active
-      if (this.player.isPushingLadder) {
-        this.player.stopLadderPush();
-      }
-      // Clean up hiding if active
-      if (this.player.isHiding) {
-        this.player.stopHiding();
-      }
+      // Deal damage instead of instant death
+      const took = this.player.takeDamage(1);
+      if (!took) return; // invincible — ignore
+      // Clean up active states
+      if (this.player.isPainting) this.cleanupPaintState(true);
+      if (this.player.isPushingLadder) this.player.stopLadderPush();
+      if (this.player.isHiding) this.player.stopHiding();
       this.sfx.caught();
+      this.cops.forEach(cop => cop.resetState());
+    });
+
+    // Full death — all hearts lost → respawn at checkpoint with full HP
+    this.events.on('player-died', () => {
+      this.player.hp = this.player.maxHp;
       this.player.die(this.checkpointX, this.checkpointY);
       this.cops.forEach(cop => cop.resetState());
     });
@@ -430,6 +435,54 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  createHeartPickups() {
+    this.heartPickups = this.physics.add.group();
+    const hearts = this.levelData.hearts || [];
+    hearts.forEach(h => {
+      // Draw a heart using graphics — small red heart with glow
+      const gfx = this.add.graphics();
+      // Pulsing heart shape
+      gfx.fillStyle(0xff2255, 1);
+      gfx.fillCircle(-5, -3, 6);
+      gfx.fillCircle(5, -3, 6);
+      gfx.fillTriangle(-11, 0, 11, 0, 0, 12);
+      // Render to texture
+      const rtKey = `__heart_${h.x}_${h.y}`;
+      const rt = this.add.renderTexture(0, 0, 24, 20);
+      rt.draw(gfx, 12, 8);
+      rt.saveTexture(rtKey);
+      gfx.destroy();
+      rt.destroy();
+
+      const heart = this.add.image(h.x, h.y, rtKey).setDepth(5);
+      this.physics.add.existing(heart, true);
+      this.heartPickups.add(heart);
+
+      // Floating animation
+      this.tweens.add({
+        targets: heart,
+        y: h.y - 6,
+        duration: 1200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    });
+
+    // Overlap: player touches heart → heal
+    this.physics.add.overlap(this.player, this.heartPickups, (player, heart) => {
+      if (player.hp >= player.maxHp) return; // already full
+      player.heal(1);
+      // Pop effect
+      this.tweens.add({
+        targets: heart,
+        scaleX: 1.5, scaleY: 1.5, alpha: 0,
+        duration: 300,
+        onComplete: () => heart.destroy()
+      });
+    });
+  }
+
   createPaintSpots() {
     this.paintSpotZones = this.physics.add.staticGroup();
 
@@ -643,13 +696,37 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
+    // === HEART HUD ===
+    this._addingHud = true;
+    const heartSize = Math.round(14 * uiScale);
+    const heartSpacing = Math.round(16 * uiScale);
+    const heartY = Math.round(46 * uiScale);
+    const heartStartX = Math.round(14 * uiScale);
+    this.hudHearts = [];
+    for (let i = 0; i < this.player.maxHp; i++) {
+      const hx = heartStartX + i * heartSpacing;
+      // Heart shape drawn as text emoji — filled vs empty
+      const full = this.add.text(hx, heartY, '\u2764', {
+        font: `${heartSize}px sans-serif`,
+        fill: '#ff2255'
+      }).setDepth(101).setScrollFactor(0).setOrigin(0, 0);
+      const empty = this.add.text(hx, heartY, '\u2661', {
+        font: `${heartSize}px sans-serif`,
+        fill: '#663333'
+      }).setDepth(100.5).setScrollFactor(0).setOrigin(0, 0);
+      this.hudHearts.push({ full, empty });
+    }
+    this._addingHud = false;
+
     // Collect all HUD elements for camera management
     const slotElements = [];
     this.hudSlots.forEach(s => slotElements.push(s.empty, s.filled, s.count));
+    const heartElements = [];
+    this.hudHearts.forEach(h => heartElements.push(h.full, h.empty));
 
     // Main camera ignores HUD + touch controls, UI camera ignores everything else
     const hudElements = [this.hudBg, this.hudCountText, this.statusText, this.muteBtn, this.muteBtnHit,
-      ...slotElements, ...this.touch.getElements()];
+      ...slotElements, ...heartElements, ...this.touch.getElements()];
     this.cameras.main.ignore(hudElements);
 
     // Ignore all existing world objects on UI cam
@@ -671,7 +748,14 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  updateHearts() {
+    for (let i = 0; i < this.hudHearts.length; i++) {
+      this.hudHearts[i].full.setVisible(i < this.player.hp);
+    }
+  }
+
   updateHUD() {
+    this.updateHearts();
     // Update each paint slot: show filled can + count if player has that color
     for (let i = 0; i < this.hudSlots.length; i++) {
       const slot = this.hudSlots[i];
@@ -1169,11 +1253,19 @@ export default class GameScene extends Phaser.Scene {
 
   moveLadder(ladderInfo, dx) {
     if (!ladderInfo || ladderInfo.isFalling || ladderInfo.isBridge) return 0;
-    const newX = Phaser.Math.Clamp(
-      ladderInfo.visual.x + dx,
-      ladderInfo.minX,
-      ladderInfo.maxX
-    );
+
+    let minX = ladderInfo.minX;
+    let maxX = ladderInfo.maxX;
+
+    // Extend allowed range to cover any existing bridges so ladder can cross them
+    for (const l of this.ladderData) {
+      if (!l.isBridge || !l.bridgeBody || !l.bridgeBody.body) continue;
+      const bb = l.bridgeBody.body;
+      minX = Math.min(minX, bb.x + 10);
+      maxX = Math.max(maxX, bb.x + bb.width - 10);
+    }
+
+    const newX = Phaser.Math.Clamp(ladderInfo.visual.x + dx, minX, maxX);
     const actualDx = newX - ladderInfo.visual.x;
     if (Math.abs(actualDx) < 0.1) return 0;
 
@@ -1203,20 +1295,38 @@ export default class GameScene extends Phaser.Scene {
 
     // Find the platform the ladder is standing on
     const supportPlatform = this._findSupportingPlatform(ladderX, ladderBottomY);
-    if (!supportPlatform) return; // no platform below — shouldn't happen during push
+    if (!supportPlatform) return;
 
     const platLeft = supportPlatform.x - supportPlatform.width / 2;
     const platRight = supportPlatform.x + supportPlatform.width / 2;
 
     // Direction: which way was the ladder pushed?
     let fallDir = 0;
-    if (ladderX <= platLeft + 8) fallDir = -1;  // past left edge
-    else if (ladderX >= platRight - 8) fallDir = 1;  // past right edge
+    if (ladderX <= platLeft + 8) fallDir = -1;
+    else if (ladderX >= platRight - 8) fallDir = 1;
 
     if (fallDir === 0) return;
 
+    // If a bridge exists under the ladder at this position, don't fall — ride the bridge
+    if (this._isOnBridge(ladderX, ladderBottomY)) return;
+
     console.log('[LADDER FALL] Edge detected! dir:', fallDir, 'ladderX:', ladderX, 'plat:', platLeft, '-', platRight);
     this._triggerLadderFall(ladderInfo, fallDir, supportPlatform);
+  }
+
+  /**
+   * Check if a given position is horizontally over a bridge collider.
+   */
+  _isOnBridge(x, bottomY) {
+    const TOLERANCE = 20;
+    for (const bridge of this._bridgeBodies) {
+      if (!bridge.body) continue;
+      const bb = bridge.body;
+      if (x >= bb.x && x <= bb.x + bb.width && Math.abs(bottomY - bb.y) < TOLERANCE) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -1472,6 +1582,41 @@ export default class GameScene extends Phaser.Scene {
 
     ladderInfo.bridgeBody = bridge;
     ladderInfo.bridgeVisual = plankVisual;
+    this._bridgeBodies.push(bridge);
+  }
+
+  /**
+   * Auto step-up: if the player is horizontally over a bridge and their feet
+   * are slightly below the bridge top, nudge them up so they walk onto it.
+   */
+  _bridgeStepUp(player) {
+    const MAX_STEP = player.isPushingLadder ? 18 : 12; // wider range during push
+    const pb = player.body;
+    if (!pb) return;
+    const playerBottom = pb.y + pb.height;
+    const playerLeft = pb.x;
+    const playerRight = pb.x + pb.width;
+
+    for (const bridge of this._bridgeBodies) {
+      if (!bridge.body) continue;
+      const bb = bridge.body;
+      const bridgeTop = bb.y;
+      const bridgeLeft = bb.x;
+      const bridgeRight = bb.x + bb.width;
+
+      // Player must horizontally overlap the bridge
+      if (playerRight < bridgeLeft || playerLeft > bridgeRight) continue;
+
+      // Player feet must be slightly below bridge top (within step-up range)
+      const diff = playerBottom - bridgeTop;
+      if (diff > 0 && diff <= MAX_STEP) {
+        // Nudge player up to bridge level
+        player.y -= diff;
+        pb.y -= diff;
+        pb.velocity.y = 0;
+        break;
+      }
+    }
   }
 
   // === UPDATE ===
@@ -1609,6 +1754,11 @@ export default class GameScene extends Phaser.Scene {
         }
         this.player.pushLadderDx = 0; // consumed
       }
+    }
+
+    // 2d. Auto step-up onto bridges (works while walking or pushing ladder)
+    if ((this.player.body.blocked.down || this.player.isPushingLadder) && !this.player.isClimbing && !this.player.isClimbing2) {
+      this._bridgeStepUp(this.player);
     }
 
     // 3. Player movement & input (uses ladder/shadow state)

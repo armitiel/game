@@ -22,9 +22,9 @@ export const LEVEL_1 = {
     { x: 0, y: H - 32, w: W },
   ],
   ladders: [
-    { x: 200, topY: H - 140, bottomY: H - 40, minX: 30, maxX: 240 },
+    { x: 224, topY: H - 142, bottomY: H - 32, minX: 54, maxX: 264 },
     { x: 820, topY: H - 270, bottomY: H - 32, minX: 630, maxX: 870 },
-    { x: 340, topY: H - 420, bottomY: H - 290, minX: 310, maxX: 590 },
+    { x: 340, topY: H - 415, bottomY: H - 285, minX: 310, maxX: 590 },
     { x: 500, topY: H - 270, bottomY: H - 32, minX: 310, maxX: 590 },
   ],
   shadows: [
@@ -76,12 +76,13 @@ export const LEVEL_2 = {
     { x: 0, y: L2_H - 32, w: L2_W },
   ],
   ladders: [
-    { x: 350, topY: L2_H - 250, bottomY: L2_H - 32, minX: 280, maxX: 420 },
+    { x: 265, topY: L2_H - 250, bottomY: L2_H - 32, minX: 195, maxX: 335 },
     { x: 150, topY: L2_H - 500, bottomY: L2_H - 250, minX: 50, maxX: 380 },
     { x: 620, topY: L2_H - 750, bottomY: L2_H - 500, minX: 450, maxX: 720 },
     { x: 250, topY: L2_H - 1000, bottomY: L2_H - 750, minX: 80, maxX: 420 },
     { x: 120, topY: L2_H - 750, bottomY: L2_H - 500, minX: -50, maxX: 220 },
     { x: 700, topY: L2_H - 1000, bottomY: L2_H - 750, minX: 530, maxX: 870 },
+    { x: 510, topY: L2_H - 500, bottomY: L2_H - 250, minX: 410, maxX: 740 },
   ],
   shadows: [
     { x: 510, y: L2_H - 170, w: 60, h: 140 },
@@ -98,6 +99,7 @@ export const LEVEL_2 = {
     { x: 150, y: L2_H - 790 },
     { x: 400, y: L2_H - 1040 },
     { x: 70, y: L2_H - 1040 },
+    { x: 760, y: L2_H - 1040 },
   ],
   paintSpots: [
     { x: 400, y: L2_H - 620, w: 480, h: 576, paintingKey: 'painting_mural_big' },

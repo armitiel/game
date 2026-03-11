@@ -38,6 +38,9 @@ export const PLAYER = {
   SIDE_FRAME_START: 178,
   TOTAL_HIDE_FRAMES: 17,
   HIDE_FRAME_START: 206,
+  // Health
+  MAX_HP: 5,             // max hearts
+  INVINCIBLE_MS: 1500,   // invincibility after taking damage (ms)
   // Physics body (smaller than visual, centered at feet)
   BODY_W: 20,
   BODY_H: 60,

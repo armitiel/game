@@ -34,6 +34,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.isHiding = false;            // true when actively crouching in shadow zone
     this.isUnhiding = false;          // true during stand-up reverse animation
     this.inShadowZone = false;        // set by GameScene — player overlaps shadow zone this frame
+    // Health
+    this.hp = PLAYER.MAX_HP;
+    this.maxHp = PLAYER.MAX_HP;
+    this._invincibleUntil = 0; // timestamp — immune to damage until this time
+
     // Paint inventory: { red: 2, blue: 1, ... } — counts per color
     this.inventory = { red: 0, blue: 0, yellow: 0, green: 0 };
     this.paintedCount = 0;
@@ -83,17 +88,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
       this._pushYShift = 0;
     }
-    // Remove walk Y shift if leaving walk animation
+    // Remove walk adjustments if leaving walk animation
     if (this._walkYShift && key !== 'player_walk') {
       this.y -= this._walkYShift;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
+      this.setScale(1);
       this._walkYShift = 0;
     }
-    // Apply walk Y shift — nudge sprite slightly down during walk
+    // Apply walk adjustments — nudge down + scale up 1.5%
     if (key === 'player_walk' && !this._walkYShift) {
-      this._walkYShift = 1;
-      this.y += 1;
-      this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 1);
+      this._walkYShift = 2;
+      this.y += 2;
+      this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 2);
+      this.setScale(1.015);
     }
     // Any non-idle/non-twist animation resets the idle twist timer
     if (key !== 'player_idle' && key !== 'player_twist') {
@@ -1023,5 +1030,49 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.body.allowGravity = true;
     this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
     this.playAnim('player_idle');
+  }
+
+  // === HEALTH ===
+
+  get isInvincible() {
+    return this.scene.time.now < this._invincibleUntil;
+  }
+
+  takeDamage(amount = 1) {
+    if (this.isInvincible || this.hp <= 0) return false;
+    this.hp = Math.max(0, this.hp - amount);
+    this._invincibleUntil = this.scene.time.now + PLAYER.INVINCIBLE_MS;
+
+    // Visual feedback — flash red + blink
+    this.setTint(0xff0000);
+    this.scene.cameras.main.shake(150, 0.008);
+    this._blinkTween = this.scene.tweens.add({
+      targets: this,
+      alpha: { from: 0.3, to: 1 },
+      duration: 120,
+      repeat: Math.floor(PLAYER.INVINCIBLE_MS / 240),
+      yoyo: true,
+      onComplete: () => {
+        this.clearTint();
+        this.setAlpha(1);
+      }
+    });
+
+    // Knockback — small push away from cop
+    this.setVelocityY(-150);
+
+    if (this.hp <= 0) {
+      this.scene.events.emit('player-died');
+    }
+    return true;
+  }
+
+  heal(amount = 1) {
+    if (this.hp >= this.maxHp) return false;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    // Green flash feedback
+    this.setTint(0x00ff88);
+    this.scene.time.delayedCall(200, () => this.clearTint());
+    return true;
   }
 }
