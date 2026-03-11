@@ -35,33 +35,28 @@ export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
     const px = (this.x + player.x) / 2;
     const py = (this.y + player.y) / 2;
 
-    // Rounded 3D-style sparkle particles (same spread as original stars)
+    // Star sparkle particles with slightly rounded tips
     for (let i = 0; i < 25; i++) {
-      const size = Phaser.Math.Between(4, 9);
-      const r = Math.round(size * 0.4);
+      const innerR = Phaser.Math.Between(2, 5);
+      const outerR = Phaser.Math.Between(5, 10);
       const sx = px + Phaser.Math.Between(-20, 20);
       const sy = py + Phaser.Math.Between(-20, 20);
-      const half = size / 2;
 
-      // Draw around (0,0) so position/scale/angle tweens work naturally
-      const gfx = this.scene.add.graphics().setPosition(sx, sy).setDepth(10);
-      gfx.fillStyle(0x997700, 0.6);
-      gfx.fillRoundedRect(-half + 1, -half + 1, size, size, r);
-      gfx.fillStyle(0xffdd33, 1);
-      gfx.fillRoundedRect(-half, -half, size, size, r);
-      const hl = Math.max(2, Math.round(size * 0.45));
-      gfx.fillStyle(0xffffff, 0.5);
-      gfx.fillRoundedRect(-half + 1, -half + 1, hl, hl, Math.round(hl * 0.3));
+      const star = this.scene.add.star(sx, sy, 5, innerR, outerR, 0xffdd33, 1)
+        .setDepth(10);
+      // Round the tips with a subtle lineStyle matching the fill
+      star.setStrokeStyle(1.5, 0xffdd33, 1);
+      star.lineJoin = 'round';
 
       this.scene.tweens.add({
-        targets: gfx,
-        x: sx + Phaser.Math.Between(-40, 40),
-        y: sy + Phaser.Math.Between(-50, -10),
+        targets: star,
+        x: star.x + Phaser.Math.Between(-40, 40),
+        y: star.y + Phaser.Math.Between(-50, -10),
         alpha: 0,
         scale: 0.3,
         angle: Phaser.Math.Between(-180, 180),
         duration: Phaser.Math.Between(350, 700),
-        onComplete: () => gfx.destroy()
+        onComplete: () => star.destroy()
       });
     }
 
