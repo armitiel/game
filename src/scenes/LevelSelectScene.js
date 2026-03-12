@@ -65,7 +65,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     const frameW = 280;
     const frameH = frameW * (1024 / 512); // preserve 1:2 aspect ratio
-    const gap = 20;
+    const gap = 5;
     const totalW = modes.length * frameW + (modes.length - 1) * gap;
     const startX = cx - totalW / 2 + frameW / 2;
     const cardY = gh / 2 + 20;
@@ -96,7 +96,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       // Description
-      this.add.text(x, cardY + frameH * 0.12, m.desc, {
+      this.add.text(x, cardY + frameH * 0.07, m.desc, {
         fontFamily: 'ChangaOne',
         fontSize: '20px',
         fontStyle: 'bold',
@@ -106,7 +106,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       // Level count
-      this.add.text(x, cardY + frameH * 0.28, `Level: ${m.levels.length}`, {
+      this.add.text(x, cardY + frameH * 0.22, `Level: ${m.levels.length}`, {
         fontFamily: 'ChangaOne',
         fontSize: '20px',
         fontStyle: 'bold',

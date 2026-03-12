@@ -7,30 +7,82 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // === Progress bar ===
+    // === Progress bar with loading_frame.png ===
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
-    const progressBar = this.add.graphics();
-    const progressBox = this.add.graphics();
-    progressBox.fillStyle(0x222222, 0.8);
-    progressBox.fillRect(width / 2 - 160, height / 2 - 15, 320, 30);
+    // Phase 1: load the frame image first, then set up fancy progress bar
+    const frameKey = '__loading_frame';
+    this.load.image(frameKey, 'assets/sprites/elementy/loading_frame.png');
 
-    const loadingText = this.add.text(width / 2, height / 2 - 40, 'Loading...', {
+    // Temporary simple bar while frame loads
+    const progressBar = this.add.graphics();
+    const progressGlow = this.add.graphics();
+    const barW = 320, barH = 30;
+    const barX = width / 2 - barW / 2;
+    const barY = height / 2 - barH / 2;
+
+    let frameImg = null;
+
+    const loadingText = this.add.text(width / 2, barY - 32, 'Loading...', {
       font: '18px ChangaOne, monospace',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 3
     }).setOrigin(0.5);
 
+    // Once frame texture is ready, show it behind the bar
+    this.load.on('filecomplete-image-' + frameKey, () => {
+      frameImg = this.add.image(width / 2, height / 2, frameKey);
+      // Scale frame to fit around the bar with some padding
+      const fw = frameImg.width, fh = frameImg.height;
+      const targetW = barW + 40, targetH = barH + 40;
+      frameImg.setDisplaySize(targetW, targetH);
+      frameImg.setDepth(0);
+      progressBar.setDepth(1);
+      progressGlow.setDepth(1);
+      loadingText.setDepth(2);
+    });
+
     this.load.on('progress', (value) => {
+      const fillW = (barW - 10) * value;
+      const fillH = barH - 10;
+      const fillX = barX + 5;
+      const fillY = barY + 4;
+
+      // Glow behind the bar
+      progressGlow.clear();
+      progressGlow.fillStyle(0x00ff88, 0.15);
+      progressGlow.fillRoundedRect(fillX - 4, fillY - 4, fillW + 8, fillH + 8, 6);
+      progressGlow.fillStyle(0x00ff88, 0.08);
+      progressGlow.fillRoundedRect(fillX - 8, fillY - 8, fillW + 16, fillH + 16, 8);
+
+      // Main bar with 3D shading
       progressBar.clear();
-      progressBar.fillStyle(0x00ff88, 1);
-      progressBar.fillRect(width / 2 - 155, height / 2 - 10, 310 * value, 20);
+
+      // Dark inset background
+      progressBar.fillStyle(0x0a1a10, 0.9);
+      progressBar.fillRoundedRect(barX + 3, barY + 3, barW - 6, barH - 6, 4);
+
+      // Main green fill
+      if (fillW > 0) {
+        // Bottom shadow (darker green)
+        progressBar.fillStyle(0x00aa55, 1);
+        progressBar.fillRoundedRect(fillX, fillY + 2, fillW, fillH - 2, 3);
+
+        // Main fill
+        progressBar.fillStyle(0x00ff88, 1);
+        progressBar.fillRoundedRect(fillX, fillY, fillW, fillH - 4, 3);
+
+        // Top highlight (lighter)
+        progressBar.fillStyle(0x66ffbb, 0.5);
+        progressBar.fillRoundedRect(fillX + 2, fillY + 1, fillW - 4, (fillH - 4) * 0.4, 2);
+      }
     });
 
     this.load.on('complete', () => {
       progressBar.destroy();
-      progressBox.destroy();
+      progressGlow.destroy();
+      if (frameImg) frameImg.destroy();
       loadingText.destroy();
     });
 
