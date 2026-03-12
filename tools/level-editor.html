@@ -503,6 +503,21 @@ function draw() {
     const lMinY = Math.min(l.topY, l.bottomY), lMaxY = Math.max(l.topY, l.bottomY);
     const lx = l.x - 12, ly = lMinY, lw = 24, lh = lMaxY - lMinY;
     if (ASSETS.ladder_tile) {
+      // Cast shadow (matches GameScene: +5x, +4y, black alpha 0.45, crop bottom 8px)
+      // Clip to fill wall areas so shadow doesn't appear outside walls
+      const shH = lh - 8;
+      if (shH > 0) {
+        const wallRects = _getWallRects(level);
+        ctx.save();
+        ctx.beginPath();
+        for (const wr of wallRects) {
+          ctx.rect(wr.x * s, wr.y * s, wr.w * s, wr.h * s);
+        }
+        ctx.clip();
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect((lx + 5) * s, (ly + 4) * s, lw * s, shH * s);
+        ctx.restore();
+      }
       // Tile ladder images vertically like the game does
       const tileH = ASSETS.ladder_tile.height;
       const tileW = ASSETS.ladder_tile.width;
@@ -694,6 +709,33 @@ function _drawTiledAsset(ctx, img, x, y, w, h, s, cornerR) {
 }
 
 // Draw a single brick wall rectangle
+// Get fill wall rectangles — explicit or auto-generated from platforms
+function _getWallRects(level) {
+  if (level.fillWalls && level.fillWalls.length > 0) {
+    return level.fillWalls.map(fw => ({ x: fw.x, y: fw.y, w: fw.w, h: fw.h }));
+  }
+  const BLOCK_H = 32;
+  const surfaces = [];
+  (level.ground || []).forEach(g => surfaces.push({ x: g.x, y: g.y, w: g.w }));
+  (level.platforms || []).forEach(p => surfaces.push({ x: p.x, y: p.y, w: p.w }));
+  const rects = [];
+  (level.platforms || []).forEach(p => {
+    const pBottom = p.y + BLOCK_H;
+    let bestY = null;
+    for (const sf of surfaces) {
+      if (sf === p) continue;
+      if (sf.y <= pBottom) continue;
+      if (sf.x >= p.x + p.w || sf.x + sf.w <= p.x) continue;
+      if (bestY === null || sf.y < bestY) bestY = sf.y;
+    }
+    if (bestY === null) return;
+    const wallH = bestY - pBottom;
+    if (wallH < 4) return;
+    rects.push({ x: p.x, y: pBottom, w: p.w, h: wallH });
+  });
+  return rects;
+}
+
 function _drawBrickWall(ctx, wx, wy, w, h, s) {
   const bw = 24, bh = 12, gap = 2;
   const color1 = '#2c284c', color2 = '#48374d', bgColor = '#1b1d40';

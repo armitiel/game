@@ -37,12 +37,21 @@ export default class LevelSelectScene extends Phaser.Scene {
   // === MODE SELECT SCREEN ===
 
   showModeSelect(cx, gh) {
-    this.add.text(cx, 60, 'WYBIERZ TRYB', {
+    // Title with 3D depth effect
+    const titleY = 60;
+    const titleStyle = {
       fontFamily: 'ChangaOne',
       fontSize: '58px',
       fontStyle: 'bold',
-      color: '#00ff88',
-      stroke: '#003322', strokeThickness: 7
+    };
+    // 3D layers (bottom to top)
+    for (let d = 4; d >= 1; d--) {
+      this.add.text(cx, titleY + d * 2, 'WYBIERZ TRYB', {
+        ...titleStyle, color: '#003311', stroke: '#001a08', strokeThickness: 7
+      }).setOrigin(0.5).setAlpha(0.6);
+    }
+    this.add.text(cx, titleY, 'WYBIERZ TRYB', {
+      ...titleStyle, color: '#00ff88', stroke: '#003322', strokeThickness: 7
     }).setOrigin(0.5);
 
     const modes = [
@@ -72,6 +81,9 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     modes.forEach((m, i) => {
       const x = startX + i * (frameW + gap);
+      // Nudge side card text inward so it fits inside frames
+      const textInset = i === 0 ? 22 : i === 2 ? -22 : 0;
+      const tx = x + textInset;
 
       // Frame image from spritesheet (blue=0, orange=1, pink=2)
       const frame = this.add.image(x, cardY, 'mode_frames', i)
@@ -81,32 +93,34 @@ export default class LevelSelectScene extends Phaser.Scene {
       const card = this.add.rectangle(x, cardY, frameW * 0.8, frameH * 0.8, 0x000000, 0)
         .setInteractive({ useHandCursor: true });
 
-      // Icon
-      this.add.text(x, cardY - frameH * 0.28, m.icon, {
-        font: '48px sans-serif'
+      // Name with 3D depth effect
+      const nameY = cardY - frameH * 0.14;
+      const nameHex = '#' + m.color.toString(16).padStart(6, '0');
+      const nameStyle = {
+        fontFamily: 'ChangaOne', fontSize: '40px', fontStyle: 'bold',
+      };
+      // 3D shadow layers
+      for (let d = 3; d >= 1; d--) {
+        this.add.text(tx, nameY + d * 2, m.name, {
+          ...nameStyle, color: '#111111', stroke: '#000000', strokeThickness: 5
+        }).setOrigin(0.5).setAlpha(0.5);
+      }
+      this.add.text(tx, nameY, m.name, {
+        ...nameStyle, color: nameHex, stroke: '#000000', strokeThickness: 5
       }).setOrigin(0.5);
 
-      // Name
-      this.add.text(x, cardY - frameH * 0.05, m.name, {
-        fontFamily: 'ChangaOne',
-        fontSize: '40px',
-        fontStyle: 'bold',
-        color: '#' + m.color.toString(16).padStart(6, '0'),
-        stroke: '#000000', strokeThickness: 5
-      }).setOrigin(0.5);
-
-      // Description
-      this.add.text(x, cardY + frameH * 0.07, m.desc, {
-        fontFamily: 'ChangaOne',
-        fontSize: '20px',
+      // Description — readable sans-serif font
+      this.add.text(tx, cardY - frameH * 0.01, m.desc, {
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontSize: '16px',
         fontStyle: 'bold',
         color: '#ffffff',
         stroke: '#000000', strokeThickness: 3,
         align: 'center', lineSpacing: 6
       }).setOrigin(0.5);
 
-      // Level count
-      this.add.text(x, cardY + frameH * 0.22, `Level: ${m.levels.length}`, {
+      // Level count — below frame
+      this.add.text(tx, cardY + frameH * 0.24, `Level: ${m.levels.length}`, {
         fontFamily: 'ChangaOne',
         fontSize: '20px',
         fontStyle: 'bold',

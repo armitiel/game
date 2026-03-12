@@ -279,22 +279,75 @@ export default class GameScene extends Phaser.Scene {
       bg.fillRect(sx, sy, size, size);
     }
 
-    // Distant buildings
-    const buildingCount = Math.ceil(ww / 110);
-    bg.fillStyle(0x0d0d20, 1);
+    // Distant buildings — stylized with gradients and warm windows
+    const buildingCount = Math.ceil(ww / 100) + 2;
+    const buildingColors = [
+      [0x0f1028, 0x1a1e3a], // dark navy
+      [0x121430, 0x1e2240], // deep blue
+      [0x0e1025, 0x181c35], // darker
+      [0x141838, 0x222848], // medium blue
+    ];
+
     for (let i = 0; i < buildingCount; i++) {
-      const bw = Phaser.Math.Between(50, 100);
-      const bh = Phaser.Math.Between(80, Math.min(wh * 0.4, 400));
-      bg.fillRect(i * 110 - 20, wh - bh, bw, bh);
-      bg.fillStyle(0x223344, 0.4);
-      for (let wy = wh - bh + 15; wy < wh - 10; wy += 25) {
-        for (let wx = i * 110 - 10; wx < i * 110 - 20 + bw - 10; wx += 18) {
-          if (Math.random() > 0.3) {
-            bg.fillRect(wx, wy, 8, 12);
+      const seed = (i * 7 + 3) % 17;
+      const bw = 45 + (seed * 4) % 55;
+      const bh = 80 + (seed * 13) % Math.min(Math.round(wh * 0.35), 320);
+      const bx = i * 95 - 30 + ((seed * 5) % 20);
+      const by = wh - bh;
+      const colors = buildingColors[i % buildingColors.length];
+
+      // Building body with vertical gradient
+      const gradSteps = 8;
+      for (let gs = 0; gs < gradSteps; gs++) {
+        const t = gs / (gradSteps - 1);
+        const c0r = (colors[0] >> 16) & 0xff, c0g = (colors[0] >> 8) & 0xff, c0b = colors[0] & 0xff;
+        const c1r = (colors[1] >> 16) & 0xff, c1g = (colors[1] >> 8) & 0xff, c1b = colors[1] & 0xff;
+        const gr = Math.round(c0r + (c1r - c0r) * t);
+        const gg = Math.round(c0g + (c1g - c0g) * t);
+        const gb = Math.round(c0b + (c1b - c0b) * t);
+        bg.fillStyle((gr << 16) | (gg << 8) | gb, 1);
+        const sy = by + Math.floor(bh * gs / gradSteps);
+        const sh = Math.ceil(bh / gradSteps) + 1;
+        bg.fillRect(bx, sy, bw, sh);
+      }
+
+      // Subtle lighter edge on left side
+      bg.fillStyle(0xffffff, 0.04);
+      bg.fillRect(bx, by, 3, bh);
+
+      // Subtle darker edge on right side
+      bg.fillStyle(0x000000, 0.15);
+      bg.fillRect(bx + bw - 3, by, 3, bh);
+
+      // Roof cap — slightly wider, darker
+      bg.fillStyle(0x0a0c1e, 1);
+      bg.fillRect(bx - 2, by, bw + 4, 5);
+      bg.fillStyle(0xffffff, 0.05);
+      bg.fillRect(bx - 2, by, bw + 4, 2);
+
+      // Windows — warm orange/yellow glow
+      const winW = 8, winH = 11, winGapX = 17, winGapY = 22;
+      const winPadX = 8, winPadY = 14;
+      for (let wy = by + winPadY; wy + winH < wh - 5; wy += winGapY) {
+        for (let wx = bx + winPadX; wx + winW < bx + bw - 5; wx += winGapX) {
+          const lit = ((wx * 7 + wy * 3 + i) % 10) > 3; // deterministic random
+          if (lit) {
+            // Window glow (outer)
+            bg.fillStyle(0xffaa44, 0.12);
+            bg.fillRect(wx - 2, wy - 2, winW + 4, winH + 4);
+            // Window fill
+            bg.fillStyle(0xffbb55, 0.55);
+            bg.fillRect(wx, wy, winW, winH);
+            // Brighter center
+            bg.fillStyle(0xffdd88, 0.35);
+            bg.fillRect(wx + 1, wy + 1, winW - 2, winH - 2);
+          } else {
+            // Dark window
+            bg.fillStyle(0x0a0c18, 0.7);
+            bg.fillRect(wx, wy, winW, winH);
           }
         }
       }
-      bg.fillStyle(0x0d0d20, 1);
     }
 
     // Moon
@@ -384,14 +437,14 @@ export default class GameScene extends Phaser.Scene {
   createFillWalls() {
     const ld = this.levelData;
 
-    // Use explicit fillWalls if defined, otherwise auto-generate from platforms
+    // Render explicit fillWalls from level data
     if (ld.fillWalls && ld.fillWalls.length > 0) {
       ld.fillWalls.forEach(fw => {
         this._createFillWall(fw.x, fw.y, fw.w, fw.h, fw.depth);
       });
-      return;
     }
 
+    // Also auto-generate walls between platforms and surfaces below
     const BLOCK_H = 32;
 
     // Collect all surfaces (platforms + ground) for "what's below" lookup
@@ -850,9 +903,10 @@ export default class GameScene extends Phaser.Scene {
     // Timer HUD text (on UI camera)
     this._addingHud = true;
     const gw = this.sys.game.config.width;
-    this._towerTimerText = this.add.text(gw / 2, 12, '', {
-      font: 'bold 22px ChangaOne, monospace', fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 4
+    this._towerTimerText = this.add.text(gw / 2, 14, '', {
+      fontFamily: 'ChangaOne', fontSize: '36px', fontStyle: 'bold',
+      color: '#00ff88',
+      stroke: '#003322', strokeThickness: 6
     }).setOrigin(0.5, 0).setDepth(300);
     this._addingHud = false;
     this.cameras.main.ignore(this._towerTimerText);
