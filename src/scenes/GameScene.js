@@ -48,6 +48,7 @@ export default class GameScene extends Phaser.Scene {
     // === Build Level ===
     this.createBackground();
     this.createPlatforms();
+    this.createFillWalls();
     this.createLadders();
     this.createShadowZones();
     this.createPaintSpots();
@@ -376,137 +377,191 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Build a brick wall from real brick/brick2 tile textures.
-   * Returns a RenderTexture positioned at (wx, wy) with size (w, h).
-   * - Background: #8f3833
-   * - Each brick casts a small shadow
-   * - Edge bricks are clipped shorter to create stepped edges
+   * Create fill walls under platforms down to the next surface below.
+   * Walls use tiled bricks in #2c284c / #48374d on a #1b1d40 background.
+   * No jagged side edges. Placed behind murals (depth 1.5).
+   */
+  createFillWalls() {
+    const BLOCK_H = 32;
+    const ld = this.levelData;
+
+    // Collect all surfaces (platforms + ground) for "what's below" lookup
+    const surfaces = [];
+    ld.ground.forEach(g => surfaces.push({ x: g.x, y: g.y, w: g.w }));
+    ld.platforms.forEach(p => surfaces.push({ x: p.x, y: p.y, w: p.w }));
+
+    // For each platform, find the nearest surface below it
+    ld.platforms.forEach(p => {
+      const pBottom = p.y + BLOCK_H;
+      let bestY = null;
+
+      for (const s of surfaces) {
+        if (s === p) continue;
+        if (s.y <= pBottom) continue; // not below
+        // Surface must overlap horizontally with this platform
+        if (s.x >= p.x + p.w || s.x + s.w <= p.x) continue;
+        if (bestY === null || s.y < bestY) bestY = s.y;
+      }
+
+      if (bestY === null) return; // nothing below — skip
+      const wallH = bestY - pBottom;
+      if (wallH < 4) return; // too thin
+
+      this._createFillWall(p.x, pBottom, p.w, wallH);
+    });
+  }
+
+  _createFillWall(wx, wy, w, h) {
+    const bw = 24, bh = 12, gap = 2;
+    const color1 = '#2c284c';
+    const color2 = '#48374d';
+    const bgColor = '#1b1d40';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    // Background fill
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, w, h);
+
+    // Tile bricks — no jagged edges, straight rectangle
+    const cols = Math.ceil(w / (bw + gap));
+    const rows = Math.ceil(h / (bh + gap));
+
+    for (let r = 0; r < rows; r++) {
+      const rowOffset = (r % 2) * Math.round((bw + gap) / 2);
+      const by = r * (bh + gap);
+      if (by >= h) break;
+      const brickH = Math.min(bh, h - by);
+
+      for (let c = -1; c <= cols; c++) {
+        const bx = c * (bw + gap) + rowOffset;
+        if (bx + bw <= 0 || bx >= w) continue;
+
+        // Clamp to wall bounds
+        const drawX = Math.max(0, bx);
+        const drawW = Math.min(bx + bw, w) - drawX;
+        if (drawW <= 0) continue;
+
+        // Alternate colors — rounded rect for each brick
+        const cr = 2; // corner radius
+        ctx.fillStyle = (r + c) % 3 === 0 ? color2 : color1;
+        ctx.beginPath();
+        ctx.moveTo(drawX + cr, by);
+        ctx.lineTo(drawX + drawW - cr, by);
+        ctx.quadraticCurveTo(drawX + drawW, by, drawX + drawW, by + cr);
+        ctx.lineTo(drawX + drawW, by + brickH - cr);
+        ctx.quadraticCurveTo(drawX + drawW, by + brickH, drawX + drawW - cr, by + brickH);
+        ctx.lineTo(drawX + cr, by + brickH);
+        ctx.quadraticCurveTo(drawX, by + brickH, drawX, by + brickH - cr);
+        ctx.lineTo(drawX, by + cr);
+        ctx.quadraticCurveTo(drawX, by, drawX + cr, by);
+        ctx.closePath();
+        ctx.fill();
+
+        // Subtle mortar highlight on top edge
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.fillRect(drawX + cr, by, drawW - cr * 2, 1);
+      }
+    }
+
+    const rtKey = '__fillwall_' + wx + '_' + wy;
+    this.textures.addCanvas(rtKey, canvas);
+
+    const img = this.add.image(wx + w / 2, wy + h / 2, rtKey);
+    img.setDepth(1.5); // behind murals (2) and shadows (2)
+  }
+
+  /**
+   * Build a brick wall for mural spots using canvas-based procedural bricks.
+   * - Background/mortar: #5a2e2a
+   * - Brick colors: #8f3833 / #a34538
+   * - Each brick has a small shadow and rounded corners
+   * - Edge bricks alternate notch indentation for organic look
    */
   _createBrickWall(wx, wy, w, h, depth) {
-    // Brick tile dimensions (source: 54x26)
-    const srcW = 54, srcH = 26;
-    const scale = 0.45;
-    const bw = Math.round(srcW * scale);  // ~24
-    const bh = Math.round(srcH * scale);  // ~12
-    const gap = 2;
+    const bw = 24, bh = 12, gap = 2;
+    const cr = 2; // corner radius
+    const notch = 4;
+    const color1 = '#8f3833';
+    const color2 = '#a34538';
+    const mortarColor = '#5a2e2a';
     const shadowOx = 2, shadowOy = 2;
 
-    // Margin for protruding teeth on each side
-    const margin = bw;
-    const rtW = w + margin * 2;
-    const rtH = h + margin * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
 
-    const rt = this.add.renderTexture(wx - margin, wy - margin, rtW, rtH)
-      .setOrigin(0, 0).setDepth(depth);
+    // Mortar background
+    ctx.fillStyle = mortarColor;
+    ctx.fillRect(0, 0, w, h);
 
-    // Stepped edge pattern — teeth protrude beyond the base rectangle
-    const totalRows = Math.ceil(rtH / (bh + gap));
-    const edgePattern = [];
-    for (let r = 0; r < totalRows; r++) {
-      const seed = (r * 7 + 3) % 5;
-      let leftOut = 0, rightOut = 0;
-      // Teeth protrude outward from the wall edges (0 = flush, positive = sticking out)
-      if (seed === 0) { leftOut = Math.round(bw * 0.6); rightOut = 0; }
-      else if (seed === 1) { leftOut = 0; rightOut = Math.round(bw * 0.5); }
-      else if (seed === 2) { leftOut = Math.round(bw * 0.3); rightOut = Math.round(bw * 0.3); }
-      else if (seed === 3) { leftOut = 0; rightOut = Math.round(bw * 0.7); }
-      else { leftOut = Math.round(bw * 0.5); rightOut = 0; }
-      edgePattern.push({ leftOut, rightOut });
-    }
+    const totalRows = Math.ceil(h / (bh + gap));
 
-    // Determine which rows have top/bottom teeth (protrude above/below wall)
-    const topTeeth = [];
-    const bottomTeeth = [];
-    const baseCols = Math.ceil(w / (bw + gap)) + 2;
-    for (let c = 0; c < baseCols; c++) {
-      const seed2 = (c * 11 + 5) % 4;
-      topTeeth.push(seed2 === 0 ? Math.round(bh * 0.7) : (seed2 === 2 ? Math.round(bh * 0.4) : 0));
-      bottomTeeth.push(seed2 === 1 ? Math.round(bh * 0.6) : (seed2 === 3 ? Math.round(bh * 0.5) : 0));
-    }
-
-    // Temp image for drawing bricks
-    const brickImg = this.make.image({ key: 'brick', add: false }).setScale(scale);
-    const brick2Img = this.make.image({ key: 'brick2', add: false }).setScale(scale);
-
-    // Collect all brick positions first (for bg fill + shadow + brick passes)
-    const bricks = [];
     for (let row = 0; row < totalRows; row++) {
       const by = row * (bh + gap);
+      if (by >= h) break;
+      const brickH = Math.min(bh, h - by);
       const rowOffset = (row % 2) * Math.round(bw / 2 + gap);
-      const { leftOut, rightOut } = edgePattern[row];
 
-      // Row boundaries in RT space — base wall is at [margin, margin+w]
-      const rowLeft = margin - leftOut;
-      const rowRight = margin + w + rightOut;
+      // Alternating notch on edges
+      const leftIndent = (row % 2 === 0) ? 0 : notch;
+      const rightIndent = (row % 2 === 0) ? notch : 0;
+      const rowLeft = leftIndent;
+      const rowRight = w - rightIndent;
 
-      // Vertical bounds — base wall is at [margin, margin+h]
-      const inVertical = (by + bh > margin && by < margin + h);
-      // Rows above/below the base rectangle: only render if teeth allow
-      const aboveBase = (by + bh <= margin);
-      const belowBase = (by >= margin + h);
-
-      const colStart = Math.floor((-rowOffset + rowLeft) / (bw + gap)) - 1;
+      const colStart = Math.floor(-rowOffset / (bw + gap)) - 1;
       const colEnd = Math.ceil((rowRight - rowOffset) / (bw + gap)) + 1;
 
       for (let col = colStart; col <= colEnd; col++) {
         const bx = col * (bw + gap) + rowOffset;
         if (bx + bw <= rowLeft || bx >= rowRight) continue;
 
-        // For rows within vertical range of base wall
-        if (inVertical) {
-          bricks.push({ bx, by, row, col });
-          continue;
-        }
+        const drawX = Math.max(rowLeft, bx);
+        const drawW = Math.min(bx + bw, rowRight) - drawX;
+        if (drawW <= 0) continue;
 
-        // Top teeth — only allow bricks in columns that protrude
-        if (aboveBase) {
-          const colIdx = Math.floor((bx - margin) / (bw + gap));
-          const toothH = topTeeth[((colIdx % topTeeth.length) + topTeeth.length) % topTeeth.length];
-          if (toothH > 0 && by + bh > margin - toothH) {
-            bricks.push({ bx, by, row, col });
-          }
-          continue;
-        }
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        this._canvasRoundRect(ctx, drawX + shadowOx, by + shadowOy, drawW, brickH, cr);
+        ctx.fill();
 
-        // Bottom teeth
-        if (belowBase) {
-          const colIdx = Math.floor((bx - margin) / (bw + gap));
-          const toothH = bottomTeeth[((colIdx % bottomTeeth.length) + bottomTeeth.length) % bottomTeeth.length];
-          if (toothH > 0 && by < margin + h + toothH) {
-            bricks.push({ bx, by, row, col });
-          }
-        }
+        // Brick
+        ctx.fillStyle = (row + col) % 3 === 0 ? color2 : color1;
+        this._canvasRoundRect(ctx, drawX, by, drawW, brickH, cr);
+        ctx.fill();
+
+        // Top highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fillRect(drawX + cr, by, drawW - cr * 2, 1);
       }
     }
 
-    // Pass 1: mortar/background behind each brick
-    const bgGfx = this.make.graphics({ add: false });
-    bgGfx.fillStyle(0x8f3833, 1);
-    for (const b of bricks) {
-      bgGfx.fillRect(b.bx - 1, b.by - 1, bw + 2, bh + 2);
-    }
-    rt.draw(bgGfx, 0, 0);
-    bgGfx.destroy();
+    const rtKey = '__muralwall_' + wx + '_' + wy;
+    this.textures.addCanvas(rtKey, canvas);
 
-    // Pass 2: shadows
-    const shadowGfx = this.make.graphics({ add: false });
-    shadowGfx.fillStyle(0x000000, 0.35);
-    for (const b of bricks) {
-      shadowGfx.fillRect(b.bx + shadowOx, b.by + shadowOy, bw, bh);
-    }
-    rt.draw(shadowGfx, 0, 0);
-    shadowGfx.destroy();
+    const img = this.add.image(wx + w / 2, wy + h / 2, rtKey);
+    img.setOrigin(0.5, 0.5);
+    img.setDepth(depth);
+    return img;
+  }
 
-    // Pass 3: brick tiles
-    for (const b of bricks) {
-      const img = ((b.row + b.col) % 3 === 0) ? brick2Img : brickImg;
-      rt.draw(img, b.bx + bw / 2, b.by + bh / 2);
-    }
-
-    brickImg.destroy();
-    brick2Img.destroy();
-
-    return rt;
+  /** Helper: begin a rounded-rect path on a canvas context. */
+  _canvasRoundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
   }
 
   createLadders() {
@@ -578,18 +633,13 @@ export default class GameScene extends Phaser.Scene {
       visual.setDepth(ladderDepth ?? 4);
       this.ladderVisuals.add(visual);
 
-      // Cast shadow to the right of the ladder
-      const ladShadowW = LADDER_DISPLAY_W * 0.7;
-      const ladShadowSteps = 6;
-      const ladShadowGfx = this.add.graphics();
-      for (let si = 0; si < ladShadowSteps; si++) {
-        const t = si / ladShadowSteps;
-        const alpha = 0.4 * (1 - t);
-        const sliceW = ladShadowW / ladShadowSteps;
-        ladShadowGfx.fillStyle(0x000000, alpha);
-        ladShadowGfx.fillRect(x + snapW / 2 + t * ladShadowW, topY, sliceW, height);
-      }
-      ladShadowGfx.setDepth((ladderDepth ?? 4) - 0.1);
+      // Cast shape-accurate shadow using the ladder's own texture
+      // Crop bottom so shadow doesn't spill onto the platform beneath
+      const ladShadow = this.add.image(x + 5, topY + height / 2 + 4, rtKey);
+      ladShadow.setTint(0x000000);
+      ladShadow.setAlpha(0.45);
+      ladShadow.setCrop(0, 0, snapW, snapH - 8);
+      ladShadow.setDepth((ladderDepth ?? 4) - 0.1);
 
       const zone = this.add.zone(
         x - ZONE_WIDTH / 2, topY - ZONE_EXTEND_TOP,
