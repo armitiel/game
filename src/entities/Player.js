@@ -951,6 +951,35 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocity(0, 0);
     this.body.setAccelerationX(0);
 
+    // Gently nudge player to the center of the shadow zone
+    if (this.scene._shadowArrows) {
+      let best = null;
+      let bestDist = Infinity;
+      for (const sa of this.scene._shadowArrows) {
+        const cx = sa.x + sa.w / 2;
+        const cy = sa.y + sa.h / 2;
+        const dx = Math.abs(this.x - cx);
+        const dy = Math.abs(this.y - cy);
+        if (dx < sa.w * 0.7 && dy < sa.h * 0.7 && dx < bestDist) {
+          bestDist = dx;
+          best = sa;
+        }
+      }
+      if (best) {
+        const targetX = best.x + best.w / 2;
+        const offset = Math.abs(this.x - targetX);
+        if (offset > 2) {
+          if (this._hideSlideTween) this._hideSlideTween.destroy();
+          this._hideSlideTween = this.scene.tweens.add({
+            targets: this,
+            x: targetX,
+            duration: Math.min(offset * 8, 200),
+            ease: 'Sine.easeOut',
+          });
+        }
+      }
+    }
+
     // Gradually darken
     this._tweenDarken();
 
