@@ -44,6 +44,10 @@ export default class BootScene extends Phaser.Scene {
 
     // === Load logo ===
     this.load.image('logo', 'assets/sprites/logo.png');
+    this.load.image('bckg', 'assets/sprites/bckg.png');
+    this.load.spritesheet('mode_frames', 'assets/sprites/frames.png', {
+      frameWidth: 512, frameHeight: 1024
+    });
 
     // === Load platform/environment textures ===
     this.load.image('platform_block', 'assets/sprites/elementy/p1.png');
@@ -407,7 +411,10 @@ export default class BootScene extends Phaser.Scene {
     // === Register palette colors from painting JSONs ===
     this.registerPaintingPalettes();
 
-    this.scene.start('MenuScene');
+    // Force-load ChangaOne font (CSS @font-face only loads when used in DOM, not Canvas)
+    document.fonts.load('bold 20px ChangaOne').then(() => {
+      this.scene.start('MenuScene');
+    });
   }
 
   /**

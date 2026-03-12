@@ -61,10 +61,6 @@ export default class PaintByNumbers {
     const g = this.templateGfx;
     const b = this.bounds;
 
-    // Background: semi-transparent dark wall
-    g.fillStyle(0x333344, 0.7);
-    g.fillRect(b.x, b.y, b.w, b.h);
-
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const ci = this.targetGrid[r][c];

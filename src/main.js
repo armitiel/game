@@ -72,7 +72,14 @@ const unlockAudioContext = () => {
 document.addEventListener('touchstart', unlockAudioContext, { once: true });
 document.addEventListener('click', unlockAudioContext, { once: true });
 
-const game = new Phaser.Game(config);
+// Force-load ChangaOne font before starting Phaser so the loading screen uses it
+const fontFace = new FontFace('ChangaOne', 'url(/assets/sprites/elementy/ChangaOne-Regular.ttf)');
+fontFace.load().then(f => {
+  document.fonts.add(f);
+  new Phaser.Game(config);
+}).catch(() => {
+  new Phaser.Game(config); // fallback if font fails
+});
 
 // === PWA: Register service worker (skip in Vite dev mode to avoid HMR conflicts) ===
 if ('serviceWorker' in navigator && !import.meta.hot) {

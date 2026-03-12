@@ -10,18 +10,9 @@ export default class MenuScene extends Phaser.Scene {
     const cx = this.sys.game.config.width / 2;
     const cy = this.sys.game.config.height / 2;
 
-    // Background
-    this.cameras.main.setBackgroundColor('#0a0a1a');
-
-    // City silhouette (simple rectangles)
-    const bg = this.add.graphics();
-    bg.fillStyle(0x111122, 1);
-    for (let i = 0; i < 12; i++) {
-      const bw = Phaser.Math.Between(40, 80);
-      const bh = Phaser.Math.Between(100, 300);
-      const bx = i * 70 + Phaser.Math.Between(-10, 10);
-      bg.fillRect(bx, this.sys.game.config.height - bh, bw, bh);
-    }
+    // Background image stretched to fill
+    const bg = this.add.image(cx, cy, 'bckg');
+    bg.setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
 
     // Logo
     const logo = this.add.image(cx, cy - 60, 'logo').setOrigin(0.5);

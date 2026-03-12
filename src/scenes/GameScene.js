@@ -382,8 +382,17 @@ export default class GameScene extends Phaser.Scene {
    * No jagged side edges. Placed behind murals (depth 1.5).
    */
   createFillWalls() {
-    const BLOCK_H = 32;
     const ld = this.levelData;
+
+    // Use explicit fillWalls if defined, otherwise auto-generate from platforms
+    if (ld.fillWalls && ld.fillWalls.length > 0) {
+      ld.fillWalls.forEach(fw => {
+        this._createFillWall(fw.x, fw.y, fw.w, fw.h, fw.depth);
+      });
+      return;
+    }
+
+    const BLOCK_H = 32;
 
     // Collect all surfaces (platforms + ground) for "what's below" lookup
     const surfaces = [];
@@ -411,7 +420,7 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  _createFillWall(wx, wy, w, h) {
+  _createFillWall(wx, wy, w, h, depth) {
     const bw = 24, bh = 12, gap = 2;
     const color1 = '#2c284c';
     const color2 = '#48374d';
@@ -461,7 +470,7 @@ export default class GameScene extends Phaser.Scene {
     this.textures.addCanvas(rtKey, canvas);
 
     const img = this.add.image(wx + w / 2, wy + h / 2, rtKey);
-    img.setDepth(1.5); // behind murals (2) and shadows (2)
+    img.setDepth(depth ?? 1.5); // behind murals (2) and shadows (2)
   }
 
   /**
@@ -780,8 +789,11 @@ export default class GameScene extends Phaser.Scene {
     this.paintSpotZones = this.physics.add.staticGroup();
 
     const addSpot = (x, y, w, h, paintingKey, spotDepth) => {
-      // Paint-by-numbers spot — brick wall built from real brick tiles
-      const visual = this._createBrickWall(x - w / 2, y - h / 2, w, h, spotDepth ?? 2);
+      // Subtle outline marking the mural area — background fill wall shows through
+      const visual = this.add.graphics();
+      visual.lineStyle(1, 0xffffff, 0.15);
+      visual.strokeRect(x - w / 2, y - h / 2, w, h);
+      visual.setDepth(spotDepth ?? 2);
 
       // Interaction zone — slightly wider than visual for comfortable reach
       const interactPad = 10;  // small extra reach on each side
@@ -2292,8 +2304,21 @@ export default class GameScene extends Phaser.Scene {
         down:  cursors.down.isDown  || wasd.down.isDown  || (t && t.down),
       };
       const isTouch = !!(t && t.enabled);
-      const handPos = this.paintArm.update(delta, input, this.player.x, this.player.y, isTouch);
-      const isMovingHand = !!(input.left || input.right || input.up || input.down);
+
+      // Mouse painting on desktop: when mouse button is held, drive hand to mouse world pos
+      let mouseWorld = null;
+      if (!isTouch && this.input.activePointer.isDown) {
+        const pointer = this.input.activePointer;
+        const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        const b = this.paintArm.bounds;
+        if (b && worldPoint.x >= b.x && worldPoint.x <= b.x + b.w &&
+            worldPoint.y >= b.y && worldPoint.y <= b.y + b.h) {
+          mouseWorld = { x: worldPoint.x, y: worldPoint.y };
+        }
+      }
+
+      const handPos = this.paintArm.update(delta, input, this.player.x, this.player.y, isTouch, mouseWorld);
+      const isMovingHand = !!(mouseWorld || input.left || input.right || input.up || input.down);
       if (handPos) {
         this.onPaintMove(handPos.x, handPos.y);
         this.player.spawnPaintSpray(handPos.x, handPos.y);

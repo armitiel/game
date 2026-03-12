@@ -227,3 +227,7 @@ export const LEVEL_4 = {
 };
 
 export const LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4];
+
+export const STEALTH_LEVELS = [LEVEL_1, LEVEL_2];
+export const PUZZLE_LEVELS = [LEVEL_3];
+export const TOWER_LEVELS = [LEVEL_4];

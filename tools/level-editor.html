@@ -62,6 +62,7 @@ canvas { display: block; cursor: crosshair; }
     <button class="tool-btn" data-tool="ground">Grunt</button>
     <button class="tool-btn" data-tool="ladder">Drabinka</button>
     <button class="tool-btn" data-tool="shadow">Cien</button>
+    <button class="tool-btn" data-tool="fillWall">Sciana tla</button>
     <button class="tool-btn" data-tool="paintSpot">Mural</button>
     <button class="tool-btn" data-tool="paintCan">Puszka</button>
     <button class="tool-btn" data-tool="cop">Policjant</button>
@@ -285,6 +286,35 @@ const MAX_UNDO = 50;
 const muralCache = {};
 const MURAL_GAME_COLORS = { RED: '#ff3344', BLUE: '#3388ff', YELLOW: '#ffdd33', GREEN: '#33ff88' };
 
+// ============================================================
+// ASSET IMAGE LOADING — real sprites for accurate preview
+// ============================================================
+const ASSETS = {};
+const ASSET_PATHS = {
+  platform_block: '/assets/sprites/elementy/p1.png',
+  brick: '/assets/sprites/elementy/brick.png',
+  brick2: '/assets/sprites/elementy/brick2.png',
+  ladder_tile: '/assets/sprites/elementy/drabinka.png',
+  ladder_plank: '/assets/sprites/elementy/drabinka2.png',
+  shadow_img: '/assets/sprites/elementy/shadow.png',
+  trash: '/assets/sprites/elementy/trash.png',
+  trash2: '/assets/sprites/elementy/trash2.png',
+  can: '/assets/sprites/elementy/can.png',
+  lamp: '/assets/sprites/elementy/lamp.png',
+  blok: '/assets/sprites/elementy/blok.png',
+};
+
+let assetsLoaded = false;
+(function loadAssets() {
+  let remaining = Object.keys(ASSET_PATHS).length;
+  for (const [key, path] of Object.entries(ASSET_PATHS)) {
+    const img = new Image();
+    img.onload = () => { ASSETS[key] = img; if (--remaining === 0) { assetsLoaded = true; draw(); } };
+    img.onerror = () => { if (--remaining === 0) { assetsLoaded = true; draw(); } };
+    img.src = path;
+  }
+})();
+
 async function loadMuralPreviews() {
   try {
     const resp = await fetch('/mural-list');
@@ -329,6 +359,7 @@ const COLORS = {
   ground: '#556677',
   ladder: '#aa8844',
   shadow: 'rgba(0,0,80,0.6)',
+  fillWall: '#2c284c',
   paintSpot: '#886655',
   paintCan: '#ff8833',
   cop: '#3344aa',
@@ -344,9 +375,34 @@ function draw() {
   const s = getScale();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Background
-  ctx.fillStyle = '#1a1a2e';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Background — night sky gradient matching GameScene
+  const ww = level.worldWidth, wh = level.worldHeight;
+  const gradientSteps = 64;
+  for (let i = 0; i < gradientSteps; i++) {
+    const t = i / (gradientSteps - 1);
+    const r = Math.round(8 + t * 18);
+    const g = Math.round(8 + t * 18);
+    const b = Math.round(32 + t * 48);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    const sy = Math.floor(canvas.height * i / gradientSteps);
+    const sh = Math.ceil(canvas.height / gradientSteps) + 1;
+    ctx.fillRect(0, sy, canvas.width, sh);
+  }
+
+  // Distant buildings silhouette
+  const buildingCount = Math.ceil(ww / 110);
+  ctx.fillStyle = '#0d0d20';
+  for (let i = 0; i < buildingCount; i++) {
+    const bw = 50 + ((i * 37) % 51);
+    const bh = 80 + ((i * 67) % (Math.min(wh * 0.4, 400) - 80));
+    ctx.fillRect((i * 110 - 20) * s, (wh - bh) * s, bw * s, bh * s);
+  }
+
+  // Moon
+  ctx.fillStyle = 'rgba(221,238,255,0.8)';
+  ctx.beginPath(); ctx.arc((ww - 100) * s, 60 * s, 25 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0a0a1a';
+  ctx.beginPath(); ctx.arc((ww - 90) * s, 55 * s, 22 * s, 0, Math.PI * 2); ctx.fill();
 
   // Grid
   if (document.getElementById('snapGrid').checked) {
@@ -361,38 +417,47 @@ function draw() {
     }
   }
 
+  // Fill walls — use explicit fillWalls if present, otherwise auto-generate from platforms
+  if (level.fillWalls && level.fillWalls.length > 0) {
+    level.fillWalls.forEach((fw, i) => {
+      _drawBrickWall(ctx, fw.x, fw.y, fw.w, fw.h, s);
+      if (isSelected('fillWall', i)) drawSelectionBorder(fw.x, fw.y, fw.w, fw.h, s);
+      drawLabel(fw.x + fw.w / 2, fw.y + fw.h / 2, 'SCIANA', s);
+    });
+  } else {
+    _drawFillWalls(ctx, level, s);
+  }
+
   // Ground
   (level.ground || []).forEach((g, i) => {
-    drawRect2(g.x, g.y, g.w, 32, COLORS.ground, isSelected('ground', i));
+    if (ASSETS.platform_block) {
+      _drawTiledAsset(ctx, ASSETS.platform_block, g.x, g.y, g.w, 32, s, 4);
+    } else {
+      drawRect2(g.x, g.y, g.w, 32, COLORS.ground, false);
+    }
+    if (isSelected('ground', i)) drawSelectionBorder(g.x, g.y, g.w, 32, s);
     drawLabel(g.x + g.w / 2, g.y + 16, 'GROUND', s);
   });
 
   // Shadows
   (level.shadows || []).forEach((sh, i) => {
-    ctx.fillStyle = 'rgba(0,0,80,0.5)';
-    ctx.fillRect(sh.x * s, sh.y * s, sh.w * s, sh.h * s);
-    // Edge glow
-    ctx.fillStyle = 'rgba(50,70,170,0.4)';
-    ctx.fillRect(sh.x * s, sh.y * s, 2 * s, sh.h * s);
-    ctx.fillRect((sh.x + sh.w) * s - 2 * s, sh.y * s, 2 * s, sh.h * s);
+    if (ASSETS.shadow_img) {
+      ctx.drawImage(ASSETS.shadow_img, sh.x * s, sh.y * s, sh.w * s, sh.h * s);
+    } else {
+      ctx.fillStyle = 'rgba(0,0,80,0.5)';
+      ctx.fillRect(sh.x * s, sh.y * s, sh.w * s, sh.h * s);
+      ctx.fillStyle = 'rgba(50,70,170,0.4)';
+      ctx.fillRect(sh.x * s, sh.y * s, 2 * s, sh.h * s);
+      ctx.fillRect((sh.x + sh.w) * s - 2 * s, sh.y * s, 2 * s, sh.h * s);
+    }
     if (isSelected('shadow', i)) drawSelectionBorder(sh.x, sh.y, sh.w, sh.h, s);
     drawLabel(sh.x + sh.w / 2, sh.y + sh.h / 2, 'CIEN', s);
   });
 
-  // Paint spots (murals)
+  // Paint spots (murals) — subtle outline only, background wall shows through
   (level.paintSpots || []).forEach((ps, i) => {
     const px = ps.x - ps.w / 2, py = ps.y - ps.h / 2;
-    // Brick pattern background
-    ctx.fillStyle = '#555566';
-    ctx.fillRect(px * s, py * s, ps.w * s, ps.h * s);
-    ctx.fillStyle = '#664455';
-    for (let r = 0; r < Math.ceil(ps.h / 9); r++) {
-      const ox = (r % 2) * 7;
-      for (let c = -1; c < Math.ceil(ps.w / 15) + 1; c++) {
-        ctx.fillRect((px + c * 15 + ox) * s, (py + r * 9) * s, 14 * s, 8 * s);
-      }
-    }
-    // Mural grid preview overlay
+    // Mural grid preview overlay (if data loaded)
     const mural = muralCache[ps.paintingKey];
     if (mural && mural.grid && mural.cols && mural.rows) {
       const cellW = ps.w / mural.cols;
@@ -412,13 +477,24 @@ function draw() {
       }
       ctx.globalAlpha = 1;
     }
+    // Subtle outline to mark the mural area
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(px * s, py * s, ps.w * s, ps.h * s);
+    ctx.setLineDash([]);
     if (isSelected('paintSpot', i)) drawSelectionBorder(px, py, ps.w, ps.h, s);
     drawLabel(ps.x, ps.y, ps.paintingKey || 'MURAL', s);
   });
 
   // Platforms
   (level.platforms || []).forEach((p, i) => {
-    drawRect2(p.x, p.y, p.w, 32, COLORS.platform, isSelected('platform', i));
+    if (ASSETS.platform_block) {
+      _drawTiledAsset(ctx, ASSETS.platform_block, p.x, p.y, p.w, 32, s, 4);
+    } else {
+      drawRect2(p.x, p.y, p.w, 32, COLORS.platform, false);
+    }
+    if (isSelected('platform', i)) drawSelectionBorder(p.x, p.y, p.w, 32, s);
     drawLabel(p.x + p.w / 2, p.y + 16, 'PLATF', s);
   });
 
@@ -426,17 +502,35 @@ function draw() {
   (level.ladders || []).forEach((l, i) => {
     const lMinY = Math.min(l.topY, l.bottomY), lMaxY = Math.max(l.topY, l.bottomY);
     const lx = l.x - 12, ly = lMinY, lw = 24, lh = lMaxY - lMinY;
-    ctx.fillStyle = 'rgba(170,136,68,0.6)';
-    ctx.fillRect(lx * s, ly * s, lw * s, lh * s);
-    // Rungs
-    ctx.strokeStyle = '#aa8844';
-    ctx.lineWidth = 2;
-    for (let ry = lMinY; ry < lMaxY; ry += 20) {
-      ctx.beginPath(); ctx.moveTo(lx * s, ry * s); ctx.lineTo((lx + lw) * s, ry * s); ctx.stroke();
+    if (ASSETS.ladder_tile) {
+      // Tile ladder images vertically like the game does
+      const tileH = ASSETS.ladder_tile.height;
+      const tileW = ASSETS.ladder_tile.width;
+      const scaleRatio = (lw * s) / tileW;
+      for (let ty = 0; ty < lh; ty += tileH / scaleRatio) {
+        const drawH = Math.min(tileH / scaleRatio, lh - ty);
+        ctx.drawImage(ASSETS.ladder_tile, 0, 0, tileW, drawH * scaleRatio,
+          lx * s, (ly + ty) * s, lw * s, drawH * s);
+      }
+      // Planks overlay
+      if (ASSETS.ladder_plank) {
+        const plankH = ASSETS.ladder_plank.height;
+        const rungSpacing = 32;
+        for (let ry = 0; ry < lh; ry += rungSpacing) {
+          ctx.drawImage(ASSETS.ladder_plank, lx * s, (ly + ry) * s, lw * s, (plankH * scaleRatio) * s);
+        }
+      }
+    } else {
+      ctx.fillStyle = 'rgba(170,136,68,0.6)';
+      ctx.fillRect(lx * s, ly * s, lw * s, lh * s);
+      ctx.strokeStyle = '#aa8844';
+      ctx.lineWidth = 2;
+      for (let ry = lMinY; ry < lMaxY; ry += 20) {
+        ctx.beginPath(); ctx.moveTo(lx * s, ry * s); ctx.lineTo((lx + lw) * s, ry * s); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(lx * s, ly * s); ctx.lineTo(lx * s, (ly + lh) * s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo((lx + lw) * s, ly * s); ctx.lineTo((lx + lw) * s, (ly + lh) * s); ctx.stroke();
     }
-    // Side rails
-    ctx.beginPath(); ctx.moveTo(lx * s, ly * s); ctx.lineTo(lx * s, (ly + lh) * s); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo((lx + lw) * s, ly * s); ctx.lineTo((lx + lw) * s, (ly + lh) * s); ctx.stroke();
     if (isSelected('ladder', i)) drawSelectionBorder(lx, ly, lw, lh, s);
     drawLabel(l.x, lMinY + lh / 2, 'DRABIN', s);
   });
@@ -444,15 +538,28 @@ function draw() {
   // Paint cans
   const CAN_COLOR_MAP = { RED: '#ff3344', BLUE: '#3388ff', YELLOW: '#ffdd33', GREEN: '#33ff88' };
   (level.paintCans || []).forEach((c, i) => {
-    ctx.fillStyle = c.color ? (CAN_COLOR_MAP[c.color] || COLORS.paintCan) : COLORS.paintCan;
-    ctx.beginPath();
-    ctx.arc(c.x * s, c.y * s, 8 * s, 0, Math.PI * 2);
-    ctx.fill();
+    if (ASSETS.can) {
+      const cw = 20, ch = 28;
+      // Draw can image
+      ctx.drawImage(ASSETS.can, (c.x - cw / 2) * s, (c.y - ch / 2) * s, cw * s, ch * s);
+      // Color tint overlay
+      if (c.color && CAN_COLOR_MAP[c.color]) {
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = CAN_COLOR_MAP[c.color];
+        ctx.fillRect((c.x - cw / 2) * s, (c.y - ch * 0.1) * s, cw * s, ch * 0.5 * s);
+        ctx.globalAlpha = 1;
+      }
+    } else {
+      ctx.fillStyle = c.color ? (CAN_COLOR_MAP[c.color] || COLORS.paintCan) : COLORS.paintCan;
+      ctx.beginPath();
+      ctx.arc(c.x * s, c.y * s, 8 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
     if (isSelected('paintCan', i)) {
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(c.x * s, c.y * s, 12 * s, 0, Math.PI * 2); ctx.stroke();
     }
-    drawLabel(c.x, c.y - 14, c.color ? c.color : 'CAN', s);
+    drawLabel(c.x, c.y - 18, c.color ? c.color : 'CAN', s);
   });
 
   // Cops
@@ -472,8 +579,14 @@ function draw() {
 
   // Trash cans
   (level.trashCans || []).forEach((t, i) => {
-    ctx.fillStyle = COLORS.trashCan;
-    ctx.fillRect((t.x - 12) * s, (t.y - 12) * s, 24 * s, 24 * s);
+    const trashImg = (i % 2 === 0) ? ASSETS.trash : (ASSETS.trash2 || ASSETS.trash);
+    if (trashImg) {
+      const tw = 36, th = 36;
+      ctx.drawImage(trashImg, (t.x - tw / 2) * s, (t.y - th / 2) * s, tw * s, th * s);
+    } else {
+      ctx.fillStyle = COLORS.trashCan;
+      ctx.fillRect((t.x - 12) * s, (t.y - 12) * s, 24 * s, 24 * s);
+    }
     if (isSelected('trashCan', i)) drawSelectionBorder(t.x - 15, t.y - 15, 30, 30, s);
     drawLabel(t.x, t.y - 18, 'KOSZ', s);
   });
@@ -552,6 +665,104 @@ function drawLabel(cx, cy, text, s) {
   ctx.fillText(text, cx * s, cy * s + 4);
 }
 
+// Draw a tiled image across a rectangular area with rounded-rect clip (like GameScene platforms)
+function _drawTiledAsset(ctx, img, x, y, w, h, s, cornerR) {
+  ctx.save();
+  const sx = x * s, sy = y * s, sw = w * s, sh = h * s;
+  const cr = (cornerR || 0) * s;
+  if (cr > 0) {
+    ctx.beginPath();
+    ctx.moveTo(sx + cr, sy);
+    ctx.lineTo(sx + sw - cr, sy);
+    ctx.quadraticCurveTo(sx + sw, sy, sx + sw, sy + cr);
+    ctx.lineTo(sx + sw, sy + sh - cr);
+    ctx.quadraticCurveTo(sx + sw, sy + sh, sx + sw - cr, sy + sh);
+    ctx.lineTo(sx + cr, sy + sh);
+    ctx.quadraticCurveTo(sx, sy + sh, sx, sy + sh - cr);
+    ctx.lineTo(sx, sy + cr);
+    ctx.quadraticCurveTo(sx, sy, sx + cr, sy);
+    ctx.closePath();
+    ctx.clip();
+  }
+  const srcW = img.width;
+  const tileScale = sh / img.height;
+  const tileW = srcW * tileScale;
+  for (let tx = sx; tx < sx + sw; tx += tileW) {
+    ctx.drawImage(img, tx, sy, tileW, sh);
+  }
+  ctx.restore();
+}
+
+// Draw a single brick wall rectangle
+function _drawBrickWall(ctx, wx, wy, w, h, s) {
+  const bw = 24, bh = 12, gap = 2;
+  const color1 = '#2c284c', color2 = '#48374d', bgColor = '#1b1d40';
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(wx * s, wy * s, w * s, h * s);
+  const cols = Math.ceil(w / (bw + gap));
+  const rows = Math.ceil(h / (bh + gap));
+  for (let r = 0; r < rows; r++) {
+    const rowOff = (r % 2) * Math.round((bw + gap) / 2);
+    const by = r * (bh + gap);
+    if (by >= h) break;
+    const brickH = Math.min(bh, h - by);
+    for (let c = -1; c <= cols; c++) {
+      const bx = c * (bw + gap) + rowOff;
+      if (bx + bw <= 0 || bx >= w) continue;
+      const drawX = Math.max(0, bx);
+      const drawW = Math.min(bx + bw, w) - drawX;
+      if (drawW <= 0) continue;
+      ctx.fillStyle = (r + c) % 3 === 0 ? color2 : color1;
+      ctx.fillRect((wx + drawX) * s, (wy + by) * s, drawW * s, brickH * s);
+    }
+  }
+}
+
+// Draw fill walls under platforms (brick walls matching GameScene)
+function _drawFillWalls(ctx, level, s) {
+  const BLOCK_H = 32;
+  const surfaces = [];
+  (level.ground || []).forEach(g => surfaces.push({ x: g.x, y: g.y, w: g.w }));
+  (level.platforms || []).forEach(p => surfaces.push({ x: p.x, y: p.y, w: p.w }));
+
+  (level.platforms || []).forEach(p => {
+    const pBottom = p.y + BLOCK_H;
+    let bestY = null;
+    for (const sf of surfaces) {
+      if (sf === p) continue;
+      if (sf.y <= pBottom) continue;
+      if (sf.x >= p.x + p.w || sf.x + sf.w <= p.x) continue;
+      if (bestY === null || sf.y < bestY) bestY = sf.y;
+    }
+    if (bestY === null) return;
+    const wallH = bestY - pBottom;
+    if (wallH < 4) return;
+
+    // Draw brick fill wall
+    const bw = 24, bh = 12, gap = 2;
+    const color1 = '#2c284c', color2 = '#48374d', bgColor = '#1b1d40';
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(p.x * s, pBottom * s, p.w * s, wallH * s);
+    const cols = Math.ceil(p.w / (bw + gap));
+    const rows = Math.ceil(wallH / (bh + gap));
+    for (let r = 0; r < rows; r++) {
+      const rowOff = (r % 2) * Math.round((bw + gap) / 2);
+      const by = r * (bh + gap);
+      if (by >= wallH) break;
+      const brickH = Math.min(bh, wallH - by);
+      for (let c = -1; c <= cols; c++) {
+        const bx = c * (bw + gap) + rowOff;
+        if (bx + bw <= 0 || bx >= p.w) continue;
+        const drawX = Math.max(0, bx);
+        const drawW = Math.min(bx + bw, p.w) - drawX;
+        if (drawW <= 0) continue;
+        ctx.fillStyle = (r + c) % 3 === 0 ? color2 : color1;
+        ctx.fillRect((p.x + drawX) * s, (pBottom + by) * s, drawW * s, brickH * s);
+      }
+    }
+  });
+}
+
 function isSelected(type, index) {
   return selected && selected.type === type && selected.index === index;
 }
@@ -619,6 +830,12 @@ function hitTest(mx, my) {
     if (mx >= sh.x && mx <= sh.x + sh.w && my >= sh.y && my <= sh.y + sh.h) return { type: 'shadow', index: i };
   }
 
+  // Fill walls
+  for (let i = (level.fillWalls || []).length - 1; i >= 0; i--) {
+    const fw = level.fillWalls[i];
+    if (mx >= fw.x && mx <= fw.x + fw.w && my >= fw.y && my <= fw.y + fw.h) return { type: 'fillWall', index: i };
+  }
+
   // Wires
   for (let i = (level.foregroundWires || []).length - 1; i >= 0; i--) {
     const w = level.foregroundWires[i];
@@ -640,6 +857,7 @@ function getElemPos(sel) {
   switch (sel.type) {
     case 'platform': case 'ground': return { x: e.x, y: e.y };
     case 'shadow': return { x: e.x, y: e.y };
+    case 'fillWall': return { x: e.x, y: e.y };
     case 'ladder': return { x: e.x, y: e.topY };
     case 'paintSpot': return { x: e.x, y: e.y };
     case 'paintCan': return { x: e.x, y: e.y };
@@ -657,6 +875,7 @@ function moveElem(sel, dx, dy) {
   switch (sel.type) {
     case 'platform': case 'ground': e.x += dx; e.y += dy; break;
     case 'shadow': e.x += dx; e.y += dy; break;
+    case 'fillWall': e.x += dx; e.y += dy; break;
     case 'ladder': e.x += dx; e.topY += dy; e.bottomY += dy; e.minX += dx; e.maxX += dx; break;
     case 'paintSpot': e.x += dx; e.y += dy; break;
     case 'paintCan': e.x += dx; e.y += dy; break;
@@ -673,6 +892,7 @@ function getArray(type) {
     case 'ground': return level.ground;
     case 'ladder': return level.ladders;
     case 'shadow': return level.shadows;
+    case 'fillWall': return level.fillWalls;
     case 'paintSpot': return level.paintSpots;
     case 'paintCan': return level.paintCans;
     case 'cop': return level.cops;
@@ -824,6 +1044,11 @@ function createElement(type, r, start, end) {
       level.shadows.push({ x: r.x, y: r.y, w: Math.max(w, 30), h: Math.max(h, 30) });
       selected = { type: 'shadow', index: level.shadows.length - 1 };
       break;
+    case 'fillWall':
+      if (!level.fillWalls) level.fillWalls = [];
+      level.fillWalls.push({ x: r.x, y: r.y, w: Math.max(w, 32), h: Math.max(h, 32) });
+      selected = { type: 'fillWall', index: level.fillWalls.length - 1 };
+      break;
     case 'paintSpot':
       if (!level.paintSpots) level.paintSpots = [];
       level.paintSpots.push({
@@ -885,6 +1110,9 @@ function showProps() {
       html += field('x', e.x) + field('y', e.y) + field('w', e.w) + field('depth', e.depth ?? '');
       break;
     case 'shadow':
+      html += field('x', e.x) + field('y', e.y) + field('w', e.w) + field('h', e.h) + field('depth', e.depth ?? '');
+      break;
+    case 'fillWall':
       html += field('x', e.x) + field('y', e.y) + field('w', e.w) + field('h', e.h) + field('depth', e.depth ?? '');
       break;
     case 'ladder':
@@ -1069,6 +1297,15 @@ function generateExport() {
     });
     out += `  ],\n`;
 
+    // Fill walls (explicit, optional)
+    if (lv.fillWalls && lv.fillWalls.length > 0) {
+      out += `  fillWalls: [\n`;
+      lv.fillWalls.forEach(fw => {
+        out += `    { x: ${Math.round(fw.x)}, y: ${rel(Math.round(fw.y), HH, hVar)}, w: ${Math.round(fw.w)}, h: ${Math.round(fw.h)}${dp(fw)} },\n`;
+      });
+      out += `  ],\n`;
+    }
+
     // Paint cans
     out += `  paintCans: [\n`;
     (lv.paintCans || []).forEach(c => {
@@ -1108,7 +1345,10 @@ function generateExport() {
     out += `};\n\n`;
   });
 
-  out += `export const LEVELS = [${levels.map((_, i) => `LEVEL_${i + 1}`).join(', ')}];\n`;
+  out += `export const LEVELS = [${levels.map((_, i) => `LEVEL_${i + 1}`).join(', ')}];\n\n`;
+  out += `export const STEALTH_LEVELS = [LEVEL_1, LEVEL_2];\n`;
+  out += `export const PUZZLE_LEVELS = [LEVEL_3];\n`;
+  out += `export const TOWER_LEVELS = [LEVEL_4];\n`;
   return out;
 }
 

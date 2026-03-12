@@ -118,7 +118,7 @@ export default class PaintArm {
    * @param {boolean} [isTouch] - true when using touch controls (slower, more precise)
    * @returns {{x, y}|null} - hand world position if actively painting, null otherwise
    */
-  update(delta, input, playerX, playerY, isTouch) {
+  update(delta, input, playerX, playerY, isTouch, mouseWorld) {
     if (!this.active) return null;
 
     const dt = delta / 1000;
@@ -136,10 +136,16 @@ export default class PaintArm {
     let hx = this.points[last].x;
     let hy = this.points[last].y;
 
-    if (input.left)  hx -= speed * dt;
-    if (input.right) hx += speed * dt;
-    if (input.up)    hy -= speed * dt;
-    if (input.down)  hy += speed * dt;
+    // Mouse takes priority: snap hand directly to mouse world position
+    if (mouseWorld) {
+      hx = mouseWorld.x;
+      hy = mouseWorld.y;
+    } else {
+      if (input.left)  hx -= speed * dt;
+      if (input.right) hx += speed * dt;
+      if (input.up)    hy -= speed * dt;
+      if (input.down)  hy += speed * dt;
+    }
 
     // Clamp hand to paint bounds
     const b = this.bounds;

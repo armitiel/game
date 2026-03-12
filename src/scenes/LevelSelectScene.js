@@ -14,17 +14,9 @@ export default class LevelSelectScene extends Phaser.Scene {
     const cx = this.sys.game.config.width / 2;
     const gh = this.sys.game.config.height;
 
-    this.cameras.main.setBackgroundColor('#0a0a1a');
-
-    // City silhouette background
-    const bg = this.add.graphics();
-    bg.fillStyle(0x111122, 1);
-    for (let i = 0; i < 16; i++) {
-      const bw = Phaser.Math.Between(40, 80);
-      const bh = Phaser.Math.Between(100, 300);
-      const bx = i * 70 + Phaser.Math.Between(-10, 10);
-      bg.fillRect(bx, gh - bh, bw, bh);
-    }
+    // Background image stretched to fill
+    const bg = this.add.image(cx, gh / 2, 'bckg');
+    bg.setDisplaySize(this.sys.game.config.width, gh);
 
     if (!this._selectedMode) {
       this.showModeSelect(cx, gh);
@@ -45,9 +37,12 @@ export default class LevelSelectScene extends Phaser.Scene {
   // === MODE SELECT SCREEN ===
 
   showModeSelect(cx, gh) {
-    this.add.text(cx, 50, 'WYBIERZ TRYB', {
-      font: 'bold 42px ChangaOne, monospace', fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 5
+    this.add.text(cx, 60, 'WYBIERZ TRYB', {
+      fontFamily: 'ChangaOne',
+      fontSize: '58px',
+      fontStyle: 'bold',
+      color: '#00ff88',
+      stroke: '#003322', strokeThickness: 7
     }).setOrigin(0.5);
 
     const modes = [
@@ -68,48 +63,61 @@ export default class LevelSelectScene extends Phaser.Scene {
       }
     ];
 
-    const cardW = 260;
-    const cardH = 300;
-    const gap = 40;
-    const totalW = modes.length * cardW + (modes.length - 1) * gap;
-    const startX = cx - totalW / 2 + cardW / 2;
-    const cardY = gh / 2 - 10;
+    const frameW = 280;
+    const frameH = frameW * (1024 / 512); // preserve 1:2 aspect ratio
+    const gap = 20;
+    const totalW = modes.length * frameW + (modes.length - 1) * gap;
+    const startX = cx - totalW / 2 + frameW / 2;
+    const cardY = gh / 2 + 20;
 
     modes.forEach((m, i) => {
-      const x = startX + i * (cardW + gap);
+      const x = startX + i * (frameW + gap);
 
-      // Card bg
-      const card = this.add.rectangle(x, cardY, cardW, cardH, 0x1a1a3a, 0.9)
-        .setStrokeStyle(2, m.color, 0.6)
+      // Frame image from spritesheet (blue=0, orange=1, pink=2)
+      const frame = this.add.image(x, cardY, 'mode_frames', i)
+        .setDisplaySize(frameW, frameH);
+
+      // Invisible hitbox for interaction
+      const card = this.add.rectangle(x, cardY, frameW * 0.8, frameH * 0.8, 0x000000, 0)
         .setInteractive({ useHandCursor: true });
 
       // Icon
-      this.add.text(x, cardY - 90, m.icon, {
+      this.add.text(x, cardY - frameH * 0.28, m.icon, {
         font: '48px sans-serif'
       }).setOrigin(0.5);
 
       // Name
-      this.add.text(x, cardY - 20, m.name, {
-        font: 'bold 32px ChangaOne, monospace', fill: '#' + m.color.toString(16).padStart(6, '0'),
-        stroke: '#000000', strokeThickness: 4
+      this.add.text(x, cardY - frameH * 0.05, m.name, {
+        fontFamily: 'ChangaOne',
+        fontSize: '40px',
+        fontStyle: 'bold',
+        color: '#' + m.color.toString(16).padStart(6, '0'),
+        stroke: '#000000', strokeThickness: 5
       }).setOrigin(0.5);
 
       // Description
-      this.add.text(x, cardY + 30, m.desc, {
-        font: '12px ChangaOne, monospace', fill: '#889999',
-        stroke: '#000000', strokeThickness: 2,
-        align: 'center', lineSpacing: 4
+      this.add.text(x, cardY + frameH * 0.12, m.desc, {
+        fontFamily: 'ChangaOne',
+        fontSize: '20px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        stroke: '#000000', strokeThickness: 3,
+        align: 'center', lineSpacing: 6
       }).setOrigin(0.5);
 
       // Level count
-      this.add.text(x, cardY + 85, `Levele: ${m.levels.length}`, {
-        font: '10px ChangaOne, monospace', fill: '#556677',
-        stroke: '#000000', strokeThickness: 2
+      this.add.text(x, cardY + frameH * 0.28, `Level: ${m.levels.length}`, {
+        fontFamily: 'ChangaOne',
+        fontSize: '20px',
+        fontStyle: 'bold',
+        color: '#aabbcc',
+        stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5);
 
-      // Hover
-      card.on('pointerover', () => card.setStrokeStyle(3, 0x00ff88));
-      card.on('pointerout', () => card.setStrokeStyle(2, m.color, 0.6));
+      // Hover — scale frame up slightly
+      const baseScale = frameW / 512;
+      card.on('pointerover', () => frame.setScale(baseScale * 1.05));
+      card.on('pointerout', () => frame.setScale(baseScale));
 
       // Click
       card.on('pointerdown', () => {
