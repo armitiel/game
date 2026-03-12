@@ -29,29 +29,32 @@ export default class WinScene extends Phaser.Scene {
 
     // Win text
     this.add.text(cx, cy - 60, 'LEVEL COMPLETE', {
-      font: 'bold 48px monospace',
+      font: 'bold 48px ChangaOne, monospace',
       fill: '#00ff88',
       stroke: '#003322',
-      strokeThickness: 4
+      strokeThickness: 6
     }).setOrigin(0.5);
 
     this.add.text(cx, cy + 10, 'The city is your canvas.', {
-      font: '18px monospace',
-      fill: '#667788'
+      font: '18px ChangaOne, monospace',
+      fill: '#667788',
+      stroke: '#000000', strokeThickness: 3
     }).setOrigin(0.5);
 
     // Restart prompt
     const isMobile = this.sys.game.device.input.touch;
     const restartText = this.add.text(cx, cy + 80,
       isMobile ? '[ TAP - Zagraj ponownie ]' : '[ SPACE - Zagraj ponownie ]', {
-      font: '16px monospace',
-      fill: '#ffdd33'
+      font: '16px ChangaOne, monospace',
+      fill: '#ffdd33',
+      stroke: '#332200', strokeThickness: 3
     }).setOrigin(0.5);
 
     if (!isMobile) {
       this.add.text(cx, cy + 110, '[ M - Menu glowne ]', {
-        font: '14px monospace',
-        fill: '#556677'
+        font: '14px ChangaOne, monospace',
+        fill: '#556677',
+        stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
     }
 

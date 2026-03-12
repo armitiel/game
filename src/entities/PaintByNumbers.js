@@ -84,41 +84,41 @@ export default class PaintByNumbers {
       }
     }
 
-    // Draw all number labels onto a single canvas texture (avoids 1000s of Text objects)
+    // Draw number labels on a HIGH-RES canvas (3x) so digits stay crisp at camera zoom
     this.numberTexts = []; // kept empty for compat — numbers drawn on canvas
+    const RES = 3; // super-sample factor
+    this._canvasRes = RES;
     const cellMin = Math.min(this.cellW, this.cellH);
-    const fontSize = Math.max(6, Math.round(cellMin * 0.75));
-    const strokeW = cellMin < 14 ? 2 : 1;
+    const fontSize = Math.max(8, Math.round(cellMin * RES * 0.65));
+    const strokeW = Math.max(1, Math.round(RES * 0.6));
 
     const canvas = document.createElement('canvas');
-    canvas.width = Math.ceil(b.w);
-    canvas.height = Math.ceil(b.h);
+    canvas.width = Math.ceil(b.w * RES);
+    canvas.height = Math.ceil(b.h * RES);
     const ctx = canvas.getContext('2d');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${fontSize}px monospace`;
-    ctx.globalAlpha = 0.8;
+    ctx.font = `bold ${fontSize}px ChangaOne, monospace`;
+    ctx.globalAlpha = 0.85;
 
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const ci = this.targetGrid[r][c];
         if (ci < 0) continue;
 
-        const lx = c * this.cellW + this.cellW / 2;
-        const ly = r * this.cellH + this.cellH / 2;
+        const lx = (c * this.cellW + this.cellW / 2) * RES;
+        const ly = (r * this.cellH + this.cellH / 2) * RES;
         const label = String(ci + 1);
 
         const targetHex = PAINT.COLORS[this.colorMap[ci]] || 0xffffff;
         const hexStr = '#' + targetHex.toString(16).padStart(6, '0');
 
-        // Stroke (outline)
-        if (strokeW > 0) {
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = strokeW * 2;
-          ctx.lineJoin = 'round';
-          ctx.strokeText(label, lx, ly);
-        }
-        // Fill
+        // Stroke (outline) for contrast
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = strokeW;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(label, lx, ly);
+        // Fill with target color
         ctx.fillStyle = hexStr;
         ctx.fillText(label, lx, ly);
       }
@@ -128,8 +128,9 @@ export default class PaintByNumbers {
     if (this.scene.textures.exists(texKey)) this.scene.textures.remove(texKey);
     this.scene.textures.addCanvas(texKey, canvas);
     this._numbersTexKey = texKey;
+    // Display at world size (canvas is RES× bigger, so scale down)
     this.numbersImage = this.scene.add.image(b.x, b.y, texKey)
-      .setOrigin(0, 0).setDepth(7.2);
+      .setOrigin(0, 0).setDisplaySize(b.w, b.h).setDepth(7.2);
   }
 
   /**
@@ -295,7 +296,12 @@ export default class PaintByNumbers {
     const canvas = tex.source[0].image;
     if (!canvas || !canvas.getContext) return;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(col * this.cellW, row * this.cellH, this.cellW, this.cellH);
+    // Canvas is drawn at RES× resolution — scale coordinates accordingly
+    const res = this._canvasRes || 1;
+    ctx.clearRect(
+      col * this.cellW * res, row * this.cellH * res,
+      this.cellW * res, this.cellH * res
+    );
     tex.update();  // tell Phaser the texture changed
   }
 

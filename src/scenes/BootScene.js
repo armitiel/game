@@ -17,8 +17,9 @@ export default class BootScene extends Phaser.Scene {
     progressBox.fillRect(width / 2 - 160, height / 2 - 15, 320, 30);
 
     const loadingText = this.add.text(width / 2, height / 2 - 40, 'Loading...', {
-      font: '18px monospace',
-      fill: '#00ff88'
+      font: '18px ChangaOne, monospace',
+      fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 3
     }).setOrigin(0.5);
 
     this.load.on('progress', (value) => {
@@ -53,6 +54,9 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('trash', 'assets/sprites/elementy/trash.png');
     this.load.image('trash2', 'assets/sprites/elementy/trash2.png');
     this.load.image('heart_icon', 'assets/sprites/elementy/serce.png');
+    this.load.image('brick', 'assets/sprites/elementy/brick.png');
+    this.load.image('brick2', 'assets/sprites/elementy/brick2.png');
+    this.load.image('shadow_img', 'assets/sprites/elementy/shadow.png');
     // UI pictograms (SVG)
     this.load.svg('icon_hand', 'assets/sprites/elementy/hand.svg', { width: 64, height: 64 });
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
@@ -125,62 +129,121 @@ export default class BootScene extends Phaser.Scene {
     const SW = PAINT.SPOT_W;  // 64
     const SH = PAINT.SPOT_H;  // 80
 
+    // Build small brick wall textures for simple paint spots using real brick tiles
+    const brickImg = this.make.image({ key: 'brick', add: false }).setScale(0.35);
+    const brick2Img = this.make.image({ key: 'brick2', add: false }).setScale(0.35);
+    const tbw = Math.round(54 * 0.35);  // ~19
+    const tbh = Math.round(26 * 0.35);  // ~9
+    const tgap = 1;
+
     Object.entries(PAINT.COLORS).forEach(([name, color]) => {
       // TARGET: brick wall with colored outline marking
-      const spotGfx = this.make.graphics({ add: false });
-      // Brick wall background
-      spotGfx.fillStyle(0x555566, 1);
-      spotGfx.fillRect(0, 0, SW, SH);
-      // Brick pattern
-      const brickW = 14, brickH = 8, gap = 1;
-      for (let row = 0; row < Math.ceil(SH / (brickH + gap)); row++) {
-        const offsetX = (row % 2) * (brickW / 2 + gap);
-        for (let col = -1; col < Math.ceil(SW / (brickW + gap)) + 1; col++) {
-          const bx = col * (brickW + gap) + offsetX;
-          const by = row * (brickH + gap);
-          spotGfx.fillStyle(0x443344 + (((row * 7 + col * 3) % 5) * 0x050505), 1);
-          spotGfx.fillRect(bx, by, brickW, brickH);
+      const spotRT = this.make.renderTexture({ width: SW, height: SH, add: false });
+      // Background
+      const spotBg = this.make.graphics({ add: false });
+      spotBg.fillStyle(0x8f3833, 1);
+      spotBg.fillRect(0, 0, SW, SH);
+      spotRT.draw(spotBg, 0, 0);
+      spotBg.destroy();
+      // Shadow pass
+      const spotShadow = this.make.graphics({ add: false });
+      spotShadow.fillStyle(0x000000, 0.35);
+      const rows = Math.ceil(SH / (tbh + tgap));
+      for (let row = 0; row < rows; row++) {
+        const by = row * (tbh + tgap);
+        const rowOff = (row % 2) * Math.round(tbw / 2 + tgap);
+        for (let col = -1; col < Math.ceil(SW / (tbw + tgap)) + 2; col++) {
+          const bx = col * (tbw + tgap) + rowOff;
+          if (bx + tbw <= 0 || bx >= SW) continue;
+          spotShadow.fillRect(bx + 1, by + 1, tbw, tbh);
         }
       }
-      // Colored dashed outline — paint target marking
-      spotGfx.lineStyle(2, color, 0.9);
-      spotGfx.strokeRect(4, 4, SW - 8, SH - 8);
-      // Corner markers
+      spotRT.draw(spotShadow, 0, 0);
+      spotShadow.destroy();
+      // Brick pass
+      for (let row = 0; row < rows; row++) {
+        const by = row * (tbh + tgap);
+        const rowOff = (row % 2) * Math.round(tbw / 2 + tgap);
+        for (let col = -1; col < Math.ceil(SW / (tbw + tgap)) + 2; col++) {
+          const bx = col * (tbw + tgap) + rowOff;
+          if (bx + tbw <= 0 || bx >= SW) continue;
+          const img = ((row + col) % 3 === 0) ? brick2Img : brickImg;
+          spotRT.draw(img, bx + tbw / 2, by + tbh / 2);
+        }
+      }
+      // Colored outline + corner markers
+      const spotOverlay = this.make.graphics({ add: false });
+      spotOverlay.lineStyle(2, color, 0.9);
+      spotOverlay.strokeRect(4, 4, SW - 8, SH - 8);
       const cm = 8;
-      spotGfx.fillStyle(color, 0.6);
-      spotGfx.fillRect(2, 2, cm, 3);
-      spotGfx.fillRect(2, 2, 3, cm);
-      spotGfx.fillRect(SW - cm - 2, 2, cm, 3);
-      spotGfx.fillRect(SW - 5, 2, 3, cm);
-      spotGfx.fillRect(2, SH - 5, cm, 3);
-      spotGfx.fillRect(2, SH - cm - 2, 3, cm);
-      spotGfx.fillRect(SW - cm - 2, SH - 5, cm, 3);
-      spotGfx.fillRect(SW - 5, SH - cm - 2, 3, cm);
-      spotGfx.generateTexture(`paint_spot_${name.toLowerCase()}`, SW, SH);
-      spotGfx.destroy();
+      spotOverlay.fillStyle(color, 0.6);
+      spotOverlay.fillRect(2, 2, cm, 3);
+      spotOverlay.fillRect(2, 2, 3, cm);
+      spotOverlay.fillRect(SW - cm - 2, 2, cm, 3);
+      spotOverlay.fillRect(SW - 5, 2, 3, cm);
+      spotOverlay.fillRect(2, SH - 5, cm, 3);
+      spotOverlay.fillRect(2, SH - cm - 2, 3, cm);
+      spotOverlay.fillRect(SW - cm - 2, SH - 5, cm, 3);
+      spotOverlay.fillRect(SW - 5, SH - cm - 2, 3, cm);
+      spotRT.draw(spotOverlay, 0, 0);
+      spotOverlay.destroy();
+      spotRT.saveTexture(`paint_spot_${name.toLowerCase()}`);
+      spotRT.destroy();
 
-      // PAINTED: wall covered in graffiti color with paint drips
-      const paintedGfx = this.make.graphics({ add: false });
-      // Base wall
-      paintedGfx.fillStyle(0x555566, 1);
-      paintedGfx.fillRect(0, 0, SW, SH);
-      // Paint fill (main color)
-      paintedGfx.fillStyle(color, 0.85);
-      paintedGfx.fillRect(3, 3, SW - 6, SH - 6);
+      // PAINTED: brick wall covered with graffiti color
+      const paintedRT = this.make.renderTexture({ width: SW, height: SH, add: false });
+      const paintedBg = this.make.graphics({ add: false });
+      // Base brick bg
+      paintedBg.fillStyle(0x8f3833, 1);
+      paintedBg.fillRect(0, 0, SW, SH);
+      paintedRT.draw(paintedBg, 0, 0);
+      paintedBg.destroy();
+      // Brick shadow + tile pass (same as target)
+      const pdShadow = this.make.graphics({ add: false });
+      pdShadow.fillStyle(0x000000, 0.35);
+      for (let row = 0; row < rows; row++) {
+        const by = row * (tbh + tgap);
+        const rowOff = (row % 2) * Math.round(tbw / 2 + tgap);
+        for (let col = -1; col < Math.ceil(SW / (tbw + tgap)) + 2; col++) {
+          const bx = col * (tbw + tgap) + rowOff;
+          if (bx + tbw <= 0 || bx >= SW) continue;
+          pdShadow.fillRect(bx + 1, by + 1, tbw, tbh);
+        }
+      }
+      paintedRT.draw(pdShadow, 0, 0);
+      pdShadow.destroy();
+      for (let row = 0; row < rows; row++) {
+        const by = row * (tbh + tgap);
+        const rowOff = (row % 2) * Math.round(tbw / 2 + tgap);
+        for (let col = -1; col < Math.ceil(SW / (tbw + tgap)) + 2; col++) {
+          const bx = col * (tbw + tgap) + rowOff;
+          if (bx + tbw <= 0 || bx >= SW) continue;
+          const img = ((row + col) % 3 === 0) ? brick2Img : brickImg;
+          paintedRT.draw(img, bx + tbw / 2, by + tbh / 2);
+        }
+      }
+      // Paint fill overlay
+      const paintOverlay = this.make.graphics({ add: false });
+      paintOverlay.fillStyle(color, 0.85);
+      paintOverlay.fillRect(3, 3, SW - 6, SH - 6);
       // Paint drips
-      paintedGfx.fillStyle(color, 0.7);
-      paintedGfx.fillRect(10, SH - 6, 4, 6);
-      paintedGfx.fillRect(30, SH - 6, 3, 6);
-      paintedGfx.fillRect(50, SH - 6, 5, 6);
+      paintOverlay.fillStyle(color, 0.7);
+      paintOverlay.fillRect(10, SH - 6, 4, 6);
+      paintOverlay.fillRect(30, SH - 6, 3, 6);
+      paintOverlay.fillRect(50, SH - 6, 5, 6);
       // Highlight streaks
-      paintedGfx.fillStyle(0xffffff, 0.25);
-      paintedGfx.fillRect(8, 12, 20, 3);
-      paintedGfx.fillRect(14, 30, 30, 3);
-      paintedGfx.fillRect(6, 50, 16, 3);
-      paintedGfx.fillRect(28, 60, 24, 3);
-      paintedGfx.generateTexture(`paint_done_${name.toLowerCase()}`, SW, SH);
-      paintedGfx.destroy();
+      paintOverlay.fillStyle(0xffffff, 0.25);
+      paintOverlay.fillRect(8, 12, 20, 3);
+      paintOverlay.fillRect(14, 30, 30, 3);
+      paintOverlay.fillRect(6, 50, 16, 3);
+      paintOverlay.fillRect(28, 60, 24, 3);
+      paintedRT.draw(paintOverlay, 0, 0);
+      paintOverlay.destroy();
+      paintedRT.saveTexture(`paint_done_${name.toLowerCase()}`);
+      paintedRT.destroy();
     });
+    brickImg.destroy();
+    brick2Img.destroy();
 
     // Detection cone
     const coneGfx = this.make.graphics({ add: false });

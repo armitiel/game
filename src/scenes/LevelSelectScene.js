@@ -46,7 +46,8 @@ export default class LevelSelectScene extends Phaser.Scene {
 
   showModeSelect(cx, gh) {
     this.add.text(cx, 50, 'WYBIERZ TRYB', {
-      font: 'bold 28px monospace', fill: '#00ff88'
+      font: 'bold 28px ChangaOne, monospace', fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 4
     }).setOrigin(0.5);
 
     const modes = [
@@ -89,18 +90,21 @@ export default class LevelSelectScene extends Phaser.Scene {
 
       // Name
       this.add.text(x, cardY - 20, m.name, {
-        font: 'bold 22px monospace', fill: '#' + m.color.toString(16).padStart(6, '0')
+        font: 'bold 22px ChangaOne, monospace', fill: '#' + m.color.toString(16).padStart(6, '0'),
+        stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5);
 
       // Description
       this.add.text(x, cardY + 30, m.desc, {
-        font: '12px monospace', fill: '#889999',
+        font: '12px ChangaOne, monospace', fill: '#889999',
+        stroke: '#000000', strokeThickness: 2,
         align: 'center', lineSpacing: 4
       }).setOrigin(0.5);
 
       // Level count
       this.add.text(x, cardY + 85, `Levele: ${m.levels.length}`, {
-        font: '10px monospace', fill: '#556677'
+        font: '10px ChangaOne, monospace', fill: '#556677',
+        stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
 
       // Hover
@@ -130,7 +134,8 @@ export default class LevelSelectScene extends Phaser.Scene {
     });
 
     this.add.text(cx, gh - 40, '[ Kliknij tryb lub nacisnij 1-3 | ESC = menu ]', {
-      font: '12px monospace', fill: '#445566'
+      font: '12px ChangaOne, monospace', fill: '#445566',
+      stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
   }
 
@@ -142,11 +147,13 @@ export default class LevelSelectScene extends Phaser.Scene {
     const modeNames = { stealth: 'STEALTH', puzzle: 'PUZZLE', tower: 'WIEZA' };
 
     this.add.text(cx, 40, modeNames[modeKey] || modeKey.toUpperCase(), {
-      font: 'bold 20px monospace', fill: '#667788'
+      font: 'bold 20px ChangaOne, monospace', fill: '#667788',
+      stroke: '#000000', strokeThickness: 3
     }).setOrigin(0.5);
 
     this.add.text(cx, 70, 'WYBIERZ LEVEL', {
-      font: 'bold 24px monospace', fill: '#00ff88'
+      font: 'bold 24px ChangaOne, monospace', fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 4
     }).setOrigin(0.5);
 
     const cardW = 220;
@@ -166,15 +173,18 @@ export default class LevelSelectScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
 
       this.add.text(x, cardY - 80, String(i + 1), {
-        font: 'bold 48px monospace', fill: '#334466'
+        font: 'bold 48px ChangaOne, monospace', fill: '#334466',
+        stroke: '#000000', strokeThickness: 4
       }).setOrigin(0.5);
 
       this.add.text(x, cardY - 20, level.name, {
-        font: 'bold 18px monospace', fill: '#00ff88'
+        font: 'bold 18px ChangaOne, monospace', fill: '#00ff88',
+        stroke: '#003322', strokeThickness: 3
       }).setOrigin(0.5);
 
       this.add.text(x, cardY + 20, level.description, {
-        font: '11px monospace', fill: '#667788',
+        font: '11px ChangaOne, monospace', fill: '#667788',
+        stroke: '#000000', strokeThickness: 2,
         wordWrap: { width: cardW - 20 }, align: 'center'
       }).setOrigin(0.5);
 
@@ -185,7 +195,8 @@ export default class LevelSelectScene extends Phaser.Scene {
       if (modeKey === 'tower' && level.timer) statsStr += `   Czas: ${level.timer.startSeconds}s`;
 
       this.add.text(x, cardY + 65, statsStr, {
-        font: '10px monospace', fill: '#556677'
+        font: '10px ChangaOne, monospace', fill: '#556677',
+        stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
 
       card.on('pointerover', () => card.setStrokeStyle(2, 0x00ff88));
@@ -201,7 +212,8 @@ export default class LevelSelectScene extends Phaser.Scene {
     }
 
     this.add.text(cx, gh - 40, '[ Kliknij level | ESC = tryby ]', {
-      font: '12px monospace', fill: '#445566'
+      font: '12px ChangaOne, monospace', fill: '#445566',
+      stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
   }
 }

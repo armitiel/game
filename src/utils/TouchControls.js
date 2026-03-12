@@ -85,7 +85,7 @@ export default class TouchControls {
       scene.add.circle(hintX, hintY + hintDist, HINT_RADIUS, 0xff8888, 0.25),  // down
     ];
     // Small arrows inside direction dots
-    const arrowStyle = { font: 'bold 16px monospace', fill: '#ffffff' };
+    const arrowStyle = { font: 'bold 16px ChangaOne, monospace', fill: '#ffffff', stroke: '#000000', strokeThickness: 2 };
     this._hintArrows = [
       scene.add.text(hintX - hintDist, hintY, '\u25C0', arrowStyle).setOrigin(0.5).setAlpha(0.5),
       scene.add.text(hintX + hintDist, hintY, '\u25B6', arrowStyle).setOrigin(0.5).setAlpha(0.5),
@@ -242,7 +242,8 @@ export default class TouchControls {
       .setDisplaySize(36, 36).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
     // Center jump label — green
     this._actHintCenter = scene.add.text(0, 0, 'JUMP', {
-      font: 'bold 18px monospace', fill: '#00ff88'
+      font: 'bold 18px ChangaOne, monospace', fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 3
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.4).setVisible(false);
 
     this.buttons.push(this._actBase, this._actThumb, this._actHintUpBg, this._actHintLeftBg, this._actHintUp, this._actHintLeft, this._actHintCenter);
@@ -265,7 +266,8 @@ export default class TouchControls {
     this._actStaticLeft = scene.add.image(hintX - HINT_DIST, hintY, 'icon_hand')
       .setDisplaySize(32, 32).setScrollFactor(0).setDepth(201).setAlpha(0.5);
     this._actStaticCenter = scene.add.text(hintX, hintY + 2, 'JUMP', {
-      font: 'bold 14px monospace', fill: '#00ff88'
+      font: 'bold 14px ChangaOne, monospace', fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 2
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.3);
 
     scene.tweens.add({
@@ -453,8 +455,9 @@ export default class TouchControls {
         .setStrokeStyle(2, 0xffffff, 0.5);
 
       const text = scene.add.text(x, y, String(i + 1), {
-        font: 'bold 20px monospace',
-        fill: '#ffffff'
+        font: 'bold 20px ChangaOne, monospace',
+        fill: '#ffffff',
+        stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.8);
 
       bg.on('pointerdown', () => {
@@ -476,7 +479,8 @@ export default class TouchControls {
       .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains)
       .setStrokeStyle(2, 0x444444, 0.7);
     const exitText = scene.add.text(x, exitY, '✕', {
-      font: 'bold 22px monospace', fill: '#ff6666'
+      font: 'bold 22px ChangaOne, monospace', fill: '#ff6666',
+      stroke: '#330000', strokeThickness: 3
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.9);
 
     exitBg.on('pointerdown', () => {

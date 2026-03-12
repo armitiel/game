@@ -64,17 +64,28 @@ export default class Trash extends Phaser.Physics.Arcade.Sprite {
   onPlayerOnTop() {
     if (this.isCrushed) return;
     this._offTopFrames = 0; // player is on top — reset off-counter
-    if (!this._playerWasOnTop) {
+    if (!this._playerWasOnTop && !this._squashLock) {
       this._playerWasOnTop = true;
       this.jumpCount++;
 
-      // Squash effect on each landing
+      // Squash effect on each landing — stable bottom, compress from top
+      const baseScaleY = this.scaleY;
+      const baseY = this.y;
+      const halfH = this.displayHeight / 2;
+      const squashScale = baseScaleY * 0.85;
+      const squashOffset = halfH * (1 - 0.85); // how much top shrinks
+
+      // Freeze jump counting during squash tween to prevent physics flicker
+      // from the Y shift causing a false second landing
+      this._squashLock = true;
       this.scene.tweens.add({
         targets: this,
-        scaleY: this.scaleY * 0.85,
+        scaleY: squashScale,
+        y: baseY + squashOffset,  // push down to keep bottom stable
         duration: 80,
         yoyo: true,
-        ease: 'Sine.easeOut'
+        ease: 'Sine.easeOut',
+        onComplete: () => { this._squashLock = false; }
       });
 
       if (this.jumpCount >= 2) {
@@ -86,6 +97,7 @@ export default class Trash extends Phaser.Physics.Arcade.Sprite {
   /** Called when player is NOT touching the top this frame */
   onPlayerOffTop() {
     if (!this._playerWasOnTop) return;
+    if (this._squashLock) return; // ignore physics flicker during squash tween
     this._offTopFrames++;
     // Require 6+ consecutive frames off top to count as truly leaving
     // (prevents physics flicker from resetting mid-stand)

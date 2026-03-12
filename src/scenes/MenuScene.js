@@ -33,16 +33,18 @@ export default class MenuScene extends Phaser.Scene {
 
     // Subtitle
     this.add.text(cx, cy + logo.displayHeight / 2 - 30, 'Paint the city. Stay in the shadows.', {
-      font: '16px monospace',
-      fill: '#667788'
+      font: '16px ChangaOne, monospace',
+      fill: '#667788',
+      stroke: '#000000', strokeThickness: 3
     }).setOrigin(0.5);
 
     // Start button
     const isMobile = this.sys.game.device.input.touch;
     const startText = this.add.text(cx, cy + 100,
       isMobile ? '[ TAP TO START ]' : '[ PRESS SPACE TO START ]', {
-      font: '20px monospace',
-      fill: '#00ff88'
+      font: '20px ChangaOne, monospace',
+      fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 4
     }).setOrigin(0.5);
 
     // Blink effect
@@ -57,18 +59,21 @@ export default class MenuScene extends Phaser.Scene {
     // Controls info
     if (isMobile) {
       this.add.text(cx, this.sys.game.config.height - 65, 'D-pad: ruch   JUMP: skok   ACT: maluj   E: interakcja', {
-        font: '12px monospace',
-        fill: '#445566'
+        font: '12px ChangaOne, monospace',
+        fill: '#445566',
+        stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
     } else {
       this.add.text(cx, this.sys.game.config.height - 80, 'ARROWS: Move   SPACE: Jump   E: Paint/Pickup', {
-        font: '12px monospace',
-        fill: '#445566'
+        font: '12px ChangaOne, monospace',
+        fill: '#445566',
+        stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
 
       this.add.text(cx, this.sys.game.config.height - 55, 'UP/DOWN on ladder   Hide in shadows to avoid cops', {
-        font: '12px monospace',
-        fill: '#445566'
+        font: '12px ChangaOne, monospace',
+        fill: '#445566',
+        stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
     }
 

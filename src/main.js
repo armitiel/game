@@ -171,7 +171,7 @@ function showInstallBanner(type) {
     position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
     z-index: 10001;
     display: ${isIOSGuide ? 'block' : 'flex'}; align-items: center; gap: 12px;
-    background: #111; color: #00ff88; font-family: monospace; font-size: 14px;
+    background: #111; color: #00ff88; font-family: 'ChangaOne', monospace; font-size: 14px;
     padding: ${isIOSGuide ? '14px 18px' : '10px 16px'}; border-radius: 10px; border: 1px solid #00ff8855;
     box-shadow: 0 4px 20px rgba(0,255,136,0.15);
     max-width: 90vw;

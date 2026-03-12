@@ -254,14 +254,14 @@ export default class GameScene extends Phaser.Scene {
     const bg = this.add.graphics();
     bg.setDepth(0);
 
-    // Night sky — vertical gradient (dark navy top → slightly lighter bottom)
-    const gradientSteps = 32;
+    // Night sky — vertical gradient (deep navy top → blue-indigo bottom)
+    const gradientSteps = 64;
     for (let i = 0; i < gradientSteps; i++) {
       const t = i / (gradientSteps - 1);
-      // Top: 0x06061a → Bottom: 0x101030
-      const r = Math.round(6 + t * 10);
-      const g = Math.round(6 + t * 10);
-      const b = Math.round(26 + t * 22);
+      // Top: #080820 → Bottom: #1a1a50
+      const r = Math.round(8 + t * 18);
+      const g = Math.round(8 + t * 18);
+      const b = Math.round(32 + t * 48);
       bg.fillStyle((r << 16) | (g << 8) | b, 1);
       const sy = Math.floor(wh * i / gradientSteps);
       const sh = Math.ceil(wh / gradientSteps) + 1;
@@ -363,16 +363,150 @@ export default class GameScene extends Phaser.Scene {
    */
   _addPlatformShadow(x, y, width) {
     const shadowH = 40;
-    const steps = 6;
+    const steps = 8;
     const gfx = this.add.graphics();
     for (let i = 0; i < steps; i++) {
       const t = i / steps;
-      const alpha = 0.25 * (1 - t);
+      const alpha = 0.45 * (1 - t);
       const sliceH = shadowH / steps;
       gfx.fillStyle(0x000000, alpha);
       gfx.fillRect(x, y + t * shadowH, width, sliceH);
     }
     gfx.setDepth(2.5); // between shadows (2) and platforms (3)
+  }
+
+  /**
+   * Build a brick wall from real brick/brick2 tile textures.
+   * Returns a RenderTexture positioned at (wx, wy) with size (w, h).
+   * - Background: #8f3833
+   * - Each brick casts a small shadow
+   * - Edge bricks are clipped shorter to create stepped edges
+   */
+  _createBrickWall(wx, wy, w, h, depth) {
+    // Brick tile dimensions (source: 54x26)
+    const srcW = 54, srcH = 26;
+    const scale = 0.45;
+    const bw = Math.round(srcW * scale);  // ~24
+    const bh = Math.round(srcH * scale);  // ~12
+    const gap = 2;
+    const shadowOx = 2, shadowOy = 2;
+
+    // Margin for protruding teeth on each side
+    const margin = bw;
+    const rtW = w + margin * 2;
+    const rtH = h + margin * 2;
+
+    const rt = this.add.renderTexture(wx - margin, wy - margin, rtW, rtH)
+      .setOrigin(0, 0).setDepth(depth);
+
+    // Stepped edge pattern — teeth protrude beyond the base rectangle
+    const totalRows = Math.ceil(rtH / (bh + gap));
+    const edgePattern = [];
+    for (let r = 0; r < totalRows; r++) {
+      const seed = (r * 7 + 3) % 5;
+      let leftOut = 0, rightOut = 0;
+      // Teeth protrude outward from the wall edges (0 = flush, positive = sticking out)
+      if (seed === 0) { leftOut = Math.round(bw * 0.6); rightOut = 0; }
+      else if (seed === 1) { leftOut = 0; rightOut = Math.round(bw * 0.5); }
+      else if (seed === 2) { leftOut = Math.round(bw * 0.3); rightOut = Math.round(bw * 0.3); }
+      else if (seed === 3) { leftOut = 0; rightOut = Math.round(bw * 0.7); }
+      else { leftOut = Math.round(bw * 0.5); rightOut = 0; }
+      edgePattern.push({ leftOut, rightOut });
+    }
+
+    // Determine which rows have top/bottom teeth (protrude above/below wall)
+    const topTeeth = [];
+    const bottomTeeth = [];
+    const baseCols = Math.ceil(w / (bw + gap)) + 2;
+    for (let c = 0; c < baseCols; c++) {
+      const seed2 = (c * 11 + 5) % 4;
+      topTeeth.push(seed2 === 0 ? Math.round(bh * 0.7) : (seed2 === 2 ? Math.round(bh * 0.4) : 0));
+      bottomTeeth.push(seed2 === 1 ? Math.round(bh * 0.6) : (seed2 === 3 ? Math.round(bh * 0.5) : 0));
+    }
+
+    // Temp image for drawing bricks
+    const brickImg = this.make.image({ key: 'brick', add: false }).setScale(scale);
+    const brick2Img = this.make.image({ key: 'brick2', add: false }).setScale(scale);
+
+    // Collect all brick positions first (for bg fill + shadow + brick passes)
+    const bricks = [];
+    for (let row = 0; row < totalRows; row++) {
+      const by = row * (bh + gap);
+      const rowOffset = (row % 2) * Math.round(bw / 2 + gap);
+      const { leftOut, rightOut } = edgePattern[row];
+
+      // Row boundaries in RT space — base wall is at [margin, margin+w]
+      const rowLeft = margin - leftOut;
+      const rowRight = margin + w + rightOut;
+
+      // Vertical bounds — base wall is at [margin, margin+h]
+      const inVertical = (by + bh > margin && by < margin + h);
+      // Rows above/below the base rectangle: only render if teeth allow
+      const aboveBase = (by + bh <= margin);
+      const belowBase = (by >= margin + h);
+
+      const colStart = Math.floor((-rowOffset + rowLeft) / (bw + gap)) - 1;
+      const colEnd = Math.ceil((rowRight - rowOffset) / (bw + gap)) + 1;
+
+      for (let col = colStart; col <= colEnd; col++) {
+        const bx = col * (bw + gap) + rowOffset;
+        if (bx + bw <= rowLeft || bx >= rowRight) continue;
+
+        // For rows within vertical range of base wall
+        if (inVertical) {
+          bricks.push({ bx, by, row, col });
+          continue;
+        }
+
+        // Top teeth — only allow bricks in columns that protrude
+        if (aboveBase) {
+          const colIdx = Math.floor((bx - margin) / (bw + gap));
+          const toothH = topTeeth[((colIdx % topTeeth.length) + topTeeth.length) % topTeeth.length];
+          if (toothH > 0 && by + bh > margin - toothH) {
+            bricks.push({ bx, by, row, col });
+          }
+          continue;
+        }
+
+        // Bottom teeth
+        if (belowBase) {
+          const colIdx = Math.floor((bx - margin) / (bw + gap));
+          const toothH = bottomTeeth[((colIdx % bottomTeeth.length) + bottomTeeth.length) % bottomTeeth.length];
+          if (toothH > 0 && by < margin + h + toothH) {
+            bricks.push({ bx, by, row, col });
+          }
+        }
+      }
+    }
+
+    // Pass 1: mortar/background behind each brick
+    const bgGfx = this.make.graphics({ add: false });
+    bgGfx.fillStyle(0x8f3833, 1);
+    for (const b of bricks) {
+      bgGfx.fillRect(b.bx - 1, b.by - 1, bw + 2, bh + 2);
+    }
+    rt.draw(bgGfx, 0, 0);
+    bgGfx.destroy();
+
+    // Pass 2: shadows
+    const shadowGfx = this.make.graphics({ add: false });
+    shadowGfx.fillStyle(0x000000, 0.35);
+    for (const b of bricks) {
+      shadowGfx.fillRect(b.bx + shadowOx, b.by + shadowOy, bw, bh);
+    }
+    rt.draw(shadowGfx, 0, 0);
+    shadowGfx.destroy();
+
+    // Pass 3: brick tiles
+    for (const b of bricks) {
+      const img = ((b.row + b.col) % 3 === 0) ? brick2Img : brickImg;
+      rt.draw(img, b.bx + bw / 2, b.by + bh / 2);
+    }
+
+    brickImg.destroy();
+    brick2Img.destroy();
+
+    return rt;
   }
 
   createLadders() {
@@ -391,21 +525,71 @@ export default class GameScene extends Phaser.Scene {
       const ladderScale = LADDER_DISPLAY_W / 51;
       const tileH = height / ladderScale;
 
-      // Convert tileSprite → Image via RenderTexture to fix depth-sorting vs platforms
-      const tmpTile = this.add.tileSprite(0, 0, 51, tileH, 'ladder_tile');
-      tmpTile.setScale(ladderScale);
+      // Convert tileSprite → canvas with inner outline along transparency edges
       const snapW = Math.ceil(51 * ladderScale);
-      const snapH = Math.ceil(tileH * ladderScale);
+      const snapH = Math.ceil(height);
       const rtKey = '__ladder_' + x + '_' + topY;
-      const rt = this.add.renderTexture(0, 0, snapW, snapH);
-      rt.draw(tmpTile, snapW / 2, snapH / 2);
-      rt.saveTexture(rtKey);
-      rt.destroy();
-      tmpTile.destroy();
+
+      // Draw tiled ladder onto offscreen canvas
+      const srcImg = this.textures.get('ladder_tile').getSourceImage();
+      const canvas = document.createElement('canvas');
+      canvas.width = snapW;
+      canvas.height = snapH;
+      const ctx = canvas.getContext('2d');
+      // Tile the source image scaled
+      const tileW = Math.ceil(srcImg.width * ladderScale);
+      const tileH2 = Math.ceil(srcImg.height * ladderScale);
+      for (let ty = 0; ty < snapH; ty += tileH2) {
+        ctx.drawImage(srcImg, 0, 0, srcImg.width, srcImg.height, 0, ty, tileW, tileH2);
+      }
+
+      // Add inner outline along transparency boundary
+      const imgData = ctx.getImageData(0, 0, snapW, snapH);
+      const d = imgData.data;
+      const outR = 0x1a, outG = 0x23, outB = 0x30;
+      const edgePixels = [];
+      for (let py = 0; py < snapH; py++) {
+        for (let px = 0; px < snapW; px++) {
+          const i = (py * snapW + px) * 4;
+          if (d[i + 3] < 128) continue; // skip transparent
+          // Check if any neighbor is transparent → this is an edge pixel
+          let isEdge = false;
+          for (let dy = -1; dy <= 1 && !isEdge; dy++) {
+            for (let dx = -1; dx <= 1 && !isEdge; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = px + dx, ny = py + dy;
+              if (nx < 0 || nx >= snapW || ny < 0 || ny >= snapH) { isEdge = true; continue; }
+              const ni = (ny * snapW + nx) * 4;
+              if (d[ni + 3] < 128) isEdge = true;
+            }
+          }
+          if (isEdge) edgePixels.push(i);
+        }
+      }
+      // Paint edge pixels
+      for (const i of edgePixels) {
+        d[i] = outR; d[i + 1] = outG; d[i + 2] = outB; d[i + 3] = 255;
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      this.textures.addCanvas(rtKey, canvas);
 
       const visual = this.add.image(x, topY + height / 2, rtKey);
       visual.setDepth(ladderDepth ?? 4);
       this.ladderVisuals.add(visual);
+
+      // Cast shadow to the right of the ladder
+      const ladShadowW = LADDER_DISPLAY_W * 0.7;
+      const ladShadowSteps = 6;
+      const ladShadowGfx = this.add.graphics();
+      for (let si = 0; si < ladShadowSteps; si++) {
+        const t = si / ladShadowSteps;
+        const alpha = 0.4 * (1 - t);
+        const sliceW = ladShadowW / ladShadowSteps;
+        ladShadowGfx.fillStyle(0x000000, alpha);
+        ladShadowGfx.fillRect(x + snapW / 2 + t * ladShadowW, topY, sliceW, height);
+      }
+      ladShadowGfx.setDepth((ladderDepth ?? 4) - 0.1);
 
       const zone = this.add.zone(
         x - ZONE_WIDTH / 2, topY - ZONE_EXTEND_TOP,
@@ -433,20 +617,9 @@ export default class GameScene extends Phaser.Scene {
     this._shadowArrows = [];   // down-arrow hints per shadow
 
     const addShadow = (x, y, w, h, shadowDepth) => {
-      const visual = this.add.graphics();
-      // Dark fill — almost black
-      visual.fillStyle(SHADOW.COLOR, SHADOW.ALPHA);
-      visual.fillRect(x, y, w, h);
-      // Side edge glow — subtle vertical lines to show entrance
-      const edgeAlpha = 0.45;
-      const edgeW = 2;
-      visual.fillStyle(0x3344aa, edgeAlpha);
-      visual.fillRect(x, y, edgeW, h);               // left edge
-      visual.fillRect(x + w - edgeW, y, edgeW, h);   // right edge
-      // Softer outer glow
-      visual.fillStyle(0x2233aa, 0.15);
-      visual.fillRect(x - 2, y, 2, h);               // left outer
-      visual.fillRect(x + w, y, 2, h);                // right outer
+      // Use shadow.png image stretched to fill the shadow zone
+      const visual = this.add.image(x + w / 2, y + h / 2, 'shadow_img');
+      visual.setDisplaySize(w, h);
       visual.setDepth(shadowDepth ?? 2);
       this.shadowVisuals.add(visual);
 
@@ -458,7 +631,7 @@ export default class GameScene extends Phaser.Scene {
       const arrowX = x + w / 2;
       const arrowY = y + 6;
       const arrow = this.add.text(arrowX, arrowY, '\u25BC', {
-        font: 'bold 14px monospace',
+        font: 'bold 14px ChangaOne, monospace',
         fill: '#88bbff',
       }).setOrigin(0.5, 0).setDepth((shadowDepth ?? 2) + 0.1).setAlpha(0).setVisible(false);
       this._shadowArrows.push({ arrow, x, y, w, h });
@@ -567,23 +740,8 @@ export default class GameScene extends Phaser.Scene {
     this.paintSpotZones = this.physics.add.staticGroup();
 
     const addSpot = (x, y, w, h, paintingKey, spotDepth) => {
-      // Paint-by-numbers spot — uses JSON grid data
-      const visual = this.add.graphics().setDepth(spotDepth ?? 2);
-      // Draw brick wall placeholder
-      visual.fillStyle(0x555566, 1);
-      visual.fillRect(x - w / 2, y - h / 2, w, h);
-      // Brick pattern
-      const brickW = 14, brickH = 8, gap = 1;
-      for (let row = 0; row < Math.ceil(h / (brickH + gap)); row++) {
-        const offsetX = (row % 2) * (brickW / 2 + gap);
-        for (let col = -1; col < Math.ceil(w / (brickW + gap)) + 1; col++) {
-          const bx = x - w / 2 + col * (brickW + gap) + offsetX;
-          const by = y - h / 2 + row * (brickH + gap);
-          visual.fillStyle(0x443344 + (((row * 7 + col * 3) % 5) * 0x050505), 1);
-          visual.fillRect(bx, by, brickW, brickH);
-        }
-      }
-      // No border — clean brick wall look
+      // Paint-by-numbers spot — brick wall built from real brick tiles
+      const visual = this._createBrickWall(x - w / 2, y - h / 2, w, h, spotDepth ?? 2);
 
       // Interaction zone — slightly wider than visual for comfortable reach
       const interactPad = 10;  // small extra reach on each side
@@ -641,7 +799,8 @@ export default class GameScene extends Phaser.Scene {
     this._addingHud = true;
     const gw = this.sys.game.config.width;
     this._towerTimerText = this.add.text(gw / 2, 12, '', {
-      font: 'bold 22px monospace', fill: '#00ff88'
+      font: 'bold 22px ChangaOne, monospace', fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 4
     }).setOrigin(0.5, 0).setDepth(300);
     this._addingHud = false;
     this.cameras.main.ignore(this._towerTimerText);
@@ -655,7 +814,7 @@ export default class GameScene extends Phaser.Scene {
 
       // Message text floating above gate
       const msg = this.add.text(g.x + g.w / 2, g.y - 16, g.message || '', {
-        font: 'bold 10px monospace', fill: '#ff6666',
+        font: 'bold 10px ChangaOne, monospace', fill: '#ff6666',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5, 1).setDepth(10.1);
       gate.msgText = msg;
@@ -720,7 +879,8 @@ export default class GameScene extends Phaser.Scene {
     this._addingHud = true;
     const gw = this.sys.game.config.width;
     const bonusText = this.add.text(gw / 2, 42, `+${this._towerBonus}s`, {
-      font: 'bold 18px monospace', fill: '#ffdd33'
+      font: 'bold 18px ChangaOne, monospace', fill: '#ffdd33',
+      stroke: '#332200', strokeThickness: 3
     }).setOrigin(0.5, 0).setDepth(301);
     this._addingHud = false;
     this.cameras.main.ignore(bonusText);
@@ -739,7 +899,7 @@ export default class GameScene extends Phaser.Scene {
         this._addingHud = true;
         const unlockText = this.add.text(gw / 2, 70,
           `NOWY KOLOR: ${unlocks[muralIdx]}!`, {
-          font: 'bold 14px monospace', fill: '#33ff88',
+          font: 'bold 14px ChangaOne, monospace', fill: '#33ff88',
           stroke: '#000000', strokeThickness: 3
         }).setOrigin(0.5, 0).setDepth(301);
         this._addingHud = false;
@@ -788,8 +948,9 @@ export default class GameScene extends Phaser.Scene {
         .setDepth(101).setScrollFactor(0).setVisible(false).setScale(canScale);
       // Count label below
       const count = this.add.text(sx, slotY + Math.round(17 * uiScale), '', {
-        font: `bold ${Math.round(8 * uiScale)}px monospace`,
-        fill: '#ffffff'
+        font: `bold ${Math.round(8 * uiScale)}px ChangaOne, monospace`,
+        fill: '#ffffff',
+        stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5).setDepth(101).setScrollFactor(0).setAlpha(0);
 
       this.hudSlots.push({ color: slotColors[i], empty, filled, count });
@@ -798,14 +959,15 @@ export default class GameScene extends Phaser.Scene {
     // Painted spots counter (after the slots)
     const counterX = slotStartX + slotColors.length * slotSpacing + Math.round(8 * uiScale);
     this.hudCountText = this.add.text(counterX, slotY, '', {
-      font: `bold ${Math.round(10 * uiScale)}px monospace`,
-      fill: '#00ff88'
+      font: `bold ${Math.round(10 * uiScale)}px ChangaOne, monospace`,
+      fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 2
     }).setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
 
     // Status text (desktop only — mobile has no text hints)
     if (!isMobile) {
       this.statusText = this.add.text(gw / 2, 10, '', {
-        font: `${Math.round(12 * uiScale)}px monospace`,
+        font: `${Math.round(12 * uiScale)}px ChangaOne, monospace`,
         fill: '#00ff88',
         padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
       }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0).setVisible(false);
@@ -877,6 +1039,24 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(500, tryPlayBgm);
     this.time.delayedCall(2000, tryPlayBgm);
 
+    // Menu button — return to main menu
+    const menuBtnX = gw - Math.round(110 * uiScale);
+    const menuBtnY = Math.round(18 * uiScale);
+    const menuBtnSize = Math.round(64 * uiScale);
+    this.menuBtnHit = this.add.rectangle(menuBtnX + menuBtnSize / 2 - 4, menuBtnY + menuBtnSize / 2 - 8, menuBtnSize, menuBtnSize, 0x000000, 0)
+      .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
+    this.menuBtn = this.add.text(menuBtnX, menuBtnY, '\u2302', {
+      font: `bold ${Math.round(20 * uiScale)}px ChangaOne, monospace`,
+      fill: '#aabbcc',
+      backgroundColor: '#000000aa',
+      padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
+    }).setDepth(100).setScrollFactor(0);
+
+    this.menuBtnHit.on('pointerdown', () => {
+      if (this.bgm) this.bgm.stop();
+      this.scene.start('MenuScene');
+    });
+
     const muteBtnSize = Math.round(64 * uiScale);
     const muteBtnX = gw - Math.round(55 * uiScale);
     const muteBtnY = Math.round(18 * uiScale);
@@ -884,7 +1064,7 @@ export default class GameScene extends Phaser.Scene {
     this.muteBtnHit = this.add.rectangle(muteBtnX + muteBtnSize / 2 - 4, muteBtnY + muteBtnSize / 2 - 8, muteBtnSize, muteBtnSize, 0x000000, 0)
       .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
     this.muteBtn = this.add.text(muteBtnX, muteBtnY, '\u266B', {
-      font: `bold ${Math.round(20 * uiScale)}px monospace`,
+      font: `bold ${Math.round(20 * uiScale)}px ChangaOne, monospace`,
       fill: '#00ff88',
       backgroundColor: '#000000aa',
       padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
@@ -937,7 +1117,7 @@ export default class GameScene extends Phaser.Scene {
     this.hudHearts.forEach(h => heartElements.push(h.full, h.empty));
 
     // Main camera ignores HUD + touch controls, UI camera ignores everything else
-    const hudElements = [this.hudBg, this.hudCountText, this.statusText, this.muteBtn, this.muteBtnHit,
+    const hudElements = [this.hudBg, this.hudCountText, this.statusText, this.menuBtn, this.menuBtnHit, this.muteBtn, this.muteBtnHit,
       ...slotElements, ...heartElements, ...this.touch.getElements()].filter(Boolean);
     this.cameras.main.ignore(hudElements);
 
@@ -1073,7 +1253,7 @@ export default class GameScene extends Phaser.Scene {
     if (!hasAny) {
       const hint = this.add.text(this.player.x, this.player.y - 40,
         `Potrzebujesz farb: ${requiredColors.join(', ')}`, {
-          font: '11px monospace',
+          font: '11px ChangaOne, monospace',
           fill: '#ff6666',
           backgroundColor: '#000000aa',
           padding: { x: 4, y: 2 }
@@ -1149,17 +1329,21 @@ export default class GameScene extends Phaser.Scene {
       this.paintProgressText = this.add.text(
         gw / 2, hudY,
         `${Math.round(progress * 100)}%`,
-        { font: 'bold 22px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 8, y: 4 } }
+        { font: 'bold 22px ChangaOne, monospace', fill: '#ffffff', stroke: '#000000', strokeThickness: 4, backgroundColor: '#000000aa', padding: { x: 8, y: 4 } }
       ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
       this.cameras.main.ignore(this.paintProgressText);
       this._addingHud = false;
     } else {
+      // Desktop: fixed to top-center of screen on UI camera
+      const gw = this.sys.game.config.width;
+      this._addingHud = true;
       this.paintProgressText = this.add.text(
-        bounds.x + bounds.w / 2,
-        bounds.y - 14,
+        gw / 2, 44,
         `${Math.round(progress * 100)}%`,
-        { font: 'bold 11px monospace', fill: '#ffffff', backgroundColor: '#000000aa', padding: { x: 4, y: 2 } }
-      ).setOrigin(0.5).setDepth(15);
+        { font: 'bold 22px ChangaOne, monospace', fill: '#ffffff', stroke: '#000000', strokeThickness: 4, backgroundColor: '#000000aa', padding: { x: 10, y: 4 } }
+      ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
+      this.cameras.main.ignore(this.paintProgressText);
+      this._addingHud = false;
     }
 
     // Color selector HUD — touch buttons on mobile, world-space boxes on desktop
@@ -1266,7 +1450,7 @@ export default class GameScene extends Phaser.Scene {
       const box = this.add.rectangle(0, 0, boxSize, boxSize, hex, alpha)
         .setDepth(200).setStrokeStyle(1, 0xffffff, 0.5);
       const num = this.add.text(0, 0, String(i + 1), {
-        font: 'bold 11px monospace', fill: '#000000'
+        font: 'bold 11px ChangaOne, monospace', fill: '#000000'
       }).setOrigin(0.5).setDepth(200.1).setAlpha(hasColor ? 1 : 0.3);
 
       this.colorSelectorElements.push(box, num);
@@ -1403,8 +1587,9 @@ export default class GameScene extends Phaser.Scene {
     const spotX = spot.getData('spotX') || spot.x;
     const spotY = spot.getData('spotY') || spot.y;
     const splash = this.add.text(spotX, spotY, 'TAGGED!', {
-      font: 'bold 16px monospace',
-      fill: '#00ff88'
+      font: 'bold 16px ChangaOne, monospace',
+      fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 3
     }).setOrigin(0.5).setDepth(15);
 
     this.tweens.add({

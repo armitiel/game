@@ -28,8 +28,9 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
     // Exclamation mark for alert
     this.alertMark = scene.add.text(x, y - 30, '!', {
-      font: 'bold 24px monospace',
-      fill: '#ff3333'
+      font: 'bold 24px ChangaOne, monospace',
+      fill: '#ff3333',
+      stroke: '#330000', strokeThickness: 4
     }).setOrigin(0.5).setVisible(false).setDepth(10);
 
     this.setVelocityX(COP.SPEED * this.direction);
