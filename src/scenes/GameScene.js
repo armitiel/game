@@ -446,19 +446,9 @@ export default class GameScene extends Phaser.Scene {
         if (drawW <= 0) continue;
 
         // Alternate colors — rounded rect for each brick
-        const cr = 2; // corner radius
+        const cr = 2;
         ctx.fillStyle = (r + c) % 3 === 0 ? color2 : color1;
-        ctx.beginPath();
-        ctx.moveTo(drawX + cr, by);
-        ctx.lineTo(drawX + drawW - cr, by);
-        ctx.quadraticCurveTo(drawX + drawW, by, drawX + drawW, by + cr);
-        ctx.lineTo(drawX + drawW, by + brickH - cr);
-        ctx.quadraticCurveTo(drawX + drawW, by + brickH, drawX + drawW - cr, by + brickH);
-        ctx.lineTo(drawX + cr, by + brickH);
-        ctx.quadraticCurveTo(drawX, by + brickH, drawX, by + brickH - cr);
-        ctx.lineTo(drawX, by + cr);
-        ctx.quadraticCurveTo(drawX, by, drawX + cr, by);
-        ctx.closePath();
+        this._canvasRoundRect(ctx, drawX, by, drawW, brickH, cr);
         ctx.fill();
 
         // Subtle mortar highlight on top edge

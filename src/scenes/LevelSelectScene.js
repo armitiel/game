@@ -46,8 +46,8 @@ export default class LevelSelectScene extends Phaser.Scene {
 
   showModeSelect(cx, gh) {
     this.add.text(cx, 50, 'WYBIERZ TRYB', {
-      font: 'bold 28px ChangaOne, monospace', fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 4
+      font: 'bold 42px ChangaOne, monospace', fill: '#00ff88',
+      stroke: '#003322', strokeThickness: 5
     }).setOrigin(0.5);
 
     const modes = [
@@ -90,8 +90,8 @@ export default class LevelSelectScene extends Phaser.Scene {
 
       // Name
       this.add.text(x, cardY - 20, m.name, {
-        font: 'bold 22px ChangaOne, monospace', fill: '#' + m.color.toString(16).padStart(6, '0'),
-        stroke: '#000000', strokeThickness: 3
+        font: 'bold 32px ChangaOne, monospace', fill: '#' + m.color.toString(16).padStart(6, '0'),
+        stroke: '#000000', strokeThickness: 4
       }).setOrigin(0.5);
 
       // Description

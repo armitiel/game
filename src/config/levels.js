@@ -28,8 +28,8 @@ export const LEVEL_1 = {
     { x: 500, topY: H - 270, bottomY: H - 32, minX: 310, maxX: 590 },
   ],
   shadows: [
-    { x: 80, y: H - 135, w: 70, h: 100 },
-    { x: 568, y: H - 135, w: 70, h: 100 },
+    { x: 80, y: H - 135, w: 75, h: 100 },
+    { x: 568, y: H - 135, w: 75, h: 100 },
   ],
   paintCans: [
     { x: 120, y: H - 190 },
@@ -41,7 +41,7 @@ export const LEVEL_1 = {
     { x: 740, y: H - 140, w: 140, h: 222, paintingKey: 'painting_star' },
   ],
   trashCans: [
-    { x: 270, y: H - 56 },
+    { x: 310, y: H - 56 },
     { x: 902, y: H - 56 },
   ],
   cops: [
@@ -227,6 +227,3 @@ export const LEVEL_4 = {
 };
 
 export const LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4];
-export const STEALTH_LEVELS = [LEVEL_1, LEVEL_2];
-export const PUZZLE_LEVELS = [LEVEL_3];
-export const TOWER_LEVELS = [LEVEL_4];
