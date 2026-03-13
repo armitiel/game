@@ -1827,6 +1827,14 @@ export default class GameScene extends Phaser.Scene {
   // === WIND LEAVES EFFECT ===
 
   createLeafEffect() {
+    // Container lives on uiCam (added as HUD element — main cam ignores it).
+    // Children added via make.image({add:false}) bypass display list entirely,
+    // so no camera routing fires for them; they render only through this container.
+    this._addingHud = true;
+    this._leafContainer = this.add.container(0, 0).setDepth(55);
+    this._addingHud = false;
+    this.cameras.main.ignore(this._leafContainer);
+
     const scheduleNext = () => {
       const delay = Phaser.Math.Between(2500, 6000);
       this._leafTimer = this.time.delayedCall(delay, () => {
@@ -1859,18 +1867,15 @@ export default class GameScene extends Phaser.Scene {
     const startAngle = Phaser.Math.Between(0, 360);
     const totalRot  = Phaser.Math.Between(200, 500) * (Math.random() < 0.5 ? 1 : -1);
 
-    // uiCam has zoom=1 and scroll=0 — worldX = screenX exactly.
-    // _addingHud=true skips the addedtoscene handler so uiCam does NOT ignore this leaf.
-    // Then we explicitly hide it from the main camera.
-    this._addingHud = true;
-    const leaf = this.add.image(startX, startY, 'leaf_tex')
+    // make.image with add:false — NOT added to scene display list, no camera events fire.
+    // Leaf is added manually to _leafContainer which lives on uiCam (zoom=1, scroll=0).
+    // uiCam never scrolls, so leaf.x/y are literal screen pixels — camera-proof.
+    const leaf = this.make.image({ x: startX, y: startY, key: 'leaf_tex', add: false })
       .setScale(Phaser.Math.FloatBetween(0.8, 1.4))
       .setAngle(startAngle)
       .setAlpha(0.88)
-      .setDepth(55)
       .setTint(LEAF_TINTS[Phaser.Math.Between(0, LEAF_TINTS.length - 1)]);
-    this._addingHud = false;
-    this.cameras.main.ignore(leaf);   // main camera won't render leaf
+    this._leafContainer.add(leaf);
 
     const prog = { t: 0 };
     this.tweens.add({
@@ -1885,7 +1890,7 @@ export default class GameScene extends Phaser.Scene {
         leaf.angle = startAngle + totalRot * t;
         leaf.alpha = t > 0.8 ? 0.88 * (1 - (t - 0.8) / 0.2) : 0.88;
       },
-      onComplete: () => leaf.destroy(),
+      onComplete: () => { if (this._leafContainer) this._leafContainer.remove(leaf, true); },
     });
   }
 
