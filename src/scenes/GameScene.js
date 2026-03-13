@@ -915,13 +915,24 @@ export default class GameScene extends Phaser.Scene {
       const cone = this.add.image(bulbX, bulbY, texKey).setOrigin(0.5, 0).setDepth(lampDepth - 0.1);
       cone.setBlendMode(Phaser.BlendModes.ADD);
 
-      // Central bright spot at bulb
-      const g = this.add.graphics();
-      g.setDepth(lampDepth - 0.05);
-      g.fillStyle(0xffeeaa, intensity * 0.6);
-      g.fillCircle(bulbX, bulbY, 14);
-      g.fillStyle(0xffffff, intensity * 0.3);
-      g.fillCircle(bulbX, bulbY, 7);
+      // Central soft glow at bulb — radial gradient canvas texture
+      const glowR  = 28;
+      const glowKey = `_lamp_glow_${Math.round(bulbX)}_${Math.round(bulbY)}`;
+      const glowSize = glowR * 2 + 2;
+      const gt = this.textures.createCanvas(glowKey, glowSize, glowSize);
+      const gc = gt.getContext();
+      const ggrad = gc.createRadialGradient(glowR + 1, glowR + 1, 0, glowR + 1, glowR + 1, glowR);
+      ggrad.addColorStop(0,    `rgba(255,255,220,${intensity * 0.9})`);
+      ggrad.addColorStop(0.25, `rgba(255,230,140,${intensity * 0.6})`);
+      ggrad.addColorStop(0.6,  `rgba(255,200,80,${intensity * 0.25})`);
+      ggrad.addColorStop(1,    'rgba(255,180,60,0)');
+      gc.fillStyle = ggrad;
+      gc.fillRect(0, 0, glowSize, glowSize);
+      gt.refresh();
+      this.add.image(bulbX, bulbY, glowKey)
+        .setOrigin(0.5, 0.5)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(lampDepth - 0.05);
     });
   }
 
