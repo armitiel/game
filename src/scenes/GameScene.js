@@ -878,12 +878,12 @@ export default class GameScene extends Phaser.Scene {
       const post = this.add.image(x, y, 'lamp_img').setOrigin(0.5, 1).setDepth(lampDepth);
       post.setDisplaySize(80, 202);
 
-      // Light cone — single trapezoid shape with gradient texture
+      // Light cone — trapezoid with arc top matching the round bulb
       const bulbX = x + 16;
-      const bulbY = y - post.displayHeight + 7;
-      const coneH = y - bulbY; // reaches lamp base
-      const topW = 10;
-      const botW = radius;
+      const bulbY = y - post.displayHeight + 16; // center of bulb head (16px from top at display scale)
+      const bulbR = 15;                           // approx radius of bulb head in world px
+      const coneH = y - bulbY;
+      const botW  = radius;
 
       // Create a canvas texture for the gradient cone
       const texKey = `_lamp_cone_${Math.round(bulbX)}_${Math.round(bulbY)}`;
@@ -893,26 +893,37 @@ export default class GameScene extends Phaser.Scene {
       const cc = ct.getContext();
 
       // Radial gradient from bulb center outward
-      const cx = texW / 2, cy0 = 2;
-      const grad = cc.createRadialGradient(cx, cy0, topW, cx, texH * 0.5, botW);
-      grad.addColorStop(0, `rgba(255,220,120,${intensity})`);
+      const cx = texW / 2;
+      const grad = cc.createRadialGradient(cx, 0, bulbR, cx, texH * 0.5, botW);
+      grad.addColorStop(0,   `rgba(255,220,120,${intensity})`);
       grad.addColorStop(0.4, `rgba(255,200,80,${intensity * 0.5})`);
       grad.addColorStop(0.8, `rgba(255,180,60,${intensity * 0.15})`);
-      grad.addColorStop(1, 'rgba(255,180,60,0)');
+      grad.addColorStop(1,   'rgba(255,180,60,0)');
 
-      // Clip to trapezoid shape
+      // Clip: arc at top follows bottom curve of round bulb, then trapezoid sides
       cc.beginPath();
-      cc.moveTo(cx - topW, 0);
-      cc.lineTo(cx + topW, 0);
-      cc.lineTo(cx + botW, texH);
+      cc.arc(cx, 0, bulbR, 0, Math.PI, false); // bottom half of bulb circle, bows downward
       cc.lineTo(cx - botW, texH);
+      cc.lineTo(cx + botW, texH);
       cc.closePath();
       cc.clip();
       cc.fillStyle = grad;
       cc.fillRect(0, 0, texW, texH);
+      // Soft-fade the side edges so no hard cutoff line is visible
+      cc.globalCompositeOperation = 'destination-in';
+      const fadeW = texW * 0.05;
+      const edgeGrad = cc.createLinearGradient(0, 0, texW, 0);
+      edgeGrad.addColorStop(0,              'rgba(0,0,0,0)');
+      edgeGrad.addColorStop(fadeW / texW,   'rgba(0,0,0,1)');
+      edgeGrad.addColorStop(1 - fadeW / texW, 'rgba(0,0,0,1)');
+      edgeGrad.addColorStop(1,              'rgba(0,0,0,0)');
+      cc.fillStyle = edgeGrad;
+      cc.fillRect(0, 0, texW, texH);
+      cc.globalCompositeOperation = 'source-over';
       ct.refresh();
 
-      const cone = this.add.image(bulbX, bulbY, texKey).setOrigin(0.5, 0).setDepth(lampDepth - 0.1);
+      // Cone renders IN FRONT of lamp post
+      const cone = this.add.image(bulbX, bulbY, texKey).setOrigin(0.5, 0).setDepth(lampDepth + 0.5);
       cone.setBlendMode(Phaser.BlendModes.ADD);
 
       // Central soft glow at bulb — radial gradient canvas texture
@@ -932,7 +943,7 @@ export default class GameScene extends Phaser.Scene {
       this.add.image(bulbX, bulbY, glowKey)
         .setOrigin(0.5, 0.5)
         .setBlendMode(Phaser.BlendModes.ADD)
-        .setDepth(lampDepth - 0.05);
+        .setDepth(lampDepth + 0.6); // in front of lamp post
     });
   }
 
