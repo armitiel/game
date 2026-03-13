@@ -148,7 +148,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         if (m.levels.length === 1) {
           // Only 1 level — go straight to game
           const idx = LEVELS.indexOf(m.levels[0]);
-          this.scene.start('GameScene', { levelIndex: idx });
+          this.scene.start('IntroScene', { levelIndex: idx });
         } else {
           this.scene.restart({ mode: m.key });
         }
@@ -158,7 +158,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       this.input.keyboard.on(`keydown-${i + 1}`, () => {
         if (m.levels.length === 1) {
           const idx = LEVELS.indexOf(m.levels[0]);
-          this.scene.start('GameScene', { levelIndex: idx });
+          this.scene.start('IntroScene', { levelIndex: idx });
         } else {
           this.scene.restart({ mode: m.key });
         }
@@ -234,11 +234,11 @@ export default class LevelSelectScene extends Phaser.Scene {
       card.on('pointerout', () => card.setStrokeStyle(2, 0x334466));
 
       card.on('pointerdown', () => {
-        this.scene.start('GameScene', { levelIndex: globalIdx });
+        this.scene.start('IntroScene', { levelIndex: globalIdx });
       });
 
       this.input.keyboard.on(`keydown-${i + 1}`, () => {
-        this.scene.start('GameScene', { levelIndex: globalIdx });
+        this.scene.start('IntroScene', { levelIndex: globalIdx });
       });
     }
 

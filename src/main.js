@@ -5,6 +5,7 @@ import MenuScene from './scenes/MenuScene.js';
 import LevelSelectScene from './scenes/LevelSelectScene.js';
 import GameScene from './scenes/GameScene.js';
 import WinScene from './scenes/WinScene.js';
+import IntroScene from './scenes/IntroScene.js';
 
 // On mobile, widen the game to match screen aspect ratio (no black bars)
 // Keep height at 720, stretch width to fill screen
@@ -25,7 +26,7 @@ const config = {
       debug: false  // set to true to see collision boxes
     }
   },
-  scene: [BootScene, MenuScene, LevelSelectScene, GameScene, WinScene],
+  scene: [BootScene, MenuScene, LevelSelectScene, IntroScene, GameScene, WinScene],
   pixelArt: true,
   scale: {
     mode: Phaser.Scale.FIT,
