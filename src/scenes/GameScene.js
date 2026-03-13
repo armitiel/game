@@ -9,6 +9,7 @@ import PaintArm from '../entities/PaintArm.js';
 import PaintByNumbers from '../entities/PaintByNumbers.js';
 import SynthSFX from '../utils/SynthSFX.js';
 import TouchControls from '../utils/TouchControls.js';
+import Paper from '../entities/Paper.js';
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -193,6 +194,10 @@ export default class GameScene extends Phaser.Scene {
     if (this.mode === 'tower') {
       this.setupTowerMode();
     }
+
+    // === Newspapers (paper props that react to player passing) ===
+    this.papers = [];
+    this.createPapers();
 
     // === Wind leaves effect ===
     this.createLeafEffect();
@@ -1018,6 +1023,13 @@ export default class GameScene extends Phaser.Scene {
         .setOrigin(0.5, 0.5)
         .setBlendMode(Phaser.BlendModes.ADD)
         .setDepth(lampDepth + 0.6); // in front of lamp post
+    });
+  }
+
+  createPapers() {
+    (this.levelData.papers || []).forEach(p => {
+      const paper = new Paper(this, p.x, p.y, p.angle);
+      this.papers.push(paper);
     });
   }
 
@@ -2385,6 +2397,26 @@ export default class GameScene extends Phaser.Scene {
     }
     // Update shadow down-arrow indicators
     this._updateShadowArrows();
+
+    // Paper blow — trigger when player runs past within range
+    if (this.papers.length > 0) {
+      const px = this.player.x;
+      const py = this.player.y;
+      const pvx = this.player.body.velocity.x;
+      const speed = Math.abs(pvx);
+      if (speed > 40) { // only when actually moving
+        for (const paper of this.papers) {
+          paper.tick(delta);
+          if (Math.abs(px - paper.x) < 55 && Math.abs(py - paper.homeY) < 80) {
+            paper.disturb(pvx, speed);
+          }
+        }
+      } else {
+        for (const paper of this.papers) {
+          paper.tick(delta);
+        }
+      }
+    }
     // Animate mural glow & star particles
     this._updateMuralGlow(time, delta);
 

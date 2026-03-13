@@ -64,6 +64,14 @@ export const LEVEL_1 = {
     { x: 1120, y: H - 23, radius: 120, intensity: 0.65 },
     { x: 80, y: H - 147, radius: 120, intensity: 0.65 },
   ],
+  papers: [
+    { x: 180, y: H - 32 },
+    { x: 360, y: H - 32 },
+    { x: 530, y: H - 32 },
+    { x: 870, y: H - 32 },
+    { x: 1050, y: H - 32 },
+    { x: 200, y: H - 158 },
+  ],
   foregroundWires: [
     { x1: -10, y1: H - 520, x2: 1270, y2: H - 550 },
   ],
@@ -137,6 +145,16 @@ export const LEVEL_2 = {
   lamps: [
     { x: 100, y: L2_H - 990, radius: 120, intensity: 0.7 },
   ],
+  papers: [
+    { x: 120, y: L2_H - 32 },
+    { x: 350, y: L2_H - 32 },
+    { x: 580, y: L2_H - 32 },
+    { x: 80, y: L2_H - 252 },
+    { x: 520, y: L2_H - 252 },
+    { x: 100, y: L2_H - 502 },
+    { x: 650, y: L2_H - 502 },
+    { x: 200, y: L2_H - 752 },
+  ],
   foregroundWires: [
     { x1: 0, y1: L2_H - 380, x2: L2_W, y2: L2_H - 400 },
     { x1: 0, y1: L2_H - 880, x2: L2_W, y2: L2_H - 860 },
@@ -195,6 +213,15 @@ export const LEVEL_3 = {
     { x: 779, y: H - 187 },
   ],
   cops: [
+  ],
+  papers: [
+    { x: 80, y: H - 32 },
+    { x: 240, y: H - 32 },
+    { x: 600, y: H - 32 },
+    { x: 900, y: H - 32 },
+    { x: 1100, y: H - 32 },
+    { x: 130, y: H - 162 },
+    { x: 650, y: H - 162 },
   ],
   foregroundWires: [
     { x1: 0, y1: H - 520, x2: W, y2: H - 540 },

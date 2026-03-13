@@ -92,6 +92,7 @@ canvas { display: block; cursor: crosshair; }
     <button class="tool-btn" data-tool="lamp">Lampa</button>
     <button class="tool-btn" data-tool="checkpoint">Checkpoint</button>
     <button class="tool-btn" data-tool="wire">Kabel</button>
+    <button class="tool-btn" data-tool="paper">Gazeta</button>
   </div>
 
   <div class="section">
@@ -332,6 +333,7 @@ const ASSET_PATHS = {
   can: '/assets/sprites/elementy/can.png',
   lamp: '/assets/sprites/elementy/lamp.png',
   blok: '/assets/sprites/elementy/blok.png',
+  paper: '/assets/sprites/elementy/paper.png',
 };
 
 let assetsLoaded = false;
@@ -437,6 +439,7 @@ const COLORS = {
   lamp: '#ffcc44',
   checkpoint: '#00ff88',
   wire: '#ffff44',
+  paper: '#c8b88a',
 };
 
 // ============================================================
@@ -659,6 +662,26 @@ function draw() {
     }
     if (isSelected('trashCan', i)) drawSelectionBorder(t.x - 15, t.y - 15, 30, 30, s);
     drawLabel(t.x, t.y - 18, 'KOSZ', s);
+  });
+
+  // Papers (gazety)
+  (level.papers || []).forEach((p, i) => {
+    const pw = 36, ph = 28;
+    ctx.save();
+    ctx.translate(p.x * s, p.y * s);
+    ctx.rotate(((p.angle || 0) * Math.PI) / 180);
+    if (ASSETS.paper) {
+      ctx.drawImage(ASSETS.paper, (-pw / 2) * s, (-ph) * s, pw * s, ph * s);
+    } else {
+      ctx.fillStyle = COLORS.paper;
+      ctx.fillRect((-pw / 2) * s, (-ph) * s, pw * s, ph * s);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect((-pw / 2) * s, (-ph) * s, pw * s, ph * s);
+    }
+    ctx.restore();
+    if (isSelected('paper', i)) drawSelectionBorder(p.x - pw / 2, p.y - ph, pw, ph, s);
+    drawLabel(p.x, p.y - ph - 4, 'GAZ', s);
   });
 
   // Lamps — light cone + image
@@ -941,6 +964,12 @@ function hitTest(mx, my) {
     if (Math.abs(mx - t.x) < 18 && Math.abs(my - t.y) < 18) return { type: 'trashCan', index: i };
   }
 
+  // Papers
+  for (let i = (level.papers || []).length - 1; i >= 0; i--) {
+    const p = level.papers[i];
+    if (Math.abs(mx - p.x) < 20 && my >= p.y - 30 && my <= p.y + 4) return { type: 'paper', index: i };
+  }
+
   // Cops
   for (let i = (level.cops || []).length - 1; i >= 0; i--) {
     const c = level.cops[i];
@@ -1013,6 +1042,7 @@ function getElemPos(sel) {
     case 'cop': return { x: e.x, y: e.y };
     case 'trashCan': return { x: e.x, y: e.y };
     case 'lamp': return { x: e.x, y: e.y };
+    case 'paper': return { x: e.x, y: e.y };
     case 'checkpoint': return { x: level.checkpoint.x, y: level.checkpoint.y };
     case 'wire': return { x: e.x1, y: e.y1 };
   }
@@ -1031,6 +1061,7 @@ function moveElem(sel, dx, dy) {
     case 'paintCan': e.x += dx; e.y += dy; break;
     case 'cop': e.x += dx; e.y += dy; e.minX += dx; e.maxX += dx; break;
     case 'trashCan': e.x += dx; e.y += dy; break;
+    case 'paper': e.x += dx; e.y += dy; break;
     case 'lamp': e.x += dx; e.y += dy; break;
     case 'checkpoint': level.checkpoint.x += dx; level.checkpoint.y += dy; break;
     case 'wire': e.x1 += dx; e.y1 += dy; e.x2 += dx; e.y2 += dy; break;
@@ -1048,6 +1079,7 @@ function getArray(type) {
     case 'paintCan': return level.paintCans;
     case 'cop': return level.cops;
     case 'trashCan': return level.trashCans;
+    case 'paper': return level.papers;
     case 'lamp': return level.lamps;
     case 'checkpoint': return [level.checkpoint];
     case 'wire': return level.foregroundWires;
@@ -1228,6 +1260,11 @@ function createElement(type, r, start, end) {
       level.trashCans.push({ x: start.x, y: start.y });
       selected = { type: 'trashCan', index: level.trashCans.length - 1 };
       break;
+    case 'paper':
+      if (!level.papers) level.papers = [];
+      level.papers.push({ x: start.x, y: start.y });
+      selected = { type: 'paper', index: level.papers.length - 1 };
+      break;
     case 'lamp':
       if (!level.lamps) level.lamps = [];
       level.lamps.push({ x: start.x, y: start.y, radius: 120, intensity: 0.35 });
@@ -1308,6 +1345,9 @@ function showProps() {
       break;
     case 'trashCan':
       html += field('x', e.x) + field('y', e.y) + field('depth', e.depth ?? '');
+      break;
+    case 'paper':
+      html += field('x', e.x) + field('y', e.y) + field('angle', e.angle ?? 0);
       break;
     case 'lamp':
       html += field('x', e.x) + field('y', e.y) + field('radius', e.radius || 120) + field('depth', e.depth ?? '');
@@ -1517,6 +1557,16 @@ function generateExport() {
       lv.lamps.forEach(lm => {
         const extra = lm.intensity != null && lm.intensity !== 0.35 ? `, intensity: ${lm.intensity}` : '';
         out += `    { x: ${Math.round(lm.x)}, y: ${rel(Math.round(lm.y), HH, hVar)}, radius: ${Math.round(lm.radius || 120)}${extra}${dp(lm)} },\n`;
+      });
+      out += `  ],\n`;
+    }
+
+    // Papers
+    if (lv.papers && lv.papers.length > 0) {
+      out += `  papers: [\n`;
+      lv.papers.forEach(p => {
+        const ang = p.angle != null && p.angle !== 0 ? `, angle: ${Math.round(p.angle)}` : '';
+        out += `    { x: ${Math.round(p.x)}, y: ${rel(Math.round(p.y), HH, hVar)}${ang} },\n`;
       });
       out += `  ],\n`;
     }
