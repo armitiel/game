@@ -316,6 +316,19 @@ export default class BootScene extends Phaser.Scene {
     eyeGfx.lineBetween(2, 2, 14, 14);
     eyeGfx.generateTexture('hidden_icon', 16, 16);
     eyeGfx.destroy();
+
+    // Leaf texture (for wind effect)
+    const leafGfx = this.make.graphics({ add: false });
+    leafGfx.fillStyle(0x5a9e45, 1);
+    // Main leaf body — pointed oval
+    leafGfx.fillEllipse(10, 6, 18, 10);
+    // Tip point
+    leafGfx.fillTriangle(18, 6, 14, 2, 14, 10);
+    // Stem
+    leafGfx.lineStyle(1.5, 0x2d5a27, 1);
+    leafGfx.lineBetween(1, 6, 10, 6);
+    leafGfx.generateTexture('leaf_tex', 22, 12);
+    leafGfx.destroy();
   }
 
   create() {

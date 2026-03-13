@@ -194,6 +194,9 @@ export default class GameScene extends Phaser.Scene {
       this.setupTowerMode();
     }
 
+    // === Wind leaves effect ===
+    this.createLeafEffect();
+
     // === Events ===
     this.events.on('player-caught', () => {
       // Deal damage instead of instant death
@@ -225,6 +228,7 @@ export default class GameScene extends Phaser.Scene {
     // Stop music when scene shuts down (prevents duplicate playback on restart)
     this.events.on('shutdown', () => {
       if (this.bgm) this.bgm.stop();
+      if (this._leafTimer) this._leafTimer.remove();
     });
   }
 
@@ -934,7 +938,7 @@ export default class GameScene extends Phaser.Scene {
     // Timer HUD text (on UI camera)
     this._addingHud = true;
     const gw = this.sys.game.config.width;
-    this._towerTimerText = this.add.text(gw / 2, 14, '', {
+    this._towerTimerText = this.add.text(gw / 2, 32, '', {
       fontFamily: 'ChangaOne', fontSize: '36px', fontStyle: 'bold',
       color: '#00ff88',
       stroke: '#003322', strokeThickness: 6
@@ -1473,7 +1477,7 @@ export default class GameScene extends Phaser.Scene {
     } else {
       // Desktop: fixed to top-center of screen on UI camera
       const gw = this.sys.game.config.width;
-      const progressY = (this.levelData && this.levelData.mode === 'tower') ? 80 : 60;
+      const progressY = (this.levelData && this.levelData.mode === 'tower') ? 95 : 60;
       this._addingHud = true;
       this.paintProgressText = this.add.text(
         gw / 2, progressY,
@@ -1818,6 +1822,81 @@ export default class GameScene extends Phaser.Scene {
     }
     this.pbn = null;
     this.activePaintSpot = null;
+  }
+
+  // === WIND LEAVES EFFECT ===
+
+  createLeafEffect() {
+    const scheduleNext = () => {
+      const delay = Phaser.Math.Between(2500, 6000);
+      this._leafTimer = this.time.delayedCall(delay, () => {
+        this._spawnLeaf();
+        if (Math.random() < 0.3) {
+          const extra = Phaser.Math.Between(1, 2);
+          for (let i = 1; i <= extra; i++) {
+            this.time.delayedCall(i * Phaser.Math.Between(300, 700), () => this._spawnLeaf());
+          }
+        }
+        scheduleNext();
+      });
+    };
+    this.time.delayedCall(1200, () => { this._spawnLeaf(); scheduleNext(); });
+  }
+
+  _spawnLeaf() {
+    const LEAF_TINTS = [0xe8c830, 0xd4a820, 0xf0d840, 0xc89028, 0xb87820];
+    const cam  = this.cameras.main;
+    const zoom = cam.zoom;
+    const gw   = this.sys.game.config.width;
+    const gh   = this.sys.game.config.height;
+
+    // World dimensions visible on screen
+    const viewW = gw / zoom;
+    const viewH = gh / zoom;
+
+    // Spawn at right edge of world (right of current view), random Y in view
+    const wx = cam.scrollX + viewW + Phaser.Math.Between(10, 40);
+    const wy = cam.scrollY + Phaser.Math.Between(10, viewH - 10);
+
+    const scale  = Phaser.Math.FloatBetween(0.8, 2.0);
+    const tint   = LEAF_TINTS[Phaser.Math.Between(0, LEAF_TINTS.length - 1)];
+    const speed  = Phaser.Math.Between(80, 200);   // world px/s leftward
+    const isArc  = Math.random() < 0.35;
+    const arcAmp = Phaser.Math.Between(30, 90) * (Math.random() < 0.5 ? 1 : -1);
+    const travelX = viewW + 60;                    // world px to travel
+
+    const leaf = this.add.image(wx, wy, 'leaf_tex')
+      .setScale(scale)
+      .setAngle(Phaser.Math.Between(0, 360))
+      .setAlpha(0.88)
+      .setDepth(55)
+      .setTint(tint);
+
+    const duration = (travelX / speed) * 1000;
+
+    if (isArc) {
+      const midX = wx - travelX * 0.5;
+      const midY = wy + arcAmp;
+      this.tweens.chain({
+        targets: leaf,
+        tweens: [
+          { x: midX, y: midY, angle: leaf.angle + 120, duration: duration * 0.5, ease: 'Sine.easeOut' },
+          { x: wx - travelX, y: wy + arcAmp * 0.3, angle: leaf.angle + 300, alpha: 0,
+            duration: duration * 0.5, ease: 'Sine.easeIn', onComplete: () => leaf.destroy() },
+        ],
+      });
+    } else {
+      const driftY = Phaser.Math.Between(-40, 60);
+      this.tweens.chain({
+        targets: leaf,
+        tweens: [
+          { x: wx - travelX * 0.5, y: wy + driftY * 0.5, angle: leaf.angle + 100,
+            duration: duration * 0.5, ease: 'Sine.easeIn' },
+          { x: wx - travelX, y: wy + driftY, angle: leaf.angle + 280, alpha: 0,
+            duration: duration * 0.5, ease: 'Sine.easeOut', onComplete: () => leaf.destroy() },
+        ],
+      });
+    }
   }
 
   // === TRASH PUSH HELPER ===
@@ -2499,6 +2578,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 5. HUD (uses interactablePaintSpot, ladder info)
     this.updateHUD();
+
 
     // 6. Reset flags AFTER use — next frame's physics step will set them again
     this.playerInShadow = false;
