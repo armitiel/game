@@ -874,9 +874,9 @@ export default class GameScene extends Phaser.Scene {
       const intensity = lm.intensity || 0.35;
       const lampDepth = lm.depth ?? 3;
 
-      // Lamp post image — 35% larger than editor (40x150 * 1.35)
+      // Lamp post image — 426x1071 source, preserve aspect ratio at height 202 → width 80
       const post = this.add.image(x, y, 'lamp_img').setOrigin(0.5, 1).setDepth(lampDepth);
-      post.setDisplaySize(54, 202);
+      post.setDisplaySize(80, 202);
 
       // Light cone — single trapezoid shape with gradient texture
       const bulbX = x + 16;
@@ -1827,82 +1827,63 @@ export default class GameScene extends Phaser.Scene {
   // === WIND LEAVES EFFECT ===
 
   createLeafEffect() {
-    const LEAF_KEY   = 'LeafOverlay';
     const LEAF_TINTS = [0xe8c830, 0xd4a820, 0xf0d840, 0xc89028, 0xb87820];
-    const gw = this.sys.game.config.width;
-    const gh = this.sys.game.config.height;
+    const mapW = this.levelData.mapWidth  || 1400;
+    const mapH = this.levelData.mapHeight || 600;
 
-    // Remove any stale instance from a previous level load
-    if (this.scene.get(LEAF_KEY)) {
-      this.scene.stop(LEAF_KEY);
-      this.scene.remove(LEAF_KEY);
-    }
+    // Spawn a leaf in world-space — independent of camera
+    const spawnLeaf = () => {
+      // Start from right edge of the map (+ margin) at random height
+      const startX    = mapW + Phaser.Math.Between(20, 80);
+      const startY    = Phaser.Math.Between(10, mapH - 10);
+      const endX      = -80;
+      const driftY    = Phaser.Math.Between(-90, 90);
+      const waves     = Phaser.Math.FloatBetween(1.5, 3.5);
+      const waveAmp   = Phaser.Math.Between(20, 55);
+      const speedPx   = Phaser.Math.Between(50, 120);
+      const duration  = ((startX - endX) / speedPx) * 1000;
+      const startAngle = Phaser.Math.Between(0, 360);
+      const totalRot  = Phaser.Math.Between(200, 500) * (Math.random() < 0.5 ? 1 : -1);
 
-    // Dedicated Phaser scene — its own camera never follows anything.
-    // leaf.x/y are world coords in this scene; its camera zoom=1, scroll=0
-    // so worldX == screenX, completely isolated from GameScene cameras.
-    class LeafOverlay extends Phaser.Scene {
-      constructor() { super({ key: LEAF_KEY }); }
+      const leaf = this.add.image(startX, startY, 'leaf_tex')
+        .setScale(Phaser.Math.FloatBetween(0.8, 1.4))
+        .setAngle(startAngle)
+        .setAlpha(0.88)
+        .setDepth(50)
+        .setTint(LEAF_TINTS[Phaser.Math.Between(0, LEAF_TINTS.length - 1)]);
 
-      create() {
-        this.cameras.main.setZoom(1).setScroll(0, 0);
-        this._spawn();
-        this._schedule();
-      }
+      const prog = { t: 0 };
+      this.tweens.add({
+        targets: prog, t: 1, duration,
+        onUpdate: () => {
+          const t = prog.t;
+          leaf.x     = startX + (endX - startX) * t;
+          leaf.y     = startY + driftY * t + Math.sin(t * waves * Math.PI * 2) * waveAmp;
+          leaf.angle = startAngle + totalRot * t;
+          leaf.alpha = t > 0.8 ? 0.88 * (1 - (t - 0.8) / 0.2) : 0.88;
+        },
+        onComplete: () => leaf.destroy(),
+      });
+    };
 
-      _schedule() {
-        const delay = Phaser.Math.Between(2500, 6000);
-        this.time.delayedCall(delay, () => {
-          this._spawn();
-          if (Math.random() < 0.3) {
-            const n = Phaser.Math.Between(1, 2);
-            for (let i = 1; i <= n; i++) {
-              this.time.delayedCall(i * Phaser.Math.Between(300, 700), () => this._spawn());
-            }
+    // Schedule recurring spawns
+    const schedule = () => {
+      const delay = Phaser.Math.Between(2500, 6000);
+      this._leafTimer = this.time.delayedCall(delay, () => {
+        spawnLeaf();
+        if (Math.random() < 0.3) {
+          const n = Phaser.Math.Between(1, 2);
+          for (let i = 1; i <= n; i++) {
+            this.time.delayedCall(i * Phaser.Math.Between(300, 700), () => spawnLeaf());
           }
-          this._schedule();
-        });
-      }
+        }
+        schedule();
+      });
+    };
 
-      _spawn() {
-        const startX    = gw + Phaser.Math.Between(20, 50);
-        const startY    = Phaser.Math.Between(20, gh - 20);
-        const endX      = -50;
-        const driftY    = Phaser.Math.Between(-70, 70);
-        const waves     = Phaser.Math.FloatBetween(1.5, 3.5);
-        const waveAmp   = Phaser.Math.Between(25, 65);
-        const speedPx   = Phaser.Math.Between(60, 140);
-        const duration  = ((startX - endX) / speedPx) * 1000;
-        const startAngle = Phaser.Math.Between(0, 360);
-        const totalRot  = Phaser.Math.Between(200, 500) * (Math.random() < 0.5 ? 1 : -1);
-
-        const leaf = this.add.image(startX, startY, 'leaf_tex')
-          .setScale(Phaser.Math.FloatBetween(0.8, 1.4))
-          .setAngle(startAngle)
-          .setAlpha(0.88)
-          .setTint(LEAF_TINTS[Phaser.Math.Between(0, LEAF_TINTS.length - 1)]);
-
-        const prog = { t: 0 };
-        this.tweens.add({
-          targets: prog, t: 1, duration,
-          onUpdate: () => {
-            const t = prog.t;
-            leaf.x     = startX + (endX - startX) * t;
-            leaf.y     = startY + driftY * t + Math.sin(t * waves * Math.PI * 2) * waveAmp;
-            leaf.angle = startAngle + totalRot * t;
-            leaf.alpha = t > 0.8 ? 0.88 * (1 - (t - 0.8) / 0.2) : 0.88;
-          },
-          onComplete: () => leaf.destroy(),
-        });
-      }
-    }
-
-    this.scene.add(LEAF_KEY, LeafOverlay, true);
-    // Stop leaf scene when game scene shuts down
-    this.events.once('shutdown', () => {
-      this.scene.stop(LEAF_KEY);
-      this.scene.remove(LEAF_KEY);
-    });
+    // Initial spawn + start scheduling
+    spawnLeaf();
+    schedule();
   }
 
   // === TRASH PUSH HELPER ===
