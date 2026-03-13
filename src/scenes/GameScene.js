@@ -1845,74 +1845,48 @@ export default class GameScene extends Phaser.Scene {
 
   _spawnLeaf() {
     const LEAF_TINTS = [0xe8c830, 0xd4a820, 0xf0d840, 0xc89028, 0xb87820];
-    const cam  = this.cameras.main;
-    const zoom = cam.zoom;
+    const zoom = this.cameras.main.zoom;
     const gw   = this.sys.game.config.width;
     const gh   = this.sys.game.config.height;
 
-    // Screen-space start: always outside right edge, guaranteed off-screen
-    const startSX  = gw + Phaser.Math.Between(20, 50);
-    const startSY  = Phaser.Math.Between(20, gh - 20);
-    const endSX    = -50;
+    // Screen-space: startSX > gw, so leaf is always off-screen right
+    const startSX   = gw + Phaser.Math.Between(20, 50);
+    const startSY   = Phaser.Math.Between(20, gh - 20);
+    const endSX     = -50;
+    const driftY    = Phaser.Math.Between(-70, 70);
+    const waves     = Phaser.Math.FloatBetween(1.5, 3.5);
+    const waveAmp   = Phaser.Math.Between(25, 65);
+    const speedPx   = Phaser.Math.Between(60, 140);
+    const duration  = ((startSX - endSX) / speedPx) * 1000;
+    const startAngle = Phaser.Math.Between(0, 360);
+    const totalRot  = Phaser.Math.Between(200, 500) * (Math.random() < 0.5 ? 1 : -1);
 
-    const scale    = Phaser.Math.FloatBetween(0.8, 1.4);
-    const tint     = LEAF_TINTS[Phaser.Math.Between(0, LEAF_TINTS.length - 1)];
-    const speedPx  = Phaser.Math.Between(60, 140);   // screen px/s
-    const duration = ((startSX - endSX) / speedPx) * 1000;
+    // setScrollFactor(0): Phaser renders at worldX * zoom (ignores camera.scrollX entirely)
+    // So worldX = screenX / zoom gives exact screen pixel position, independent of camera
+    const leaf = this.add.image(startSX / zoom, startSY / zoom, 'leaf_tex')
+      .setScrollFactor(0)
+      .setScale(Phaser.Math.FloatBetween(0.8, 1.4))
+      .setAngle(startAngle)
+      .setAlpha(0.88)
+      .setDepth(55)
+      .setTint(LEAF_TINTS[Phaser.Math.Between(0, LEAF_TINTS.length - 1)]);
 
-    const leaf = this.add.image(
-      cam.scrollX + startSX / zoom,
-      cam.scrollY + startSY / zoom,
-      'leaf_tex'
-    ).setScale(scale)
-     .setAngle(Phaser.Math.Between(0, 360))
-     .setAlpha(0.88)
-     .setDepth(55)
-     .setTint(tint);
-
-    if (!this._leafObjects) this._leafObjects = [];
-    this._leafObjects.push({
-      obj:          leaf,
-      startSX, startSY, endSX,
-      driftY:       Phaser.Math.Between(-70, 70),
-      waves:        Phaser.Math.FloatBetween(1.5, 3.5),  // sine cycles across path
-      waveAmp:      Phaser.Math.Between(25, 65),
-      startAngle:   leaf.angle,
-      totalRot:     Phaser.Math.Between(200, 500) * (Math.random() < 0.5 ? 1 : -1),
+    const prog = { t: 0 };
+    this.tweens.add({
+      targets:  prog,
+      t:        1,
       duration,
-      elapsed:      0,
+      onUpdate: () => {
+        const t  = prog.t;
+        const sx = startSX + (endSX - startSX) * t;
+        const sy = startSY + driftY * t + Math.sin(t * waves * Math.PI * 2) * waveAmp;
+        leaf.x     = sx / zoom;
+        leaf.y     = sy / zoom;
+        leaf.angle = startAngle + totalRot * t;
+        leaf.alpha = t > 0.8 ? 0.88 * (1 - (t - 0.8) / 0.2) : 0.88;
+      },
+      onComplete: () => leaf.destroy(),
     });
-  }
-
-  _updateLeaves(delta) {
-    if (!this._leafObjects || !this._leafObjects.length) return;
-    const cam  = this.cameras.main;
-    const zoom = cam.zoom;
-    const toRemove = [];
-
-    for (const ld of this._leafObjects) {
-      ld.elapsed += delta;
-      const t = Math.min(ld.elapsed / ld.duration, 1);
-
-      // Screen-space position: X linear, Y = drift + sine wave
-      const sx = ld.startSX + (ld.endSX - ld.startSX) * t;
-      const sy = ld.startSY + ld.driftY * t
-               + Math.sin(t * ld.waves * Math.PI * 2) * ld.waveAmp;
-
-      ld.obj.angle = ld.startAngle + ld.totalRot * t;
-      ld.obj.alpha = t > 0.8 ? 0.88 * (1 - (t - 0.8) / 0.2) : 0.88;
-
-      // Convert to world coords each frame — camera-independent
-      ld.obj.x = cam.scrollX + sx / zoom;
-      ld.obj.y = cam.scrollY + sy / zoom;
-
-      if (t >= 1) toRemove.push(ld);
-    }
-
-    for (const ld of toRemove) {
-      ld.obj.destroy();
-      this._leafObjects.splice(this._leafObjects.indexOf(ld), 1);
-    }
   }
 
   // === TRASH PUSH HELPER ===
@@ -2318,7 +2292,6 @@ export default class GameScene extends Phaser.Scene {
     }
     // Update shadow down-arrow indicators
     this._updateShadowArrows();
-    this._updateLeaves(delta);
 
     // 2. Check paint input (SPACE or touch ACT)
     // Allowed when: on solid ground OR on ladder (not mid-air)
