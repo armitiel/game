@@ -14,12 +14,12 @@ export default class IntroScene extends Phaser.Scene {
     const canvas = this.sys.game.canvas;
     const parent = canvas.parentElement || document.body;
 
-    // Overlay container so we can position video + hint relative to canvas
+    // Overlay container — fixed so it covers the full viewport without affecting canvas layout
     this._container = document.createElement('div');
     this._container.style.cssText = `
-      position: absolute;
+      position: fixed;
       top: 0; left: 0;
-      width: 100%; height: 100%;
+      width: 100vw; height: 100vh;
       z-index: 9999;
       background: #000;
     `;
@@ -49,11 +49,7 @@ export default class IntroScene extends Phaser.Scene {
 
     this._container.appendChild(this._video);
     this._container.appendChild(this._skipHint);
-
-    // Insert over the canvas — canvas parent must be positioned
-    const parentStyle = window.getComputedStyle(parent).position;
-    if (parentStyle === 'static') parent.style.position = 'relative';
-    parent.appendChild(this._container);
+    document.body.appendChild(this._container);
 
     // Play — if autoplay blocked, try muted, then skip straight to game
     this._video.play().catch(() => {

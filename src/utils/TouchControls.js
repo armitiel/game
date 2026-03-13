@@ -162,144 +162,66 @@ export default class TouchControls {
 
   createActionButtons(scene) {
     const cam = scene.cameras.main;
-    const zoneW = cam.width * 0.45;
-    const zoneH = cam.height;
-    const zoneX = cam.width - zoneW / 2;
 
-    // Invisible touch zone covering right ~45% of screen
-    const zone = scene.add.rectangle(zoneX, zoneH / 2, zoneW, zoneH, 0xffffff, 0)
-      .setScrollFactor(0)
-      .setDepth(199)
-      .setInteractive();
+    // Fixed button positions — triangle layout in bottom-right corner
+    const jumpX = cam.width - 85;
+    const jumpY = cam.height - 95;
+    const actX  = cam.width - 185;
+    const actY  = cam.height - 190;
+    const eX    = cam.width - 215;
+    const eY    = cam.height - 90;
 
-    // --- Radial action wheel visuals ---
-    const BASE_RADIUS = 52;
-    const THUMB_RADIUS = 22;
-    const SWIPE_THRESHOLD = 28; // min drag distance to count as swipe
-    const HINT_DIST = BASE_RADIUS + 28; // icons well outside the ring
+    const JUMP_R = 58;
+    const ACT_R  = 42;
+    const E_R    = 40;
 
-    // Base ring — appears at touch origin
-    this._actBase = scene.add.circle(0, 0, BASE_RADIUS, 0xffffff, 0.08)
-      .setScrollFactor(0).setDepth(199).setVisible(false)
-      .setStrokeStyle(2, 0xffffff, 0.25);
-    // Thumb knob — green tint (jump color)
-    this._actThumb = scene.add.circle(0, 0, THUMB_RADIUS, 0x00ff88, 0.25)
-      .setScrollFactor(0).setDepth(200).setVisible(false);
-
-    // Direction hint backgrounds (colored circles behind icons)
-    this._actHintUpBg = scene.add.circle(0, 0, 32, 0xffdd33, 0.35)
-      .setScrollFactor(0).setDepth(200.5).setVisible(false);
-    this._actHintLeftBg = scene.add.circle(0, 0, 32, 0xff8833, 0.35)
-      .setScrollFactor(0).setDepth(200.5).setVisible(false);
-
-    // Direction hint icons (up = paint, left = interact)
-    this._actHintUp = scene.add.image(0, 0, 'icon_spray')
-      .setDisplaySize(36, 36).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
-    this._actHintLeft = scene.add.image(0, 0, 'icon_hand')
-      .setDisplaySize(36, 36).setScrollFactor(0).setDepth(201).setAlpha(0.7).setVisible(false);
-    // Center jump label — green
-    this._actHintCenter = scene.add.text(0, 0, 'JUMP', {
-      font: 'bold 18px ChangaOne, monospace', fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 3
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.4).setVisible(false);
-
-    this.buttons.push(this._actBase, this._actThumb, this._actHintUpBg, this._actHintLeftBg, this._actHintUp, this._actHintLeft, this._actHintCenter);
-
-    // Initial position — bottom-right corner, will move to touch point on first use
-    const hintX = cam.width - 110;
-    const hintY = cam.height - 130;
-    this._actBase.setPosition(hintX, hintY).setVisible(true).setAlpha(0.06);
-    this._actThumb.setPosition(hintX, hintY).setVisible(true).setAlpha(0.15);
-    this._actHintCenter.setPosition(hintX, hintY + 2).setVisible(true).setAlpha(0.25);
-
-    // Track active selection for highlight
-    this._actSelection = null; // null | 'up' | 'left'
-
-    let originX = 0, originY = 0;
-    let pointerDown = false;
-
-    zone.on('pointerdown', (pointer) => {
-      originX = pointer.x;
-      originY = pointer.y;
-      pointerDown = true;
-      this._actSelection = null;
-
-      // Move radial to touch point, full opacity
-      this._actBase.setPosition(originX, originY).setAlpha(0.08);
-      this._actThumb.setPosition(originX, originY).setAlpha(0.25);
-      this._actHintUpBg.setPosition(originX, originY - HINT_DIST).setVisible(true).setAlpha(0.35);
-      this._actHintLeftBg.setPosition(originX - HINT_DIST, originY).setVisible(true).setAlpha(0.35);
-      this._actHintUp.setPosition(originX, originY - HINT_DIST).setVisible(true).setAlpha(0.7);
-      this._actHintLeft.setPosition(originX - HINT_DIST, originY).setVisible(true).setAlpha(0.7);
-      this._actHintCenter.setPosition(originX, originY + 2).setAlpha(0.4);
-    });
-
-    zone.on('pointermove', (pointer) => {
-      if (!pointerDown || !pointer.isDown) return;
-      const dx = pointer.x - originX;
-      const dy = pointer.y - originY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      // Clamp thumb
-      const MAX_DIST = BASE_RADIUS - 4;
-      let cx = dx, cy = dy;
-      if (dist > MAX_DIST) { const r = MAX_DIST / dist; cx = dx * r; cy = dy * r; }
-      this._actThumb.setPosition(originX + cx, originY + cy);
-
-      // Determine selection
-      let sel = null;
-      if (dist >= SWIPE_THRESHOLD) {
-        const angle = Math.atan2(dy, dx) * 180 / Math.PI; // -180..180
-        // Up: -135 to -45
-        if (angle >= -135 && angle <= -45) sel = 'up';
-        // Left: 135..180 or -180..-135
-        else if (angle >= 135 || angle <= -135) sel = 'left';
-      }
-
-      if (sel !== this._actSelection) {
-        this._actSelection = sel;
-        // Highlight selected direction
-        this._actHintUpBg.setAlpha(sel === 'up' ? 0.7 : 0.35);
-        this._actHintLeftBg.setAlpha(sel === 'left' ? 0.7 : 0.35);
-        this._actHintUp.setAlpha(sel === 'up' ? 1.0 : 0.7);
-        this._actHintLeft.setAlpha(sel === 'left' ? 1.0 : 0.7);
-        this._actHintCenter.setAlpha(sel === null ? 0.7 : 0.3);
-      }
-    });
-
-    const release = () => {
-      if (!pointerDown) return;
-      pointerDown = false;
-
-      // Fire action based on selection
-      if (this._actSelection === 'up') {
-        this._actionJustPressed = true;
-      } else if (this._actSelection === 'left') {
-        this._eJustPressed = true;
+    // Helper: creates a pressable circle button with icon or text label
+    const makeBtn = (x, y, r, color, label, iconKey) => {
+      const bg = scene.add.circle(x, y, r, color, 0.15)
+        .setScrollFactor(0).setDepth(200)
+        .setStrokeStyle(2, color, 0.4)
+        .setInteractive();
+      let el;
+      if (iconKey) {
+        el = scene.add.image(x, y, iconKey)
+          .setDisplaySize(r * 1.1, r * 1.1)
+          .setScrollFactor(0).setDepth(201).setAlpha(0.5);
       } else {
-        // Tap or no clear direction = jump
-        this._jumpJustPressed = true;
+        const hex = '#' + color.toString(16).padStart(6, '0');
+        el = scene.add.text(x, y, label, {
+          font: `bold ${Math.floor(r * 0.38)}px ChangaOne, monospace`,
+          fill: hex, stroke: '#000000', strokeThickness: 3
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.55);
       }
-      this._actSelection = null;
-
-      // Keep base+thumb visible at last position (dimmed), hide direction hints
-      this._actBase.setAlpha(0.06);
-      this._actThumb.setPosition(this._actBase.x, this._actBase.y).setAlpha(0.15);
-      this._actHintUpBg.setVisible(false);
-      this._actHintLeftBg.setVisible(false);
-      this._actHintUp.setVisible(false);
-      this._actHintLeft.setVisible(false);
-      this._actHintCenter.setAlpha(0.25);
+      const restAlpha  = iconKey ? 0.5  : 0.55;
+      const pressAlpha = iconKey ? 1.0  : 1.0;
+      bg.on('pointerdown', () => { bg.setAlpha(0.4);   el.setAlpha(pressAlpha); });
+      bg.on('pointerup',   () => { bg.setAlpha(0.15);  el.setAlpha(restAlpha);  });
+      bg.on('pointerout',  () => { bg.setAlpha(0.15);  el.setAlpha(restAlpha);  });
+      return { bg, el };
     };
 
-    zone.on('pointerup', release);
-    zone.on('pointerout', release);
+    // JUMP — large green
+    const jump = makeBtn(jumpX, jumpY, JUMP_R, 0x00ff88, 'JUMP', null);
+    jump.bg.on('pointerdown', () => { this._jumpJustPressed = true; });
 
-    this.buttons.push(zone);
+    // ACT (spray/paint) — yellow
+    const act = makeBtn(actX, actY, ACT_R, 0xffdd33, '', 'icon_spray');
+    act.bg.on('pointerdown', () => { this._actionJustPressed = true; });
 
-    // Keep references for highlight API compatibility
+    // E (interact/hand) — orange
+    const e = makeBtn(eX, eY, E_R, 0xff8833, '', 'icon_hand');
+    e.bg.on('pointerdown', () => { this._eJustPressed = true; });
+
+    this.buttons.push(jump.bg, jump.el, act.bg, act.el, e.bg, e.el);
+
+    // Save refs for highlightButton
+    this._actBg   = act.bg;
+    this._actIcon = act.el;
+    this._eBg     = e.bg;
+    this._eIcon   = e.el;
     this._paintHighlight = false;
-    this._grabHighlight = false;
+    this._grabHighlight  = false;
   }
 
   setPaintMode(on) {
@@ -312,9 +234,15 @@ export default class TouchControls {
    * @param {boolean} on
    */
   highlightButton(name, on) {
-    // Radial menu has no persistent buttons to highlight — no-op
-    if (name === 'paint') this._paintHighlight = on;
-    else if (name === 'grab') this._grabHighlight = on;
+    if (name === 'paint') {
+      this._paintHighlight = on;
+      if (this._actBg)   this._actBg.setAlpha(on ? 0.45 : 0.15).setStrokeStyle(on ? 3 : 2, 0xffdd33, on ? 0.9 : 0.4);
+      if (this._actIcon) this._actIcon.setAlpha(on ? 0.95 : 0.5);
+    } else if (name === 'grab') {
+      this._grabHighlight = on;
+      if (this._eBg)   this._eBg.setAlpha(on ? 0.45 : 0.15).setStrokeStyle(on ? 3 : 2, 0xff8833, on ? 0.9 : 0.4);
+      if (this._eIcon) this._eIcon.setAlpha(on ? 0.95 : 0.5);
+    }
   }
 
   get jumpJustPressed() {
