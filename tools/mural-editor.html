@@ -323,11 +323,20 @@ async function init() {
   files = await resp.json();
   renderFileList();
 
-  // Auto-load mural matching URL key param
+  // Auto-load mural matching URL key param, or create it if missing
   if (_paramKey) {
     const suffix = _paramKey.replace('painting_', '') + '_mural.json';
     const match = files.find(f => f === suffix);
     if (match) { await loadFile(match); return; }
+    // Auto-create new mural file for this key
+    currentFile = suffix;
+    createDefault();
+    if (!files.includes(currentFile)) files.push(currentFile);
+    renderFileList();
+    if (_spotW && _spotH) fitToSpot();
+    await saveFile();
+    status('Auto-created: ' + currentFile);
+    return;
   }
   if (files.length > 0) loadFile(files[0]);
   else createDefault();

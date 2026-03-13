@@ -21,9 +21,20 @@ function parseLevelsJS() {
     code = code.replace(/^export /gm, '');
     // Provide GAME constant
     code = `const GAME = { WIDTH: 1280, HEIGHT: 720 };\n` + code;
-    // Execute and extract LEVELS
+    // Execute and extract LEVELS with mode info
     const sandbox = {};
-    vm.runInNewContext(code + '\n__result = JSON.stringify(LEVELS);', sandbox);
+    vm.runInNewContext(code + `
+      const _sl = typeof STEALTH_LEVELS !== 'undefined' ? STEALTH_LEVELS : [];
+      const _pl = typeof PUZZLE_LEVELS !== 'undefined' ? PUZZLE_LEVELS : [];
+      const _tl = typeof TOWER_LEVELS !== 'undefined' ? TOWER_LEVELS : [];
+      LEVELS.forEach(lv => {
+        if (_sl.includes(lv)) lv.mode = 'stealth';
+        else if (_pl.includes(lv)) lv.mode = 'puzzle';
+        else if (_tl.includes(lv)) lv.mode = 'tower';
+        else lv.mode = 'stealth';
+      });
+      __result = JSON.stringify(LEVELS);
+    `, sandbox);
     return sandbox.__result; // JSON string
   } catch (e) {
     console.error('Failed to parse levels.js:', e.message);

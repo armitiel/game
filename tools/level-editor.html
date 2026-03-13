@@ -47,12 +47,34 @@ canvas { display: block; cursor: crosshair; }
   <h2>Shadow Tagger Level Editor</h2>
 
   <div>
+    <label>Widok trybu:</label>
+    <select id="levelModeFilter" style="width:140px">
+      <option value="stealth">Stealth</option>
+      <option value="puzzle">Puzzle</option>
+      <option value="tower">Tower</option>
+    </select>
     <label>Level:</label>
-    <select id="levelSelect"></select>
+    <select id="levelSelect" style="width:140px"></select>
+    <button id="btnAddLevel" title="Nowy level" style="background:#053;border-color:#0a6;color:#0f8;padding:2px 8px;cursor:pointer;font-weight:bold;">+</button>
+    <button id="btnDelLevel" title="Usun level" style="background:#530;border-color:#a60;color:#f86;padding:2px 8px;cursor:pointer;font-weight:bold;">-</button>
   </div>
 
-  <div>
-    <label>World: <span id="worldInfo"></span></label>
+  <div id="levelMeta" style="font-size:11px;display:flex;flex-direction:column;gap:3px;">
+    <div>
+      <label>Nazwa: <input id="metaName" style="width:120px;background:#222;color:#eee;border:1px solid #555;font-size:11px;padding:1px 4px" /></label>
+      <label>Tryb: <select id="metaMode" style="width:80px;background:#222;color:#eee;border:1px solid #555;font-size:11px">
+        <option value="stealth">Stealth</option>
+        <option value="puzzle">Puzzle</option>
+        <option value="tower">Tower</option>
+      </select></label>
+    </div>
+    <div>
+      <label>Opis: <input id="metaDesc" style="width:220px;background:#222;color:#eee;border:1px solid #555;font-size:11px;padding:1px 4px" /></label>
+    </div>
+    <div>
+      <label>W: <input id="metaW" type="number" style="width:55px;background:#222;color:#eee;border:1px solid #555;font-size:11px;padding:1px 4px" /></label>
+      <label>H: <input id="metaH" type="number" style="width:55px;background:#222;color:#eee;border:1px solid #555;font-size:11px;padding:1px 4px" /></label>
+    </div>
   </div>
 
   <div class="section">
@@ -67,6 +89,7 @@ canvas { display: block; cursor: crosshair; }
     <button class="tool-btn" data-tool="paintCan">Puszka</button>
     <button class="tool-btn" data-tool="cop">Policjant</button>
     <button class="tool-btn" data-tool="trashCan">Kosz</button>
+    <button class="tool-btn" data-tool="lamp">Lampa</button>
     <button class="tool-btn" data-tool="checkpoint">Checkpoint</button>
     <button class="tool-btn" data-tool="wire">Kabel</button>
   </div>
@@ -118,6 +141,7 @@ const GAME_W = 1280, GAME_H = 720;
 const LEVELS_SOURCE = [
   {
     name: 'Ulica', description: 'Pomaluj dwa murale w miescie',
+    mode: 'stealth',
     worldWidth: GAME_W, worldHeight: GAME_H,
     checkpoint: { x: 60, y: GAME_H - 101 },
     paintings: ['painting_heart', 'painting_star'],
@@ -161,6 +185,7 @@ const LEVELS_SOURCE = [
   },
   {
     name: 'Wiezowiec', description: 'Pokoloruj wielki mural na scianie wiezowca',
+    mode: 'stealth',
     worldWidth: 800, worldHeight: 1300,
     checkpoint: { x: 60, y: 1300 - 101 },
     paintings: ['painting_mural_big'],
@@ -204,44 +229,49 @@ const LEVELS_SOURCE = [
   }
 ];
 
-// Deep clone — try to load from server first (authoritative source),
-// fall back to localStorage, then to hardcoded LEVELS_SOURCE.
+// Deep clone — server (levels.js) is the authoritative source.
+// localStorage is only a fallback when server is unavailable.
 const STORAGE_KEY = 'shadowTaggerLevelEditor';
-let levels;
+let levels = JSON.parse(JSON.stringify(LEVELS_SOURCE));
 let _levelsLoadedFromServer = false;
-
-// Synchronous init with fallback — server load happens async below
-const saved = localStorage.getItem(STORAGE_KEY);
-if (saved) {
-  try { levels = JSON.parse(saved); } catch (e) { levels = null; }
-}
-if (!levels || !Array.isArray(levels) || levels.length !== LEVELS_SOURCE.length) {
-  levels = JSON.parse(JSON.stringify(LEVELS_SOURCE));
-}
 let currentLevelIdx = 0;
 let level = levels[0];
 
-// Async: load authoritative data from editor-server (parsed levels.js)
-// This overwrites localStorage data with what's actually in levels.js
+// Load authoritative data from editor-server (parsed levels.js with mode info)
 (async function loadFromServer() {
   try {
-    console.log('[EDITOR] loadFromServer: fetching', window.location.origin + '/levels-data');
     const resp = await fetch('/levels-data');
-    console.log('[EDITOR] loadFromServer: status', resp.status);
-    if (!resp.ok) return;
+    if (!resp.ok) throw new Error('not ok');
     const serverLevels = await resp.json();
     if (Array.isArray(serverLevels) && serverLevels.length > 0) {
       levels = serverLevels;
       level = levels[currentLevelIdx] || levels[0];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(levels));
       _levelsLoadedFromServer = true;
+      if (typeof refreshLevelSelect === 'function') refreshLevelSelect();
+      resizeCanvas();
       draw();
       const ind = document.getElementById('saveIndicator');
-      if (ind) { ind.textContent = 'Załadowano z levels.js'; ind.style.color = '#5a5'; }
-      console.log('[Editor] Loaded levels from server (levels.js)');
+      if (ind) { ind.textContent = 'Zaladowano z levels.js'; ind.style.color = '#5a5'; }
+      console.log('[Editor] Loaded levels from server — modes:', levels.map(l => l.name + ':' + l.mode));
     }
   } catch (e) {
-    console.log('[Editor] Server not available, using localStorage/fallback');
+    // Server unavailable — try localStorage fallback
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          levels = parsed;
+          level = levels[currentLevelIdx] || levels[0];
+        }
+      } catch (e2) { /* ignore */ }
+    }
+    // Ensure every level has a mode
+    levels.forEach(lv => { if (!lv.mode) lv.mode = 'stealth'; });
+    if (typeof refreshLevelSelect === 'function') refreshLevelSelect();
+    resizeCanvas();
+    draw();
+    console.log('[Editor] Server not available, using fallback');
   }
 })();
 
@@ -332,6 +362,43 @@ async function loadMuralPreviews() {
 }
 loadMuralPreviews();
 
+async function createNewMuralForSpot(spotIndex) {
+  const name = prompt('Nazwa nowego muralu (bez painting_):');
+  if (!name || !name.trim()) return;
+  const cleanName = name.trim().replace(/\s+/g, '_').toLowerCase();
+  const fileName = cleanName + '_mural.json';
+  const paintingKey = 'painting_' + cleanName;
+  const ps = level.paintSpots[spotIndex];
+  // Default grid matching spot proportions
+  const aspect = ps.w / ps.h;
+  const totalCells = 14 * 14;
+  const gridRows = Math.max(2, Math.round(Math.sqrt(totalCells / aspect)));
+  const gridCols = Math.max(2, Math.round(gridRows * aspect));
+  const defaultMural = {
+    cols: gridCols, rows: gridRows,
+    colors: ['RED', 'BLUE', 'YELLOW', 'GREEN'],
+    palette: { RED: '#ff3344', BLUE: '#3388ff', YELLOW: '#ffdd33', GREEN: '#33ff88' },
+    grid: Array.from({length: gridRows}, () => Array(gridCols).fill(-1))
+  };
+  try {
+    await fetch('/mural-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file: fileName, data: defaultMural })
+    });
+    muralCache[paintingKey] = defaultMural;
+    pushUndo();
+    ps.paintingKey = paintingKey;
+    autoSave();
+    draw();
+    showProps();
+    // Open mural editor for the new mural
+    window.open(`/tools/mural-editor.html?key=${encodeURIComponent(paintingKey)}&spotW=${ps.w}&spotH=${ps.h}`, '_blank');
+  } catch (e) {
+    alert('Nie udalo sie zapisac muralu: ' + e.message);
+  }
+}
+
 // ============================================================
 // CANVAS
 // ============================================================
@@ -339,16 +406,19 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
 function resizeCanvas() {
-  const wrap = document.getElementById('canvas-wrap');
   const scale = getScale();
   canvas.width = level.worldWidth * scale;
   canvas.height = level.worldHeight * scale;
+  // Scroll to bottom so ground is visible by default
+  const wrap = document.getElementById('canvas-wrap');
+  requestAnimationFrame(() => { wrap.scrollTop = wrap.scrollHeight; });
 }
 
 function getScale() {
   const wrap = document.getElementById('canvas-wrap');
-  const maxW = wrap.clientWidth - 20;
-  return Math.min(1, maxW / level.worldWidth);
+  const maxW = wrap.clientWidth - 10;
+  // Use reference width (GAME_W) so all levels share the same pixel scale
+  return Math.min(1, maxW / GAME_W);
 }
 
 // ============================================================
@@ -364,6 +434,7 @@ const COLORS = {
   paintCan: '#ff8833',
   cop: '#3344aa',
   trashCan: '#888888',
+  lamp: '#ffcc44',
   checkpoint: '#00ff88',
   wire: '#ffff44',
 };
@@ -417,16 +488,12 @@ function draw() {
     }
   }
 
-  // Fill walls — use explicit fillWalls if present, otherwise auto-generate from platforms
-  if (level.fillWalls && level.fillWalls.length > 0) {
-    level.fillWalls.forEach((fw, i) => {
-      _drawBrickWall(ctx, fw.x, fw.y, fw.w, fw.h, s);
-      if (isSelected('fillWall', i)) drawSelectionBorder(fw.x, fw.y, fw.w, fw.h, s);
-      drawLabel(fw.x + fw.w / 2, fw.y + fw.h / 2, 'SCIANA', s);
-    });
-  } else {
-    _drawFillWalls(ctx, level, s);
-  }
+  // Fill walls — only explicit fillWalls from level data
+  (level.fillWalls || []).forEach((fw, i) => {
+    _drawBrickWall(ctx, fw.x, fw.y, fw.w, fw.h, s);
+    if (isSelected('fillWall', i)) drawSelectionBorder(fw.x, fw.y, fw.w, fw.h, s);
+    drawLabel(fw.x + fw.w / 2, fw.y + fw.h / 2, 'SCIANA', s);
+  });
 
   // Ground
   (level.ground || []).forEach((g, i) => {
@@ -501,23 +568,11 @@ function draw() {
   // Ladders
   (level.ladders || []).forEach((l, i) => {
     const lMinY = Math.min(l.topY, l.bottomY), lMaxY = Math.max(l.topY, l.bottomY);
-    const lx = l.x - 12, ly = lMinY, lw = 24, lh = lMaxY - lMinY;
+    const lw = 34, lx = l.x - lw / 2, ly = lMinY, lh = lMaxY - lMinY;
     if (ASSETS.ladder_tile) {
-      // Cast shadow (matches GameScene: +5x, +4y, black alpha 0.45, crop bottom 8px)
-      // Clip to fill wall areas so shadow doesn't appear outside walls
-      const shH = lh - 8;
-      if (shH > 0) {
-        const wallRects = _getWallRects(level);
-        ctx.save();
-        ctx.beginPath();
-        for (const wr of wallRects) {
-          ctx.rect(wr.x * s, wr.y * s, wr.w * s, wr.h * s);
-        }
-        ctx.clip();
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
-        ctx.fillRect((lx + 5) * s, (ly + 4) * s, lw * s, shH * s);
-        ctx.restore();
-      }
+      // Cast shadow (matches GameScene: +5x, +4y, black alpha 0.35)
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect((lx + 5) * s, (ly + 4) * s, lw * s, (lh - 8) * s);
       // Tile ladder images vertically like the game does
       const tileH = ASSETS.ladder_tile.height;
       const tileW = ASSETS.ladder_tile.width;
@@ -604,6 +659,52 @@ function draw() {
     }
     if (isSelected('trashCan', i)) drawSelectionBorder(t.x - 15, t.y - 15, 30, 30, s);
     drawLabel(t.x, t.y - 18, 'KOSZ', s);
+  });
+
+  // Lamps — light cone + image
+  (level.lamps || []).forEach((lm, i) => {
+    const r = lm.radius || 120;
+    const intensity = lm.intensity || 0.35;
+    // Light cone (downward trapezoid from lamp bulb — offset right & up)
+    const headX = (lm.x + 12) * s;
+    const headY = (lm.y - 148) * s;
+    const coneTopW = 10 * s;
+    const coneBottomW = r * s;
+    const coneH = (r * 1.2) * s;
+    // Radial glow
+    const grd = ctx.createRadialGradient(headX, headY + coneH * 0.3, coneTopW, headX, headY + coneH * 0.5, coneBottomW);
+    grd.addColorStop(0, `rgba(255,220,120,${intensity})`);
+    grd.addColorStop(0.6, `rgba(255,200,80,${intensity * 0.4})`);
+    grd.addColorStop(1, 'rgba(255,180,60,0)');
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(headX - coneTopW, headY);
+    ctx.lineTo(headX + coneTopW, headY);
+    ctx.lineTo(headX + coneBottomW, headY + coneH);
+    ctx.lineTo(headX - coneBottomW, headY + coneH);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = grd;
+    ctx.fillRect(headX - coneBottomW, headY, coneBottomW * 2, coneH);
+    ctx.restore();
+    // Lamp image
+    if (ASSETS.lamp) {
+      const lw = 40, lh = 150;
+      ctx.drawImage(ASSETS.lamp, (lm.x - lw / 2) * s, (lm.y - lh) * s, lw * s, lh * s);
+    } else {
+      ctx.strokeStyle = COLORS.lamp;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(lm.x * s, lm.y * s);
+      ctx.lineTo(lm.x * s, (lm.y - 140) * s);
+      ctx.stroke();
+      ctx.fillStyle = '#ffdd66';
+      ctx.beginPath();
+      ctx.arc(lm.x * s, (lm.y - 140) * s, 6 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (isSelected('lamp', i)) drawSelectionBorder(lm.x - 25, lm.y - 155, 50, 160, s);
+    drawLabel(lm.x, lm.y - 155, 'LAMPA', s);
   });
 
   // Checkpoint
@@ -828,6 +929,12 @@ function hitTest(mx, my) {
     if (Math.hypot(mx - c.x, my - c.y) < 15) return { type: 'paintCan', index: i };
   }
 
+  // Lamps
+  for (let i = (level.lamps || []).length - 1; i >= 0; i--) {
+    const lm = level.lamps[i];
+    if (Math.abs(mx - lm.x) < 25 && my >= lm.y - 155 && my <= lm.y) return { type: 'lamp', index: i };
+  }
+
   // Trash cans
   for (let i = (level.trashCans || []).length - 1; i >= 0; i--) {
     const t = level.trashCans[i];
@@ -905,6 +1012,7 @@ function getElemPos(sel) {
     case 'paintCan': return { x: e.x, y: e.y };
     case 'cop': return { x: e.x, y: e.y };
     case 'trashCan': return { x: e.x, y: e.y };
+    case 'lamp': return { x: e.x, y: e.y };
     case 'checkpoint': return { x: level.checkpoint.x, y: level.checkpoint.y };
     case 'wire': return { x: e.x1, y: e.y1 };
   }
@@ -923,6 +1031,7 @@ function moveElem(sel, dx, dy) {
     case 'paintCan': e.x += dx; e.y += dy; break;
     case 'cop': e.x += dx; e.y += dy; e.minX += dx; e.maxX += dx; break;
     case 'trashCan': e.x += dx; e.y += dy; break;
+    case 'lamp': e.x += dx; e.y += dy; break;
     case 'checkpoint': level.checkpoint.x += dx; level.checkpoint.y += dy; break;
     case 'wire': e.x1 += dx; e.y1 += dy; e.x2 += dx; e.y2 += dy; break;
   }
@@ -939,6 +1048,7 @@ function getArray(type) {
     case 'paintCan': return level.paintCans;
     case 'cop': return level.cops;
     case 'trashCan': return level.trashCans;
+    case 'lamp': return level.lamps;
     case 'checkpoint': return [level.checkpoint];
     case 'wire': return level.foregroundWires;
   }
@@ -1096,7 +1206,7 @@ function createElement(type, r, start, end) {
       level.paintSpots.push({
         x: Math.round(r.x + w / 2), y: Math.round(r.y + h / 2),
         w: Math.max(w, 40), h: Math.max(h, 40),
-        paintingKey: 'painting_new'
+        paintingKey: Object.keys(muralCache).sort()[0] || 'painting_new'
       });
       selected = { type: 'paintSpot', index: level.paintSpots.length - 1 };
       break;
@@ -1117,6 +1227,11 @@ function createElement(type, r, start, end) {
       if (!level.trashCans) level.trashCans = [];
       level.trashCans.push({ x: start.x, y: start.y });
       selected = { type: 'trashCan', index: level.trashCans.length - 1 };
+      break;
+    case 'lamp':
+      if (!level.lamps) level.lamps = [];
+      level.lamps.push({ x: start.x, y: start.y, radius: 120, intensity: 0.35 });
+      selected = { type: 'lamp', index: level.lamps.length - 1 };
       break;
     case 'checkpoint':
       level.checkpoint = { x: start.x, y: start.y };
@@ -1160,11 +1275,25 @@ function showProps() {
     case 'ladder':
       html += field('x', e.x) + field('topY', e.topY) + field('bottomY', e.bottomY) + field('minX', e.minX) + field('maxX', e.maxX) + field('depth', e.depth ?? '');
       break;
-    case 'paintSpot':
+    case 'paintSpot': {
       html += field('x', e.x) + field('y', e.y) + field('w', e.w) + field('h', e.h) + field('depth', e.depth ?? '');
-      html += ` <label>key: <input data-field="paintingKey" value="${e.paintingKey || ''}" style="width:140px" /></label>`;
-      html += ` <button onclick="window.open('/tools/mural-editor.html?key=${encodeURIComponent(e.paintingKey || '')}&spotW=${e.w}&spotH=${e.h}','_blank')" style="margin-left:8px;background:#530;border-color:#a60;padding:4px 10px;cursor:pointer;color:#fc0;font-weight:bold;">Edytuj mural</button>`;
+      // Dropdown with available murals from muralCache
+      const muralKeys = Object.keys(muralCache).sort();
+      html += ` <label>Wzór: <select data-field="paintingKey" style="width:160px;background:#333;color:#eee;border:1px solid #555;font-family:monospace;font-size:12px">`;
+      // Current value might not be in cache yet
+      const curKey = e.paintingKey || '';
+      if (curKey && !muralKeys.includes(curKey)) {
+        html += `<option value="${curKey}" selected>${curKey} (brak pliku!)</option>`;
+      }
+      muralKeys.forEach(k => {
+        const sel = k === curKey ? ' selected' : '';
+        html += `<option value="${k}"${sel}>${k.replace('painting_', '')}</option>`;
+      });
+      html += `</select></label>`;
+      html += ` <button onclick="window.open('/tools/mural-editor.html?key=${encodeURIComponent(curKey)}&spotW=${e.w}&spotH=${e.h}','_blank')" style="margin-left:4px;background:#530;border-color:#a60;padding:4px 10px;cursor:pointer;color:#fc0;font-weight:bold;">Edytuj</button>`;
+      html += ` <button onclick="createNewMuralForSpot(${selected.index})" style="margin-left:4px;background:#035;border-color:#08f;padding:4px 10px;cursor:pointer;color:#0cf;font-weight:bold;">+ Nowy mural</button>`;
       break;
+    }
     case 'paintCan':
       html += field('x', e.x) + field('y', e.y) + field('depth', e.depth ?? '');
       html += ` <label>color: <select data-field="color" style="width:100px;background:#333;color:#eee;border:1px solid #555;font-family:monospace;font-size:12px">`;
@@ -1179,6 +1308,10 @@ function showProps() {
       break;
     case 'trashCan':
       html += field('x', e.x) + field('y', e.y) + field('depth', e.depth ?? '');
+      break;
+    case 'lamp':
+      html += field('x', e.x) + field('y', e.y) + field('radius', e.radius || 120) + field('depth', e.depth ?? '');
+      html += ` <label>Intensywnosc: <input data-field="intensity" type="range" min="0.05" max="1" step="0.05" value="${e.intensity || 0.35}" style="width:80px;vertical-align:middle" /></label>`;
       break;
     case 'checkpoint':
       html += field('x', e.x) + field('y', e.y);
@@ -1197,7 +1330,7 @@ function showProps() {
       const f = inp.dataset.field;
       let v;
       if (f === 'paintingKey' || f === 'color') { v = inp.value || undefined; }
-      else if (f === 'depth') { v = inp.value.trim() === '' ? undefined : parseFloat(inp.value); }
+      else if (f === 'depth' || f === 'intensity') { v = inp.value.trim() === '' ? undefined : parseFloat(inp.value); }
       else { v = parseInt(inp.value); }
       if (selected.type === 'checkpoint') {
         level.checkpoint[f] = v;
@@ -1282,18 +1415,18 @@ function generateExport() {
   let out = `import { GAME } from './gameConfig.js';\n\nconst H = GAME.HEIGHT;\nconst W = GAME.WIDTH;\n\n`;
 
   levels.forEach((lv, li) => {
-    const isL2 = li === 1;
-    const prefix = isL2 ? 'L2_' : '';
     const WW = lv.worldWidth;
     const HH = lv.worldHeight;
-
-    if (isL2) {
-      out += `const L2_W = ${WW};\nconst L2_H = ${HH};\n\n`;
-    }
-
+    const isStdSize = WW === GAME_W && HH === GAME_H;
     const varName = `LEVEL_${li + 1}`;
-    const hVar = isL2 ? 'L2_H' : 'H';
-    const wVar = isL2 ? 'L2_W' : 'W';
+    let hVar = 'H', wVar = 'W';
+
+    if (!isStdSize) {
+      const prefix = `L${li + 1}_`;
+      wVar = `${prefix}W`;
+      hVar = `${prefix}H`;
+      out += `const ${wVar} = ${WW};\nconst ${hVar} = ${HH};\n\n`;
+    }
 
     const rel = (v, base, bVar) => {
       const diff = base - v;
@@ -1305,6 +1438,7 @@ function generateExport() {
 
     out += `export const ${varName} = {\n`;
     out += `  name: '${lv.name}',\n`;
+    out += `  mode: '${lv.mode || 'stealth'}',\n`;
     out += `  description: '${lv.description}',\n`;
     out += `  worldWidth: ${wVar},\n`;
     out += `  worldHeight: ${hVar},\n`;
@@ -1377,6 +1511,16 @@ function generateExport() {
     });
     out += `  ],\n`;
 
+    // Lamps
+    if (lv.lamps && lv.lamps.length > 0) {
+      out += `  lamps: [\n`;
+      lv.lamps.forEach(lm => {
+        const extra = lm.intensity != null && lm.intensity !== 0.35 ? `, intensity: ${lm.intensity}` : '';
+        out += `    { x: ${Math.round(lm.x)}, y: ${rel(Math.round(lm.y), HH, hVar)}, radius: ${Math.round(lm.radius || 120)}${extra}${dp(lm)} },\n`;
+      });
+      out += `  ],\n`;
+    }
+
     // Wires
     out += `  foregroundWires: [\n`;
     (lv.foregroundWires || []).forEach(w => {
@@ -1388,9 +1532,14 @@ function generateExport() {
   });
 
   out += `export const LEVELS = [${levels.map((_, i) => `LEVEL_${i + 1}`).join(', ')}];\n\n`;
-  out += `export const STEALTH_LEVELS = [LEVEL_1, LEVEL_2];\n`;
-  out += `export const PUZZLE_LEVELS = [LEVEL_3];\n`;
-  out += `export const TOWER_LEVELS = [LEVEL_4];\n`;
+  const byMode = { stealth: [], puzzle: [], tower: [] };
+  levels.forEach((lv, i) => {
+    const m = lv.mode || 'stealth';
+    if (byMode[m]) byMode[m].push(`LEVEL_${i + 1}`);
+  });
+  out += `export const STEALTH_LEVELS = [${byMode.stealth.join(', ')}];\n`;
+  out += `export const PUZZLE_LEVELS = [${byMode.puzzle.join(', ')}];\n`;
+  out += `export const TOWER_LEVELS = [${byMode.tower.join(', ')}];\n`;
   return out;
 }
 
@@ -1421,21 +1570,135 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
 
 // Level select
 const levelSelect = document.getElementById('levelSelect');
-levels.forEach((lv, i) => {
-  const opt = document.createElement('option');
-  opt.value = i;
-  opt.textContent = `${i + 1}. ${lv.name}`;
-  levelSelect.appendChild(opt);
-});
-levelSelect.addEventListener('change', () => {
-  currentLevelIdx = parseInt(levelSelect.value);
+const levelModeFilter = document.getElementById('levelModeFilter');
+
+function getActiveModeFilter() {
+  return levelModeFilter.value || 'stealth';
+}
+
+function getFilteredLevelEntries() {
+  const mode = getActiveModeFilter();
+  return levels
+    .map((lv, i) => ({ lv, i }))
+    .filter(({ lv }) => (lv.mode || 'stealth') === mode);
+}
+
+function refreshLevelSelect() {
+  const filteredLevels = getFilteredLevelEntries();
+  if (filteredLevels.length === 0) {
+    const fallbackMode = ['stealth', 'puzzle', 'tower']
+      .find(mode => levels.some(lv => (lv.mode || 'stealth') === mode));
+    if (fallbackMode && fallbackMode !== getActiveModeFilter()) {
+      levelModeFilter.value = fallbackMode;
+      return refreshLevelSelect();
+    }
+  }
+
+  levelSelect.innerHTML = '';
+  filteredLevels.forEach(({ lv, i }, visibleIdx) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${visibleIdx + 1}. ${lv.name}`;
+    levelSelect.appendChild(opt);
+  });
+
+  const currentVisible = filteredLevels.some(({ i }) => i === currentLevelIdx);
+  if (!currentVisible && filteredLevels.length > 0) {
+    currentLevelIdx = filteredLevels[0].i;
+    level = levels[currentLevelIdx];
+  }
+
+  if (filteredLevels.length > 0) levelSelect.value = String(currentLevelIdx);
+  refreshLevelMeta();
+}
+
+function refreshLevelMeta() {
+  document.getElementById('metaName').value = level.name || '';
+  document.getElementById('metaDesc').value = level.description || '';
+  document.getElementById('metaW').value = level.worldWidth;
+  document.getElementById('metaH').value = level.worldHeight;
+  document.getElementById('metaMode').value = level.mode || 'stealth';
+  levelModeFilter.value = level.mode || 'stealth';
+}
+
+function switchToLevel(idx) {
+  currentLevelIdx = idx;
   level = levels[currentLevelIdx];
   selected = null;
   undoStack = [];
+  levelSelect.value = idx;
+  refreshLevelMeta();
   resizeCanvas();
   draw();
   showProps();
-  document.getElementById('worldInfo').textContent = `${level.worldWidth}x${level.worldHeight}`;
+}
+
+refreshLevelSelect();
+
+levelModeFilter.addEventListener('change', () => {
+  refreshLevelSelect();
+  if (levelSelect.value !== '') switchToLevel(parseInt(levelSelect.value, 10));
+});
+
+levelSelect.addEventListener('change', () => {
+  switchToLevel(parseInt(levelSelect.value, 10));
+});
+
+// Level meta editors
+['metaName', 'metaDesc', 'metaW', 'metaH', 'metaMode'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    pushUndo();
+    level.name = document.getElementById('metaName').value.trim() || 'Nowy';
+    level.description = document.getElementById('metaDesc').value.trim();
+    const newW = parseInt(document.getElementById('metaW').value) || level.worldWidth;
+    const newH = parseInt(document.getElementById('metaH').value) || level.worldHeight;
+    level.worldWidth = Math.max(400, newW);
+    level.worldHeight = Math.max(400, newH);
+    level.mode = document.getElementById('metaMode').value;
+    levelModeFilter.value = level.mode;
+    // Auto-derive paintings from paintSpots
+    level.paintings = [...new Set((level.paintSpots || []).map(ps => ps.paintingKey).filter(Boolean))];
+    refreshLevelSelect();
+    resizeCanvas();
+    draw();
+    autoSave();
+  });
+});
+
+// Add new level
+document.getElementById('btnAddLevel').addEventListener('click', () => {
+  const newLevel = {
+    name: 'Nowy Level', description: '',
+    mode: getActiveModeFilter(),
+    worldWidth: GAME_W, worldHeight: GAME_H,
+    checkpoint: { x: 60, y: GAME_H - 101 },
+    paintings: [],
+    platforms: [],
+    ground: [{ x: 0, y: GAME_H - 32, w: GAME_W }],
+    ladders: [],
+    shadows: [],
+    paintCans: [],
+    paintSpots: [],
+    trashCans: [],
+    cops: [],
+    lamps: [],
+    foregroundWires: [],
+  };
+  levels.push(newLevel);
+  refreshLevelSelect();
+  switchToLevel(levels.length - 1);
+  autoSave();
+});
+
+// Delete current level
+document.getElementById('btnDelLevel').addEventListener('click', () => {
+  if (levels.length <= 1) { alert('Musi zostac przynajmniej 1 level.'); return; }
+  if (!confirm(`Usunac level "${level.name}"?`)) return;
+  levels.splice(currentLevelIdx, 1);
+  if (currentLevelIdx >= levels.length) currentLevelIdx = levels.length - 1;
+  refreshLevelSelect();
+  switchToLevel(currentLevelIdx);
+  autoSave();
 });
 
 // Buttons
@@ -1515,7 +1778,7 @@ document.getElementById('snapGrid').addEventListener('change', draw);
 
 // Init
 window.addEventListener('resize', () => { resizeCanvas(); draw(); });
-document.getElementById('worldInfo').textContent = `${level.worldWidth}x${level.worldHeight}`;
+refreshLevelMeta();
 resizeCanvas();
 draw();
 </script>

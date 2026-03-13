@@ -54,6 +54,7 @@ export default class GameScene extends Phaser.Scene {
     this.createPaintSpots();
     this.createPaintCans();
     this.createForeground();
+    this.createLamps();
 
     // === High-depth layer for bridge/falling-ladder visuals ===
     // Using a Layer guarantees everything inside renders ABOVE platforms,
@@ -437,40 +438,12 @@ export default class GameScene extends Phaser.Scene {
   createFillWalls() {
     const ld = this.levelData;
 
-    // Render explicit fillWalls from level data
+    // Render explicit fillWalls from level data (no auto-generation)
     if (ld.fillWalls && ld.fillWalls.length > 0) {
       ld.fillWalls.forEach(fw => {
         this._createFillWall(fw.x, fw.y, fw.w, fw.h, fw.depth);
       });
     }
-
-    // Also auto-generate walls between platforms and surfaces below
-    const BLOCK_H = 32;
-
-    // Collect all surfaces (platforms + ground) for "what's below" lookup
-    const surfaces = [];
-    ld.ground.forEach(g => surfaces.push({ x: g.x, y: g.y, w: g.w }));
-    ld.platforms.forEach(p => surfaces.push({ x: p.x, y: p.y, w: p.w }));
-
-    // For each platform, find the nearest surface below it
-    ld.platforms.forEach(p => {
-      const pBottom = p.y + BLOCK_H;
-      let bestY = null;
-
-      for (const s of surfaces) {
-        if (s === p) continue;
-        if (s.y <= pBottom) continue; // not below
-        // Surface must overlap horizontally with this platform
-        if (s.x >= p.x + p.w || s.x + s.w <= p.x) continue;
-        if (bestY === null || s.y < bestY) bestY = s.y;
-      }
-
-      if (bestY === null) return; // nothing below — skip
-      const wallH = bestY - pBottom;
-      if (wallH < 4) return; // too thin
-
-      this._createFillWall(p.x, pBottom, p.w, wallH);
-    });
   }
 
   _createFillWall(wx, wy, w, h, depth) {
@@ -702,7 +675,7 @@ export default class GameScene extends Phaser.Scene {
       this.ladderZones.add(zone);
 
       const ladderInfo = {
-        visual, zone, topY, bottomY, height,
+        visual, shadow: ladShadow, zone, topY, bottomY, height,
         minX: minX || 40, maxX: maxX || ld.worldWidth - 40,
         isFalling: false, isBridge: false, destroyed: false, bridgeBody: null
       };
@@ -887,6 +860,64 @@ export default class GameScene extends Phaser.Scene {
     (this.levelData.foregroundWires || []).forEach(w => {
       fg.lineStyle(1, 0x334455, 0.4);
       fg.lineBetween(w.x1, w.y1, w.x2, w.y2);
+    });
+  }
+
+  createLamps() {
+    (this.levelData.lamps || []).forEach(lm => {
+      const x = lm.x, y = lm.y;
+      const radius = lm.radius || 120;
+      const intensity = lm.intensity || 0.35;
+      const lampDepth = lm.depth ?? 3;
+
+      // Lamp post image — 35% larger than editor (40x150 * 1.35)
+      const post = this.add.image(x, y, 'lamp_img').setOrigin(0.5, 1).setDepth(lampDepth);
+      post.setDisplaySize(54, 202);
+
+      // Light cone — single trapezoid shape with gradient texture
+      const bulbX = x + 16;
+      const bulbY = y - post.displayHeight + 7;
+      const coneH = y - bulbY; // reaches lamp base
+      const topW = 10;
+      const botW = radius;
+
+      // Create a canvas texture for the gradient cone
+      const texKey = `_lamp_cone_${Math.round(bulbX)}_${Math.round(bulbY)}`;
+      const texW = botW * 2 + 4;
+      const texH = Math.round(coneH) + 4;
+      const ct = this.textures.createCanvas(texKey, texW, texH);
+      const cc = ct.getContext();
+
+      // Radial gradient from bulb center outward
+      const cx = texW / 2, cy0 = 2;
+      const grad = cc.createRadialGradient(cx, cy0, topW, cx, texH * 0.5, botW);
+      grad.addColorStop(0, `rgba(255,220,120,${intensity})`);
+      grad.addColorStop(0.4, `rgba(255,200,80,${intensity * 0.5})`);
+      grad.addColorStop(0.8, `rgba(255,180,60,${intensity * 0.15})`);
+      grad.addColorStop(1, 'rgba(255,180,60,0)');
+
+      // Clip to trapezoid shape
+      cc.beginPath();
+      cc.moveTo(cx - topW, 0);
+      cc.lineTo(cx + topW, 0);
+      cc.lineTo(cx + botW, texH);
+      cc.lineTo(cx - botW, texH);
+      cc.closePath();
+      cc.clip();
+      cc.fillStyle = grad;
+      cc.fillRect(0, 0, texW, texH);
+      ct.refresh();
+
+      const cone = this.add.image(bulbX, bulbY, texKey).setOrigin(0.5, 0).setDepth(lampDepth - 0.1);
+      cone.setBlendMode(Phaser.BlendModes.ADD);
+
+      // Central bright spot at bulb
+      const g = this.add.graphics();
+      g.setDepth(lampDepth - 0.05);
+      g.fillStyle(0xffeeaa, intensity * 0.6);
+      g.fillCircle(bulbX, bulbY, 14);
+      g.fillStyle(0xffffff, intensity * 0.3);
+      g.fillCircle(bulbX, bulbY, 7);
     });
   }
 
@@ -1194,8 +1225,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.mode === 'stealth') {
       this._addingHud = true;
       // Place hearts after counter text, on the same Y as paint slots
-      const heartScale = uiScale * 16 / 535; // 535px source → ~16px display
-      const heartSpacing = Math.round(24 * uiScale);
+      const heartScale = uiScale * 28 / 40; // 40px source → ~28px display
+      const heartSpacing = Math.round(34 * uiScale);
       const heartStartX = counterX + Math.round(50 * uiScale);
       for (let i = 0; i < this.player.maxHp; i++) {
         const hx = heartStartX + i * heartSpacing;
@@ -1435,18 +1466,19 @@ export default class GameScene extends Phaser.Scene {
       this.paintProgressText = this.add.text(
         gw / 2, hudY,
         `${Math.round(progress * 100)}%`,
-        { font: 'bold 22px ChangaOne, monospace', fill: '#ffffff', stroke: '#000000', strokeThickness: 4, backgroundColor: '#000000aa', padding: { x: 8, y: 4 } }
+        { fontFamily: 'ChangaOne, monospace', fontSize: '48px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 6, padding: { x: 4, y: 2 } }
       ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
       this.cameras.main.ignore(this.paintProgressText);
       this._addingHud = false;
     } else {
       // Desktop: fixed to top-center of screen on UI camera
       const gw = this.sys.game.config.width;
+      const progressY = (this.levelData && this.levelData.mode === 'tower') ? 80 : 60;
       this._addingHud = true;
       this.paintProgressText = this.add.text(
-        gw / 2, 44,
+        gw / 2, progressY,
         `${Math.round(progress * 100)}%`,
-        { font: 'bold 22px ChangaOne, monospace', fill: '#ffffff', stroke: '#000000', strokeThickness: 4, backgroundColor: '#000000aa', padding: { x: 10, y: 4 } }
+        { fontFamily: 'ChangaOne, monospace', fontSize: '48px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 6, padding: { x: 4, y: 2 } }
       ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
       this.cameras.main.ignore(this.paintProgressText);
       this._addingHud = false;
@@ -1820,8 +1852,9 @@ export default class GameScene extends Phaser.Scene {
     const actualDx = newX - ladderInfo.visual.x;
     if (Math.abs(actualDx) < 0.1) return 0;
 
-    // Move visual
+    // Move visual and shadow
     ladderInfo.visual.x = newX;
+    if (ladderInfo.shadow) ladderInfo.shadow.x = newX + 5;
 
     // Move zone (origin 0,0, so x = center - half width)
     const zoneW = ladderInfo.zone.width;
@@ -1922,6 +1955,9 @@ export default class GameScene extends Phaser.Scene {
 
     // Disable climb zone immediately
     ladderInfo.zone.body.enable = false;
+
+    // Hide shadow — it won't follow the rotation
+    if (ladderInfo.shadow) { ladderInfo.shadow.destroy(); ladderInfo.shadow = null; }
 
     const visual = ladderInfo.visual;
     const ladderHeight = ladderInfo.height;

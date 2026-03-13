@@ -5,11 +5,12 @@ const W = GAME.WIDTH;
 
 export const LEVEL_1 = {
   name: 'Ulica',
+  mode: 'stealth',
   description: 'Pomaluj dwa murale w miescie',
   worldWidth: W,
   worldHeight: H,
   checkpoint: { x: 60, y: H - 101 },
-  paintings: ['painting_heart', 'painting_star'],
+  paintings: ['painting_heart', 'painting_star', 'painting_Nowy'],
 
   platforms: [
     { x: 0, y: H - 156, w: 256 },
@@ -17,6 +18,9 @@ export const LEVEL_1 = {
     { x: 300, y: H - 286, w: 300 },
     { x: 50, y: H - 416, w: 300 },
     { x: 620, y: H - 420, w: 170 },
+    { x: 940, y: H - 160, w: 100 },
+    { x: 1090, y: H - 260, w: 100 },
+    { x: 1090, y: H - 500, w: 100 },
   ],
   ground: [
     { x: 0, y: H - 32, w: W },
@@ -26,6 +30,7 @@ export const LEVEL_1 = {
     { x: 820, topY: H - 270, bottomY: H - 32, minX: 630, maxX: 870 },
     { x: 340, topY: H - 415, bottomY: H - 285, minX: 310, maxX: 590 },
     { x: 500, topY: H - 270, bottomY: H - 32, minX: 310, maxX: 590 },
+    { x: 1140, topY: H - 500, bottomY: H - 262, minX: 950, maxX: 1190 },
   ],
   shadows: [
     { x: 80, y: H - 135, w: 75, h: 100 },
@@ -33,20 +38,20 @@ export const LEVEL_1 = {
   ],
   fillWalls: [
     { x: 0, y: H - 124, w: 256, h: 92 },
-    { x: 620, y: H - 254, w: 250, h: 222 },
-    { x: 300, y: H - 254, w: 300, h: 222 },
-    { x: 50, y: H - 384, w: 300, h: 98 },
+    { x: 300, y: H - 254, w: 570, h: 222 },
     { x: 620, y: H - 388, w: 170, h: 102 },
-    { x: 920, y: H - 150, w: 170, h: 110 },
+    { x: 1090, y: H - 620, w: 100, h: 120 },
   ],
   paintCans: [
     { x: 120, y: H - 190 },
     { x: 250, y: H - 450 },
     { x: 550, y: H - 320 },
+    { x: 700, y: H - 450 },
   ],
   paintSpots: [
-    { x: 450, y: H - 140, w: 140, h: 222, paintingKey: 'painting_heart' },
-    { x: 740, y: H - 140, w: 140, h: 222, paintingKey: 'painting_star' },
+    { x: 400, y: H - 150, w: 140, h: 200, paintingKey: 'painting_heart' },
+    { x: 720, y: H - 140, w: 140, h: 222, paintingKey: 'painting_star' },
+    { x: 1140, y: H - 560, w: 80, h: 100, paintingKey: 'painting_Nowy' },
   ],
   trashCans: [
     { x: 310, y: H - 56 },
@@ -54,6 +59,10 @@ export const LEVEL_1 = {
   ],
   cops: [
     { x: 400, y: H - 55, minX: 300, maxX: W - 40 },
+  ],
+  lamps: [
+    { x: 1120, y: H - 23, radius: 120, intensity: 0.65 },
+    { x: 80, y: H - 147, radius: 120, intensity: 0.65 },
   ],
   foregroundWires: [
     { x1: -10, y1: H - 520, x2: 1270, y2: H - 550 },
@@ -65,6 +74,7 @@ const L2_H = 1300;
 
 export const LEVEL_2 = {
   name: 'Wiezowiec',
+  mode: 'stealth',
   description: 'Pokoloruj wielki mural na scianie wiezowca',
   worldWidth: L2_W,
   worldHeight: L2_H,
@@ -93,11 +103,14 @@ export const LEVEL_2 = {
     { x: 510, topY: L2_H - 500, bottomY: L2_H - 250, minX: 410, maxX: 740 },
   ],
   shadows: [
-    { x: 510, y: L2_H - 170, w: 66, h: 140 },
-    { x: 690, y: L2_H - 390, w: 66, h: 140 },
-    { x: 30, y: L2_H - 640, w: 66, h: 140 },
-    { x: 40, y: L2_H - 890, w: 66, h: 140 },
-    { x: 730, y: L2_H - 890, w: 66, h: 140 },
+    { x: 30, y: L2_H - 850, w: 66, h: 100 },
+    { x: 730, y: L2_H - 850, w: 66, h: 100 },
+    { x: 20, y: L2_H - 600, w: 66, h: 100 },
+    { x: 630, y: L2_H - 350, w: 66, h: 100 },
+    { x: 530, y: L2_H - 130, w: 66, h: 100 },
+  ],
+  fillWalls: [
+    { x: 0, y: L2_H - 970, w: 800, h: 940 },
   ],
   paintCans: [
     { x: 120, y: L2_H - 290 },
@@ -110,7 +123,7 @@ export const LEVEL_2 = {
     { x: 760, y: L2_H - 1040 },
   ],
   paintSpots: [
-    { x: 400, y: L2_H - 620, w: 480, h: 576, paintingKey: 'painting_mural_big' },
+    { x: 390, y: L2_H - 540, w: 480, h: 576, paintingKey: 'painting_mural_big' },
   ],
   trashCans: [
     { x: 620, y: L2_H - 55 },
@@ -121,23 +134,18 @@ export const LEVEL_2 = {
     { x: 300, y: L2_H - 520, minX: 100, maxX: 500 },
     { x: 450, y: L2_H - 770, minX: 250, maxX: 650 },
   ],
+  lamps: [
+    { x: 100, y: L2_H - 990, radius: 120, intensity: 0.7 },
+  ],
   foregroundWires: [
     { x1: 0, y1: L2_H - 380, x2: L2_W, y2: L2_H - 400 },
     { x1: 0, y1: L2_H - 880, x2: L2_W, y2: L2_H - 860 },
-  ],
-  fillWalls: [
-    { x: 0, y: L2_H - 218, w: 280, h: 186 },
-    { x: 420, y: L2_H - 218, w: 380, h: 186 },
-    { x: 0, y: L2_H - 468, w: 320, h: 218 },
-    { x: 480, y: L2_H - 468, w: 320, h: 218 },
-    { x: 0, y: L2_H - 718, w: 280, h: 218 },
-    { x: 420, y: L2_H - 718, w: 380, h: 218 },
-    { x: 0, y: L2_H - 968, w: 800, h: 218 },
   ],
 };
 
 export const LEVEL_3 = {
   name: 'Lamiglowka',
+  mode: 'puzzle',
   description: 'Uzyj drabin i koszy by dotrzec do murali',
   worldWidth: W,
   worldHeight: H,
@@ -158,108 +166,110 @@ export const LEVEL_3 = {
   ladders: [
     { x: 140, topY: H - 160, bottomY: H - 32, minX: 10, maxX: 300 },
     { x: 1020, topY: H - 280, bottomY: H - 32, minX: 900, maxX: 1150 },
-    { x: 380, topY: H - 160, bottomY: H - 32, minX: 10, maxX: 800 },
+    { x: 740, topY: H - 160, bottomY: H - 32, minX: 370, maxX: 1160 },
     { x: 200, topY: H - 380, bottomY: H - 160, minX: 10, maxX: 900 },
-    { x: 1000, topY: H - 380, bottomY: H - 280, minX: 900, maxX: 1150 },
     { x: 700, topY: H - 600, bottomY: H - 380, minX: 200, maxX: 900 },
   ],
   shadows: [
   ],
+  fillWalls: [
+    { x: 500, y: H - 128, w: 300, h: 96 },
+    { x: 0, y: H - 330, w: 350, h: 320 },
+    { x: 550, y: H - 348, w: 350, h: 188 },
+    { x: 200, y: H - 568, w: 500, h: 188 },
+    { x: 950, y: H - 248, w: 200, h: 216 },
+  ],
   paintCans: [
     { x: 100, y: H - 60 },
     { x: 700, y: H - 200 },
-    { x: 300, y: H - 420 },
+    { x: 40, y: H - 420 },
     { x: 450, y: H - 640 },
   ],
   paintSpots: [
-    { x: 650, y: H - 220, w: 120, h: 180, paintingKey: 'painting_heart' },
-    { x: 170, y: H - 480, w: 120, h: 180, paintingKey: 'painting_star' },
+    { x: 620, y: H - 260, w: 120, h: 180, paintingKey: 'painting_heart' },
+    { x: 270, y: H - 480, w: 120, h: 180, paintingKey: 'painting_star' },
   ],
   trashCans: [
-    { x: 150, y: H - 56 },
+    { x: 460, y: H - 50 },
     { x: 80, y: H - 185 },
-    { x: 750, y: H - 405 },
+    { x: 779, y: H - 187 },
   ],
   cops: [
   ],
   foregroundWires: [
     { x1: 0, y1: H - 520, x2: W, y2: H - 540 },
   ],
-  fillWalls: [
-    { x: 0, y: H - 128, w: 300, h: 96 },
-    { x: 500, y: H - 128, w: 300, h: 96 },
-    { x: 0, y: H - 348, w: 350, h: 188 },
-    { x: 550, y: H - 348, w: 350, h: 188 },
-    { x: 200, y: H - 568, w: 500, h: 188 },
-    { x: 950, y: H - 248, w: 200, h: 216 },
-  ],
 };
+
+const L4_W = 1280;
+const L4_H = 1900;
 
 export const LEVEL_4 = {
   name: 'Wieza',
+  mode: 'tower',
   description: 'Wspinaj sie i maluj — czas ucieka!',
-  worldWidth: W,
-  worldHeight: H,
-  checkpoint: { x: 60, y: H - 101 },
+  worldWidth: L4_W,
+  worldHeight: L4_H,
+  checkpoint: { x: 60, y: L4_H - 101 },
   paintings: ['painting_heart', 'painting_star'],
 
   platforms: [
-    { x: 0, y: H - 200, w: 300 },
-    { x: 400, y: H - 200, w: 300 },
-    { x: 0, y: H - 450, w: 320 },
-    { x: 380, y: H - 450, w: 320 },
-    { x: 0, y: H - 700, w: 280 },
-    { x: 420, y: H - 700, w: 280 },
-    { x: 0, y: H - 1200, w: 350 },
-    { x: 350, y: H - 1200, w: 350 },
-    { x: 0, y: H - 1500, w: 700 },
-    { x: 150, y: H - 1800, w: 400 },
+    { x: 0, y: L4_H - 200, w: 300 },
+    { x: 400, y: L4_H - 200, w: 300 },
+    { x: 0, y: L4_H - 450, w: 320 },
+    { x: 380, y: L4_H - 450, w: 320 },
+    { x: 0, y: L4_H - 700, w: 280 },
+    { x: 420, y: L4_H - 700, w: 280 },
+    { x: 0, y: L4_H - 1200, w: 350 },
+    { x: 350, y: L4_H - 1200, w: 350 },
+    { x: 0, y: L4_H - 1500, w: 700 },
+    { x: 150, y: L4_H - 1800, w: 400 },
   ],
   ground: [
-    { x: 0, y: H - 32, w: W },
+    { x: 0, y: L4_H - 32, w: L4_W },
   ],
   ladders: [
-    { x: 200, topY: H - 200, bottomY: H - 32, minX: 50, maxX: 350 },
-    { x: 550, topY: H - 450, bottomY: H - 200, minX: 400, maxX: 650 },
-    { x: 150, topY: H - 700, bottomY: H - 450, minX: 50, maxX: 380 },
-    { x: 550, topY: H - 1200, bottomY: H - 700, minX: 350, maxX: 700 },
-    { x: 200, topY: H - 1500, bottomY: H - 1200, minX: 50, maxX: 400 },
-    { x: 400, topY: H - 1800, bottomY: H - 1500, minX: 150, maxX: 550 },
+    { x: 200, topY: L4_H - 200, bottomY: L4_H - 32, minX: 50, maxX: 350 },
+    { x: 550, topY: L4_H - 450, bottomY: L4_H - 200, minX: 400, maxX: 650 },
+    { x: 150, topY: L4_H - 700, bottomY: L4_H - 450, minX: 50, maxX: 380 },
+    { x: 550, topY: L4_H - 1200, bottomY: L4_H - 700, minX: 350, maxX: 700 },
+    { x: 200, topY: L4_H - 1500, bottomY: L4_H - 1200, minX: 50, maxX: 400 },
+    { x: 400, topY: L4_H - 1800, bottomY: L4_H - 1500, minX: 150, maxX: 550 },
   ],
   shadows: [
   ],
+  fillWalls: [
+    { x: 0, y: L4_H - 168, w: 300, h: 136 },
+    { x: 400, y: L4_H - 168, w: 300, h: 136 },
+    { x: 0, y: L4_H - 418, w: 320, h: 218 },
+    { x: 380, y: L4_H - 418, w: 320, h: 218 },
+    { x: 0, y: L4_H - 668, w: 280, h: 218 },
+    { x: 420, y: L4_H - 668, w: 280, h: 218 },
+    { x: 0, y: L4_H - 1168, w: 350, h: 468 },
+    { x: 350, y: L4_H - 1168, w: 350, h: 468 },
+    { x: 0, y: L4_H - 1468, w: 700, h: 268 },
+    { x: 150, y: L4_H - 1768, w: 400, h: 268 },
+  ],
   paintCans: [
-    { x: 100, y: H - 60 },
-    { x: 300, y: H - 60 },
-    { x: 500, y: H - 60 },
-    { x: 350, y: H - 740 },
+    { x: 100, y: L4_H - 60 },
+    { x: 300, y: L4_H - 60 },
+    { x: 500, y: L4_H - 60 },
+    { x: 350, y: L4_H - 740 },
   ],
   paintSpots: [
-    { x: 170, y: H - 530, w: 140, h: 200, paintingKey: 'painting_heart' },
-    { x: 520, y: H - 790, w: 140, h: 200, paintingKey: 'painting_star' },
+    { x: 170, y: L4_H - 530, w: 140, h: 200, paintingKey: 'painting_heart' },
+    { x: 520, y: L4_H - 790, w: 140, h: 200, paintingKey: 'painting_star' },
   ],
   trashCans: [
-    { x: 500, y: H - 56 },
-    { x: 100, y: H - 475 },
+    { x: 500, y: L4_H - 56 },
+    { x: 100, y: L4_H - 475 },
   ],
   cops: [
   ],
   foregroundWires: [
-    { x1: 0, y1: H - 350, x2: W, y2: H - 370 },
-    { x1: 0, y1: H - 900, x2: W, y2: H - 920 },
-    { x1: 0, y1: H - 1400, x2: W, y2: H - 1380 },
-  ],
-  fillWalls: [
-    { x: 0, y: H - 168, w: 300, h: 136 },
-    { x: 400, y: H - 168, w: 300, h: 136 },
-    { x: 0, y: H - 418, w: 320, h: 218 },
-    { x: 380, y: H - 418, w: 320, h: 218 },
-    { x: 0, y: H - 668, w: 280, h: 218 },
-    { x: 420, y: H - 668, w: 280, h: 218 },
-    { x: 0, y: H - 1168, w: 350, h: 468 },
-    { x: 350, y: H - 1168, w: 350, h: 468 },
-    { x: 0, y: H - 1468, w: 700, h: 268 },
-    { x: 150, y: H - 1768, w: 400, h: 268 },
+    { x1: 0, y1: L4_H - 350, x2: L4_W, y2: L4_H - 370 },
+    { x1: 0, y1: L4_H - 900, x2: L4_W, y2: L4_H - 920 },
+    { x1: 0, y1: L4_H - 1400, x2: L4_W, y2: L4_H - 1380 },
   ],
 };
 

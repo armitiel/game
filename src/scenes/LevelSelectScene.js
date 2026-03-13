@@ -36,6 +36,13 @@ export default class LevelSelectScene extends Phaser.Scene {
 
   // === MODE SELECT SCREEN ===
 
+  getLevelsForMode(modeKey) {
+    if (modeKey === 'stealth') return STEALTH_LEVELS;
+    if (modeKey === 'puzzle') return PUZZLE_LEVELS;
+    if (modeKey === 'tower') return TOWER_LEVELS;
+    return LEVELS.filter(l => (l.mode || 'stealth') === modeKey);
+  }
+
   showModeSelect(cx, gh) {
     // Title with 3D depth effect
     const titleY = 60;
@@ -58,17 +65,20 @@ export default class LevelSelectScene extends Phaser.Scene {
       {
         key: 'stealth', name: 'STEALTH',
         desc: 'Uciekaj przed policja\ni maluj murale w cieniu',
-        icon: '\u{1F3AD}', color: 0x3366ff, levels: STEALTH_LEVELS
+        icon: '\u{1F3AD}', color: 0x3366ff,
+        levels: this.getLevelsForMode('stealth')
       },
       {
         key: 'puzzle', name: 'PUZZLE',
         desc: 'Uzyj drabin i koszy\nby dotrzec do murali',
-        icon: '\u{1F9E9}', color: 0xff9933, levels: PUZZLE_LEVELS
+        icon: '\u{1F9E9}', color: 0xff9933,
+        levels: this.getLevelsForMode('puzzle')
       },
       {
         key: 'tower', name: 'WIEZA',
         desc: 'Wspinaj sie w gore\nczas ucieka!',
-        icon: '\u{1F3D7}', color: 0xff3366, levels: TOWER_LEVELS
+        icon: '\u{1F3D7}', color: 0xff3366,
+        levels: this.getLevelsForMode('tower')
       }
     ];
 
@@ -164,8 +174,7 @@ export default class LevelSelectScene extends Phaser.Scene {
   // === LEVEL CARDS FOR SELECTED MODE ===
 
   showLevelCards(cx, gh, modeKey) {
-    const modeMap = { stealth: STEALTH_LEVELS, puzzle: PUZZLE_LEVELS, tower: TOWER_LEVELS };
-    const levels = modeMap[modeKey] || [];
+    const levels = this.getLevelsForMode(modeKey);
     const modeNames = { stealth: 'STEALTH', puzzle: 'PUZZLE', tower: 'WIEZA' };
 
     this.add.text(cx, 40, modeNames[modeKey] || modeKey.toUpperCase(), {
