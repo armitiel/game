@@ -286,7 +286,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         // Check right edge: player is to the right of platform, close to its right edge
         const nearRightEdge = playerLeft <= platRight + grabRange && playerLeft >= platRight - 10;
 
-        if (nearLeftEdge || nearRightEdge) {
+        // Only climb if facing toward the edge (not backing into it)
+        const facingRight = !this.flipX;
+        if ((nearLeftEdge && facingRight) || (nearRightEdge && !facingRight)) {
           // Snap player X so hands land at platform corner (outer edge)
           if (nearLeftEdge) {
             this.x = platLeft;

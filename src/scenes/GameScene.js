@@ -964,10 +964,10 @@ export default class GameScene extends Phaser.Scene {
       const bulbX  = x + 16;
       const bulbY  = y - post.displayHeight + 16; // bulb head center in world
       const bulbR  = 15;
-      const coneY  = bulbY + bulbR;               // cone starts at bottom of bulb circle
+      const coneY  = bulbY - bulbR;               // cone starts above bulb centre — merges into bulb
       const coneH  = Math.max(10, y - coneY);
       const botW   = radius;
-      const topW   = bulbR;                       // top of cone = bulb radius wide
+      const topW   = 4;                           // very narrow top — blends into bulb
 
       const texKey = `_lamp_cone_${Math.round(bulbX)}_${Math.round(bulbY)}`;
       if (this.textures.exists(texKey)) this.textures.remove(texKey);

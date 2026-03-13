@@ -114,16 +114,6 @@ export default class TouchControls {
     const DEAD_ZONE_PAINT = 30;
 
     zone.on('pointerdown', (pointer) => {
-      // First touch — fade out the static hint permanently
-      if (this._hintVisible) {
-        this._hintVisible = false;
-        scene.tweens.add({
-          targets: hintElements,
-          alpha: 0,
-          duration: 300,
-          onComplete: () => hintElements.forEach(el => el.setVisible(false))
-        });
-      }
       originX = pointer.x;
       originY = pointer.y;
       // Show joystick at touch point
@@ -287,15 +277,6 @@ export default class TouchControls {
     let pointerDown = false;
 
     zone.on('pointerdown', (pointer) => {
-      // Fade static hint on first use
-      if (this._actHintVisible) {
-        this._actHintVisible = false;
-        scene.tweens.add({
-          targets: staticHintEls, alpha: 0, duration: 300,
-          onComplete: () => staticHintEls.forEach(el => el.setVisible(false))
-        });
-      }
-
       originX = pointer.x;
       originY = pointer.y;
       pointerDown = true;

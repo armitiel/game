@@ -24,8 +24,8 @@ export default class BootScene extends Phaser.Scene {
 
     let frameImg = null;
 
-    const loadingText = this.add.text(width / 2, barY - 32, 'Loading...', {
-      font: '18px ChangaOne, monospace',
+    const loadingText = this.add.text(width / 2, barY - 62, 'Loading...', {
+      font: '36px ChangaOne, monospace',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 3
     }).setOrigin(0.5);
