@@ -872,7 +872,7 @@ export default class GameScene extends Phaser.Scene {
       const x = lm.x, y = lm.y;
       const radius = lm.radius || 120;
       const intensity = lm.intensity || 0.35;
-      const lampDepth = lm.depth ?? 3;
+      const lampDepth = lm.depth ?? 6;  // above player (depth 5)
 
       // Lamp post image — 426x1071 source, preserve aspect ratio at height 202 → width 80
       const post = this.add.image(x, y, 'lamp_img').setOrigin(0.5, 1).setDepth(lampDepth);
