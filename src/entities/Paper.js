@@ -25,8 +25,13 @@ export default class Paper extends Phaser.GameObjects.Image {
     this.baseAngle = baseAngle ?? Phaser.Math.Between(-12, 12);
     this.setAngle(this.baseAngle);
     this.setOrigin(0.5, 1);   // anchor at bottom-centre — sits on the ground
-    this.setDepth(3.5);       // above ground, below player (depth 5)
-    this.setDisplaySize(36, 28);
+    this.setDepth(4.5);       // above platforms (3), below player (5)
+    this.setDisplaySize(42, 32);
+
+    // Store base scale after setDisplaySize — tweens deform RELATIVE to this,
+    // not in absolute terms (raw texture is 1180×457, so scaleX ≈ 0.036)
+    this._bsX = this.scaleX;
+    this._bsY = this.scaleY;
 
     this._isBlowing = false;
     this._blowCooldown = 0;
@@ -59,10 +64,10 @@ export default class Paper extends Phaser.GameObjects.Image {
     const spinDeg = dir * Phaser.Math.Between(80, 200) * strength;
 
     const scene = this.scene;
-    const startX = this.x;
-    const startY = this.y;
-    const targetX = startX + driftX;
-    const targetY = startY + riseY;
+    const targetX = this.x + driftX;
+    const targetY = this.y + riseY;
+    const bsX = this._bsX;
+    const bsY = this._bsY;
 
     // Phase 1 — blow away (fast, with deformation)
     scene.tweens.add({
@@ -70,8 +75,8 @@ export default class Paper extends Phaser.GameObjects.Image {
       x: targetX,
       y: targetY,
       angle: this.baseAngle + spinDeg * 0.6,
-      scaleX: 0.85 + 0.25 * Math.random(), // crinkle
-      scaleY: 0.80 + 0.25 * Math.random(),
+      scaleX: bsX * (0.85 + 0.25 * Math.random()), // crinkle relative to display size
+      scaleY: bsY * (0.80 + 0.25 * Math.random()),
       duration: 260,
       ease: 'Sine.easeOut',
       onComplete: () => {
@@ -79,10 +84,10 @@ export default class Paper extends Phaser.GameObjects.Image {
         scene.tweens.add({
           targets: this,
           x: targetX + dir * Phaser.Math.Between(8, 22),
-          y: targetY + Phaser.Math.Between(10, 28), // fall back down
+          y: targetY + Phaser.Math.Between(10, 28),
           angle: this.baseAngle + spinDeg,
-          scaleX: 0.9 + 0.2 * Math.random(),
-          scaleY: 0.9 + 0.2 * Math.random(),
+          scaleX: bsX * (0.9 + 0.2 * Math.random()),
+          scaleY: bsY * (0.9 + 0.2 * Math.random()),
           duration: 380,
           ease: 'Sine.easeIn',
           onComplete: () => {
@@ -94,8 +99,8 @@ export default class Paper extends Phaser.GameObjects.Image {
               x: settleX,
               y: this.homeY,
               angle: settleAngle,
-              scaleX: 1,
-              scaleY: 1,
+              scaleX: bsX, // restore to display size
+              scaleY: bsY,
               duration: 700,
               ease: 'Sine.easeOut',
               onComplete: () => {
