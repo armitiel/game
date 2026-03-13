@@ -2407,7 +2407,10 @@ export default class GameScene extends Phaser.Scene {
       if (speed > 40) { // only when actually moving
         for (const paper of this.papers) {
           paper.tick(delta);
-          if (Math.abs(px - paper.x) < 55 && Math.abs(py - paper.homeY) < 80) {
+          const dy = py - paper.homeY;
+          // Only trigger if player is at same level or above paper (dy <= 0..small),
+          // never when player is far below (walking under a platform)
+          if (Math.abs(px - paper.x) < 60 && dy > -80 && dy < 15) {
             paper.disturb(pvx, speed);
           }
         }

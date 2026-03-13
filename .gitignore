@@ -5,3 +5,5 @@ build_out*/
 build_test*/
 .claude/
 *.timestamp-*.mjs
+
+.vercel
