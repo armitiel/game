@@ -817,13 +817,28 @@ export default class GameScene extends Phaser.Scene {
 
   createPaintSpots() {
     this.paintSpotZones = this.physics.add.staticGroup();
+    this._muralGlows = [];
 
     const addSpot = (x, y, w, h, paintingKey, spotDepth) => {
+      const depth = spotDepth ?? 2;
       // Subtle outline marking the mural area — background fill wall shows through
       const visual = this.add.graphics();
       visual.lineStyle(1, 0xffffff, 0.15);
       visual.strokeRect(x - w / 2, y - h / 2, w, h);
-      visual.setDepth(spotDepth ?? 2);
+      visual.setDepth(depth);
+
+      // Glow border (animated when player is nearby)
+      const glowG = this.add.graphics();
+      glowG.setDepth(depth + 0.1);
+
+      // Star particles travelling the perimeter
+      const NUM_STARS = 6;
+      const stars = [];
+      for (let i = 0; i < NUM_STARS; i++) {
+        const sg = this.add.graphics();
+        sg.setDepth(depth + 0.2);
+        stars.push({ g: sg, t: i / NUM_STARS, speed: 0.00018 + Math.random() * 0.00008 });
+      }
 
       // Interaction zone — slightly wider than visual for comfortable reach
       const interactPad = 10;  // small extra reach on each side
@@ -838,9 +853,76 @@ export default class GameScene extends Phaser.Scene {
       zone.setData('spotY', y);
       this.paintSpotZones.add(zone);
       this.totalSpots++;
+
+      this._muralGlows.push({ zone, glowG, stars, glowT: 0, rx: x - w / 2, ry: y - h / 2, rw: w, rh: h });
     };
 
     this.levelData.paintSpots.forEach(s => addSpot(s.x, s.y, s.w, s.h, s.paintingKey, s.depth));
+  }
+
+  _perimeterPos(t, rx, ry, rw, rh) {
+    const perim = 2 * (rw + rh);
+    let d = ((t % 1) + 1) % 1 * perim;
+    if (d < rw)        return { x: rx + d,       y: ry };
+    d -= rw;
+    if (d < rh)        return { x: rx + rw,       y: ry + d };
+    d -= rh;
+    if (d < rw)        return { x: rx + rw - d,   y: ry + rh };
+    d -= rw;
+                       return { x: rx,             y: ry + rh - d };
+  }
+
+  _updateMuralGlow(time, delta) {
+    if (!this._muralGlows) return;
+    const activeSpot = this.interactablePaintSpot;
+
+    this._muralGlows.forEach(entry => {
+      if (entry.zone.getData('painted')) {
+        entry.glowG.clear();
+        entry.stars.forEach(s => s.g.clear());
+        return;
+      }
+
+      const isActive = (entry.zone === activeSpot);
+      entry.glowT += ((isActive ? 1 : 0) - entry.glowT) * 0.08;
+      const gt = entry.glowT;
+
+      const { rx, ry, rw, rh } = entry;
+
+      // --- Glow border ---
+      entry.glowG.clear();
+      if (gt > 0.01) {
+        const pulse = 0.75 + 0.25 * Math.sin(time * 0.004);
+        const layers = [
+          { lw: 8, alpha: 0.04 },
+          { lw: 5, alpha: 0.09 },
+          { lw: 3, alpha: 0.18 },
+          { lw: 1, alpha: 0.55 },
+        ];
+        layers.forEach(l => {
+          entry.glowG.lineStyle(l.lw, 0xffd080, l.alpha * gt * pulse);
+          entry.glowG.strokeRect(rx, ry, rw, rh);
+        });
+      }
+
+      // --- Star particles ---
+      entry.stars.forEach(star => {
+        star.g.clear();
+        if (gt < 0.01) return;
+        star.t = (star.t + star.speed * delta) % 1;
+        const pos = this._perimeterPos(star.t, rx, ry, rw, rh);
+        const starPulse = 0.4 + 0.6 * Math.sin(time * 0.006 + star.t * Math.PI * 6);
+        const a = gt * starPulse;
+        const sz = 1.5;
+        // Cross sparkle
+        star.g.fillStyle(0xffffff, a * 0.85);
+        star.g.fillRect(pos.x - sz * 0.5, pos.y - sz * 2,   sz,      sz * 4);
+        star.g.fillRect(pos.x - sz * 2,   pos.y - sz * 0.5, sz * 4,  sz);
+        // Bright center
+        star.g.fillStyle(0xffe090, a);
+        star.g.fillCircle(pos.x, pos.y, 1.8);
+      });
+    });
   }
 
   createTrashCans() {
@@ -878,52 +960,44 @@ export default class GameScene extends Phaser.Scene {
       const post = this.add.image(x, y, 'lamp_img').setOrigin(0.5, 1).setDepth(lampDepth);
       post.setDisplaySize(80, 202);
 
-      // Light cone — trapezoid with arc top matching the round bulb
-      const bulbX = x + 16;
-      const bulbY = y - post.displayHeight + 16; // center of bulb head (16px from top at display scale)
-      const bulbR = 15;                           // approx radius of bulb head in world px
-      const coneH = y - bulbY;
-      const botW  = radius;
+      // Light cone — simple trapezoid, linear gradient, in front of lamp
+      const bulbX  = x + 16;
+      const bulbY  = y - post.displayHeight + 16; // bulb head center in world
+      const bulbR  = 15;
+      const coneY  = bulbY + bulbR;               // cone starts at bottom of bulb circle
+      const coneH  = Math.max(10, y - coneY);
+      const botW   = radius;
+      const topW   = bulbR;                       // top of cone = bulb radius wide
 
-      // Create a canvas texture for the gradient cone
       const texKey = `_lamp_cone_${Math.round(bulbX)}_${Math.round(bulbY)}`;
+      if (this.textures.exists(texKey)) this.textures.remove(texKey);
       const texW = botW * 2 + 4;
       const texH = Math.round(coneH) + 4;
-      const ct = this.textures.createCanvas(texKey, texW, texH);
-      const cc = ct.getContext();
+      const ct   = this.textures.createCanvas(texKey, texW, texH);
+      const cc   = ct.getContext();
+      const cx   = texW / 2;
 
-      // Radial gradient from bulb center outward
-      const cx = texW / 2;
-      const grad = cc.createRadialGradient(cx, 0, bulbR, cx, texH * 0.5, botW);
-      grad.addColorStop(0,   `rgba(255,220,120,${intensity})`);
-      grad.addColorStop(0.4, `rgba(255,200,80,${intensity * 0.5})`);
-      grad.addColorStop(0.8, `rgba(255,180,60,${intensity * 0.15})`);
-      grad.addColorStop(1,   'rgba(255,180,60,0)');
+      // Linear gradient: bright at top, transparent at bottom (guaranteed coverage)
+      const grad = cc.createLinearGradient(0, 0, 0, texH);
+      grad.addColorStop(0,    `rgba(255,220,120,${intensity})`);
+      grad.addColorStop(0.45, `rgba(255,200,80,${intensity * 0.45})`);
+      grad.addColorStop(0.85, `rgba(255,180,60,${intensity * 0.1})`);
+      grad.addColorStop(1,    'rgba(255,180,60,0)');
 
-      // Clip: arc at top follows bottom curve of round bulb, then trapezoid sides
+      // Clip to trapezoid
       cc.beginPath();
-      cc.arc(cx, 0, bulbR, 0, Math.PI, false); // bottom half of bulb circle, bows downward
-      cc.lineTo(cx - botW, texH);
+      cc.moveTo(cx - topW, 0);
+      cc.lineTo(cx + topW, 0);
       cc.lineTo(cx + botW, texH);
+      cc.lineTo(cx - botW, texH);
       cc.closePath();
       cc.clip();
       cc.fillStyle = grad;
       cc.fillRect(0, 0, texW, texH);
-      // Soft-fade the side edges so no hard cutoff line is visible
-      cc.globalCompositeOperation = 'destination-in';
-      const fadeW = texW * 0.05;
-      const edgeGrad = cc.createLinearGradient(0, 0, texW, 0);
-      edgeGrad.addColorStop(0,              'rgba(0,0,0,0)');
-      edgeGrad.addColorStop(fadeW / texW,   'rgba(0,0,0,1)');
-      edgeGrad.addColorStop(1 - fadeW / texW, 'rgba(0,0,0,1)');
-      edgeGrad.addColorStop(1,              'rgba(0,0,0,0)');
-      cc.fillStyle = edgeGrad;
-      cc.fillRect(0, 0, texW, texH);
-      cc.globalCompositeOperation = 'source-over';
       ct.refresh();
 
-      // Cone renders IN FRONT of lamp post
-      const cone = this.add.image(bulbX, bulbY, texKey).setOrigin(0.5, 0).setDepth(lampDepth + 0.5);
+      // Place cone at coneY — top of cone aligns with bottom of bulb circle
+      const cone = this.add.image(bulbX, coneY, texKey).setOrigin(0.5, 0).setDepth(lampDepth + 0.5);
       cone.setBlendMode(Phaser.BlendModes.ADD);
 
       // Central soft glow at bulb — radial gradient canvas texture
@@ -2311,6 +2385,8 @@ export default class GameScene extends Phaser.Scene {
     }
     // Update shadow down-arrow indicators
     this._updateShadowArrows();
+    // Animate mural glow & star particles
+    this._updateMuralGlow(time, delta);
 
     // 2. Check paint input (SPACE or touch ACT)
     // Allowed when: on solid ground OR on ladder (not mid-air)
