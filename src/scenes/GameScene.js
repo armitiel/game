@@ -1845,31 +1845,32 @@ export default class GameScene extends Phaser.Scene {
 
   _spawnLeaf() {
     const LEAF_TINTS = [0xe8c830, 0xd4a820, 0xf0d840, 0xc89028, 0xb87820];
-    const zoom = this.cameras.main.zoom;
-    const gw   = this.sys.game.config.width;
-    const gh   = this.sys.game.config.height;
+    const gw  = this.sys.game.config.width;
+    const gh  = this.sys.game.config.height;
 
-    // Screen-space: startSX > gw, so leaf is always off-screen right
-    const startSX   = gw + Phaser.Math.Between(20, 50);
-    const startSY   = Phaser.Math.Between(20, gh - 20);
-    const endSX     = -50;
+    const startX    = gw + Phaser.Math.Between(20, 50);
+    const startY    = Phaser.Math.Between(20, gh - 20);
+    const endX      = -50;
     const driftY    = Phaser.Math.Between(-70, 70);
     const waves     = Phaser.Math.FloatBetween(1.5, 3.5);
     const waveAmp   = Phaser.Math.Between(25, 65);
     const speedPx   = Phaser.Math.Between(60, 140);
-    const duration  = ((startSX - endSX) / speedPx) * 1000;
+    const duration  = ((startX - endX) / speedPx) * 1000;
     const startAngle = Phaser.Math.Between(0, 360);
     const totalRot  = Phaser.Math.Between(200, 500) * (Math.random() < 0.5 ? 1 : -1);
 
-    // setScrollFactor(0): Phaser renders at worldX * zoom (ignores camera.scrollX entirely)
-    // So worldX = screenX / zoom gives exact screen pixel position, independent of camera
-    const leaf = this.add.image(startSX / zoom, startSY / zoom, 'leaf_tex')
-      .setScrollFactor(0)
+    // uiCam has zoom=1 and scroll=0 — worldX = screenX exactly.
+    // _addingHud=true skips the addedtoscene handler so uiCam does NOT ignore this leaf.
+    // Then we explicitly hide it from the main camera.
+    this._addingHud = true;
+    const leaf = this.add.image(startX, startY, 'leaf_tex')
       .setScale(Phaser.Math.FloatBetween(0.8, 1.4))
       .setAngle(startAngle)
       .setAlpha(0.88)
       .setDepth(55)
       .setTint(LEAF_TINTS[Phaser.Math.Between(0, LEAF_TINTS.length - 1)]);
+    this._addingHud = false;
+    this.cameras.main.ignore(leaf);   // main camera won't render leaf
 
     const prog = { t: 0 };
     this.tweens.add({
@@ -1878,10 +1879,9 @@ export default class GameScene extends Phaser.Scene {
       duration,
       onUpdate: () => {
         const t  = prog.t;
-        const sx = startSX + (endSX - startSX) * t;
-        const sy = startSY + driftY * t + Math.sin(t * waves * Math.PI * 2) * waveAmp;
-        leaf.x     = sx / zoom;
-        leaf.y     = sy / zoom;
+        // Pure screen-space coordinates — uiCam never scrolls
+        leaf.x     = startX + (endX - startX) * t;
+        leaf.y     = startY + driftY * t + Math.sin(t * waves * Math.PI * 2) * waveAmp;
         leaf.angle = startAngle + totalRot * t;
         leaf.alpha = t > 0.8 ? 0.88 * (1 - (t - 0.8) / 0.2) : 0.88;
       },
