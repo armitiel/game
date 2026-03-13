@@ -66,59 +66,23 @@ export default class TouchControls {
 
     this.buttons.push(this._joyBase, this._joyThumb);
 
-    // --- Initial hint: static joystick preview so user knows where controls are ---
+    // Initial position — bottom-left corner, will move to touch point on first use
     const hintX = 110;
     const hintY = cam.height - 130;
-    const hintDist = BASE_RADIUS + 6; // distance from center to direction dots
+    this._joyBase.setPosition(hintX, hintY).setVisible(true).setAlpha(0.06);
+    this._joyBase.setStrokeStyle(2, 0xffffff, 0.2);
+    this._joyThumb.setPosition(hintX, hintY).setVisible(true).setAlpha(0.15);
 
-    this._hintBase = scene.add.circle(hintX, hintY, BASE_RADIUS, 0xffffff, 0.06)
-      .setScrollFactor(0).setDepth(199)
-      .setStrokeStyle(2, 0xffffff, 0.2);
-    this._hintThumb = scene.add.circle(hintX, hintY, THUMB_RADIUS, 0xffffff, 0.15)
-      .setScrollFactor(0).setDepth(200);
-
-    // 4 small direction indicator circles around the ring
-    this._hintDots = [
-      scene.add.circle(hintX - hintDist, hintY, HINT_RADIUS, 0x88aaff, 0.25),  // left
-      scene.add.circle(hintX + hintDist, hintY, HINT_RADIUS, 0x88aaff, 0.25),  // right
-      scene.add.circle(hintX, hintY - hintDist, HINT_RADIUS, 0x88ffaa, 0.25),  // up
-      scene.add.circle(hintX, hintY + hintDist, HINT_RADIUS, 0xff8888, 0.25),  // down
-    ];
-    // Small arrows inside direction dots
-    const arrowStyle = { font: 'bold 16px ChangaOne, monospace', fill: '#ffffff', stroke: '#000000', strokeThickness: 2 };
-    this._hintArrows = [
-      scene.add.text(hintX - hintDist, hintY, '\u25C0', arrowStyle).setOrigin(0.5).setAlpha(0.5),
-      scene.add.text(hintX + hintDist, hintY, '\u25B6', arrowStyle).setOrigin(0.5).setAlpha(0.5),
-      scene.add.text(hintX, hintY - hintDist, '\u25B2', arrowStyle).setOrigin(0.5).setAlpha(0.5),
-      scene.add.text(hintX, hintY + hintDist, '\u25BC', arrowStyle).setOrigin(0.5).setAlpha(0.5),
-    ];
-    this._hintDots.forEach(d => d.setScrollFactor(0).setDepth(199));
-    this._hintArrows.forEach(a => a.setScrollFactor(0).setDepth(200));
-
-    // Gentle pulse on the hint thumb to draw attention
-    scene.tweens.add({
-      targets: this._hintThumb,
-      alpha: { from: 0.15, to: 0.35 },
-      duration: 1000,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-
-    const hintElements = [this._hintBase, this._hintThumb, ...this._hintDots, ...this._hintArrows];
-    this.buttons.push(...hintElements);
-    this._hintVisible = true;
-
-    let originX = 0, originY = 0;
+    let originX = hintX, originY = hintY;
     const DEAD_ZONE = 12;
     const DEAD_ZONE_PAINT = 30;
 
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
       originY = pointer.y;
-      // Show joystick at touch point
-      this._joyBase.setPosition(originX, originY).setVisible(true);
-      this._joyThumb.setPosition(originX, originY).setVisible(true);
+      // Move joystick to touch point, full opacity
+      this._joyBase.setPosition(originX, originY).setAlpha(0.08);
+      this._joyThumb.setPosition(originX, originY).setAlpha(0.25);
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
       this._updateDirection(0, 0, dz);
     });
@@ -143,21 +107,24 @@ export default class TouchControls {
     });
 
     zone.on('pointerup', () => {
-      this._hideJoystick();
+      this._restJoystick();
       this._clearDirection();
     });
 
     zone.on('pointerout', () => {
-      this._hideJoystick();
+      this._restJoystick();
       this._clearDirection();
     });
 
     this.buttons.push(zone);
   }
 
-  _hideJoystick() {
-    if (this._joyBase) this._joyBase.setVisible(false);
-    if (this._joyThumb) this._joyThumb.setVisible(false);
+  _restJoystick() {
+    // Reset thumb to center of base, dim both — stay visible at last position
+    if (this._joyBase) this._joyBase.setAlpha(0.06);
+    if (this._joyThumb) {
+      this._joyThumb.setPosition(this._joyBase.x, this._joyBase.y).setAlpha(0.15);
+    }
   }
 
   _updateDirection(dx, dy, deadZone) {
@@ -238,37 +205,12 @@ export default class TouchControls {
 
     this.buttons.push(this._actBase, this._actThumb, this._actHintUpBg, this._actHintLeftBg, this._actHintUp, this._actHintLeft, this._actHintCenter);
 
-    // --- Static hint (shown before first touch) ---
+    // Initial position — bottom-right corner, will move to touch point on first use
     const hintX = cam.width - 110;
     const hintY = cam.height - 130;
-
-    this._actStaticBase = scene.add.circle(hintX, hintY, BASE_RADIUS, 0xffffff, 0.06)
-      .setScrollFactor(0).setDepth(199).setStrokeStyle(2, 0xffffff, 0.2);
-    this._actStaticThumb = scene.add.circle(hintX, hintY, THUMB_RADIUS, 0x00ff88, 0.15)
-      .setScrollFactor(0).setDepth(200);
-    // Static hint backgrounds
-    this._actStaticUpBg = scene.add.circle(hintX, hintY - HINT_DIST, 28, 0xffdd33, 0.25)
-      .setScrollFactor(0).setDepth(199.5);
-    this._actStaticLeftBg = scene.add.circle(hintX - HINT_DIST, hintY, 28, 0xff8833, 0.25)
-      .setScrollFactor(0).setDepth(199.5);
-    this._actStaticUp = scene.add.image(hintX, hintY - HINT_DIST, 'icon_spray')
-      .setDisplaySize(32, 32).setScrollFactor(0).setDepth(201).setAlpha(0.5);
-    this._actStaticLeft = scene.add.image(hintX - HINT_DIST, hintY, 'icon_hand')
-      .setDisplaySize(32, 32).setScrollFactor(0).setDepth(201).setAlpha(0.5);
-    this._actStaticCenter = scene.add.text(hintX, hintY + 2, 'JUMP', {
-      font: 'bold 14px ChangaOne, monospace', fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 2
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.3);
-
-    scene.tweens.add({
-      targets: this._actStaticThumb,
-      alpha: { from: 0.15, to: 0.35 },
-      duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-    });
-
-    const staticHintEls = [this._actStaticBase, this._actStaticThumb, this._actStaticUpBg, this._actStaticLeftBg, this._actStaticUp, this._actStaticLeft, this._actStaticCenter];
-    this.buttons.push(...staticHintEls);
-    this._actHintVisible = true;
+    this._actBase.setPosition(hintX, hintY).setVisible(true).setAlpha(0.06);
+    this._actThumb.setPosition(hintX, hintY).setVisible(true).setAlpha(0.15);
+    this._actHintCenter.setPosition(hintX, hintY + 2).setVisible(true).setAlpha(0.25);
 
     // Track active selection for highlight
     this._actSelection = null; // null | 'up' | 'left'
@@ -282,14 +224,14 @@ export default class TouchControls {
       pointerDown = true;
       this._actSelection = null;
 
-      // Show radial at touch point
-      this._actBase.setPosition(originX, originY).setVisible(true);
-      this._actThumb.setPosition(originX, originY).setVisible(true);
+      // Move radial to touch point, full opacity
+      this._actBase.setPosition(originX, originY).setAlpha(0.08);
+      this._actThumb.setPosition(originX, originY).setAlpha(0.25);
       this._actHintUpBg.setPosition(originX, originY - HINT_DIST).setVisible(true).setAlpha(0.35);
       this._actHintLeftBg.setPosition(originX - HINT_DIST, originY).setVisible(true).setAlpha(0.35);
       this._actHintUp.setPosition(originX, originY - HINT_DIST).setVisible(true).setAlpha(0.7);
       this._actHintLeft.setPosition(originX - HINT_DIST, originY).setVisible(true).setAlpha(0.7);
-      this._actHintCenter.setPosition(originX, originY + 2).setVisible(true).setAlpha(0.4);
+      this._actHintCenter.setPosition(originX, originY + 2).setAlpha(0.4);
     });
 
     zone.on('pointermove', (pointer) => {
@@ -340,14 +282,14 @@ export default class TouchControls {
       }
       this._actSelection = null;
 
-      // Hide radial
-      this._actBase.setVisible(false);
-      this._actThumb.setVisible(false);
+      // Keep base+thumb visible at last position (dimmed), hide direction hints
+      this._actBase.setAlpha(0.06);
+      this._actThumb.setPosition(this._actBase.x, this._actBase.y).setAlpha(0.15);
       this._actHintUpBg.setVisible(false);
       this._actHintLeftBg.setVisible(false);
       this._actHintUp.setVisible(false);
       this._actHintLeft.setVisible(false);
-      this._actHintCenter.setVisible(false);
+      this._actHintCenter.setAlpha(0.25);
     };
 
     zone.on('pointerup', release);
