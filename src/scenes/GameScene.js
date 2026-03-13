@@ -1854,16 +1854,17 @@ export default class GameScene extends Phaser.Scene {
     const viewW = gw / zoom;
     const viewH = gh / zoom;
 
-    // Spawn at right edge of world (right of current view), random Y in view
-    const wx = cam.scrollX + viewW + Phaser.Math.Between(10, 40);
+    // Spawn well outside right edge so camera drift never exposes the start
+    const spawnOffset = Phaser.Math.Between(120, 220);
+    const wx = cam.scrollX + viewW + spawnOffset;
     const wy = cam.scrollY + Phaser.Math.Between(10, viewH - 10);
 
-    const scale  = Phaser.Math.FloatBetween(0.8, 2.0);
+    const scale  = Phaser.Math.FloatBetween(0.8, 1.4);
     const tint   = LEAF_TINTS[Phaser.Math.Between(0, LEAF_TINTS.length - 1)];
     const speed  = Phaser.Math.Between(80, 200);   // world px/s leftward
     const isArc  = Math.random() < 0.35;
     const arcAmp = Phaser.Math.Between(30, 90) * (Math.random() < 0.5 ? 1 : -1);
-    const travelX = viewW + 60;                    // world px to travel
+    const travelX = viewW + spawnOffset + 60;       // world px to travel (cross full view + spawn buffer)
 
     const leaf = this.add.image(wx, wy, 'leaf_tex')
       .setScale(scale)
