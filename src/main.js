@@ -7,15 +7,9 @@ import GameScene from './scenes/GameScene.js';
 import WinScene from './scenes/WinScene.js';
 import IntroScene from './scenes/IntroScene.js';
 
-// On mobile, widen the game to match screen aspect ratio (no black bars)
-// Keep height at 720, stretch width to fill screen
-const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-const screenRatio = window.innerWidth / window.innerHeight;
-const gameW = isMobile ? Math.round(GAME.HEIGHT * Math.max(screenRatio, GAME.WIDTH / GAME.HEIGHT)) : GAME.WIDTH;
-
 const config = {
   type: Phaser.AUTO,
-  width: gameW,
+  width: GAME.WIDTH,
   height: GAME.HEIGHT,
   parent: 'game-container',
   backgroundColor: GAME.BACKGROUND_COLOR,
@@ -29,7 +23,7 @@ const config = {
   scene: [BootScene, MenuScene, LevelSelectScene, IntroScene, GameScene, WinScene],
   pixelArt: true,
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     expandParent: true
   },

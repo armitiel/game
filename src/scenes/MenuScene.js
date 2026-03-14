@@ -7,12 +7,12 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    const cx = this.sys.game.config.width / 2;
-    const cy = this.sys.game.config.height / 2;
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
 
     // Background image stretched to fill
     const bg = this.add.image(cx, cy, 'bckg');
-    bg.setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
+    bg.setDisplaySize(this.scale.width, this.scale.height);
 
     // Logo
     const logo = this.add.image(cx, cy - 60, 'logo').setOrigin(0.5);
@@ -49,19 +49,19 @@ export default class MenuScene extends Phaser.Scene {
 
     // Controls info
     if (isMobile) {
-      this.add.text(cx, this.sys.game.config.height - 65, 'D-pad: ruch   JUMP: skok   ACT: maluj   E: interakcja', {
+      this.add.text(cx, this.scale.height - 65, 'D-pad: ruch   JUMP: skok   ACT: maluj   E: interakcja', {
         font: '12px ChangaOne, monospace',
         fill: '#445566',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
     } else {
-      this.add.text(cx, this.sys.game.config.height - 80, 'ARROWS: Move   SPACE: Jump   E: Paint/Pickup', {
+      this.add.text(cx, this.scale.height - 80, 'ARROWS: Move   SPACE: Jump   E: Paint/Pickup', {
         font: '12px ChangaOne, monospace',
         fill: '#445566',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
 
-      this.add.text(cx, this.sys.game.config.height - 55, 'UP/DOWN on ladder   Hide in shadows to avoid cops', {
+      this.add.text(cx, this.scale.height - 55, 'UP/DOWN on ladder   Hide in shadows to avoid cops', {
         font: '12px ChangaOne, monospace',
         fill: '#445566',
         stroke: '#000000', strokeThickness: 2

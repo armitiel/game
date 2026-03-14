@@ -146,8 +146,8 @@ export const LEVEL_2 = {
     { x: 530, y: L2_H - 744, radius: 120 },
   ],
   papers: [
-    { x: 80, y: L2_H - 30 },
-    { x: 460, y: L2_H - 30 },
+    { x: 144, y: L2_H - 24 },
+    { x: 460, y: L2_H - 23 },
   ],
   foregroundWires: [
     { x1: 0, y1: L2_H - 380, x2: L2_W, y2: L2_H - 400 },

@@ -6,10 +6,10 @@ export default class WinScene extends Phaser.Scene {
   }
 
   create() {
-    const cx = this.sys.game.config.width / 2;
-    const cy = this.sys.game.config.height / 2;
-    const gw = this.sys.game.config.width;
-    const gh = this.sys.game.config.height;
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+    const gw = this.scale.width;
+    const gh = this.scale.height;
 
     this.cameras.main.setBackgroundColor('#0a0a1a');
 

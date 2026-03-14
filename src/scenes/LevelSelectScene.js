@@ -11,12 +11,12 @@ export default class LevelSelectScene extends Phaser.Scene {
   }
 
   create() {
-    const cx = this.sys.game.config.width / 2;
-    const gh = this.sys.game.config.height;
+    const cx = this.scale.width / 2;
+    const gh = this.scale.height;
 
     // Background image stretched to fill
     const bg = this.add.image(cx, gh / 2, 'bckg');
-    bg.setDisplaySize(this.sys.game.config.width, gh);
+    bg.setDisplaySize(this.scale.width, gh);
 
     if (!this._selectedMode) {
       this.showModeSelect(cx, gh);

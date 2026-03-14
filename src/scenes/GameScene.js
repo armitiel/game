@@ -1045,7 +1045,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Timer HUD text (on UI camera)
     this._addingHud = true;
-    const gw = this.sys.game.config.width;
+    const gw = this.scale.width;
     this._towerTimerText = this.add.text(gw / 2, 32, '', {
       fontFamily: 'ChangaOne', fontSize: '36px', fontStyle: 'bold',
       color: '#00ff88',
@@ -1126,7 +1126,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Flash bonus text on UI cam
     this._addingHud = true;
-    const gw = this.sys.game.config.width;
+    const gw = this.scale.width;
     const bonusText = this.add.text(gw / 2, 42, `+${this._towerBonus}s`, {
       font: 'bold 18px ChangaOne, monospace', fill: '#ffdd33',
       stroke: '#332200', strokeThickness: 3
@@ -1166,12 +1166,17 @@ export default class GameScene extends Phaser.Scene {
   createHUD() {
     // HUD uses a dedicated scene overlay to avoid zoom issues
     // We add a second camera just for UI, with zoom=1
-    const gw = this.sys.game.config.width;
-    const gh = this.sys.game.config.height;
+    const gw = this.scale.width;
+    const gh = this.scale.height;
     this.uiCam = this.cameras.add(0, 0, gw, gh);
     this.uiCam.setZoom(1);
     this.uiCam.setScroll(0, 0);
     this.uiCam.setName('ui');
+
+    // Keep uiCam sized to canvas when EXPAND mode resizes the game
+    this.scale.on('resize', (gameSize) => {
+      this.uiCam.setSize(gameSize.width, gameSize.height);
+    });
 
     // Paint inventory — slots auto-derived from level's paintings
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -1572,7 +1577,7 @@ export default class GameScene extends Phaser.Scene {
     const isMob = !!(this.touch && this.touch.enabled);
     if (isMob) {
       // On mobile: fixed to screen on HUD line (same Y as paint cans / hearts)
-      const gw = this.sys.game.config.width;
+      const gw = this.scale.width;
       const hudY = Math.round(26 * 1.8); // matches slotY on mobile
       this._addingHud = true;
       this.paintProgressText = this.add.text(
@@ -1584,7 +1589,7 @@ export default class GameScene extends Phaser.Scene {
       this._addingHud = false;
     } else {
       // Desktop: fixed to top-center of screen on UI camera
-      const gw = this.sys.game.config.width;
+      const gw = this.scale.width;
       const progressY = (this.levelData && this.levelData.mode === 'tower') ? 95 : 60;
       this._addingHud = true;
       this.paintProgressText = this.add.text(
@@ -1724,8 +1729,8 @@ export default class GameScene extends Phaser.Scene {
 
     // Elements live on uiCam (zoom=1, scroll=0) — use screen coordinates
     const cam = this.cameras.main;
-    const gw = this.sys.game.config.width;
-    const gh = this.sys.game.config.height;
+    const gw = this.scale.width;
+    const gh = this.scale.height;
     const margin = 14;
 
     // Decide side based on player position relative to the MURAL center
