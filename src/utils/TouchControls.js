@@ -56,22 +56,27 @@ export default class TouchControls {
     const HINT_RADIUS = 14;   // small direction hint circles
     const MAX_DIST = BASE_RADIUS - 4; // max thumb travel from center
 
-    // Base ring — appears at touch origin
-    this._joyBase = scene.add.circle(0, 0, BASE_RADIUS, 0xffffff, 0.08)
+    // Orbit track — shows the path the thumb travels on
+    this._joyOrbit = scene.add.circle(0, 0, MAX_DIST, 0x000000, 0)
       .setScrollFactor(0).setDepth(199).setVisible(false)
-      .setStrokeStyle(2, 0xffffff, 0.25);
+      .setStrokeStyle(2, 0xffffff, 0.3);
+    // Base ring — appears at touch origin
+    this._joyBase = scene.add.circle(0, 0, BASE_RADIUS, 0xffffff, 0.15)
+      .setScrollFactor(0).setDepth(199).setVisible(false)
+      .setStrokeStyle(2.5, 0xffffff, 0.4);
     // Thumb knob — follows finger within the ring
-    this._joyThumb = scene.add.circle(0, 0, THUMB_RADIUS, 0xffffff, 0.25)
+    this._joyThumb = scene.add.circle(0, 0, THUMB_RADIUS, 0xffffff, 0.45)
       .setScrollFactor(0).setDepth(200).setVisible(false);
 
-    this.buttons.push(this._joyBase, this._joyThumb);
+    this.buttons.push(this._joyOrbit, this._joyBase, this._joyThumb);
 
     // Initial position — bottom-left corner, will move to touch point on first use
     const hintX = 110;
     const hintY = cam.height - 130;
-    this._joyBase.setPosition(hintX, hintY).setVisible(true).setAlpha(0.06);
-    this._joyBase.setStrokeStyle(2, 0xffffff, 0.2);
-    this._joyThumb.setPosition(hintX, hintY).setVisible(true).setAlpha(0.15);
+    this._joyOrbit.setPosition(hintX, hintY).setVisible(true).setAlpha(0.15);
+    this._joyBase.setPosition(hintX, hintY).setVisible(true).setAlpha(0.12);
+    this._joyBase.setStrokeStyle(2.5, 0xffffff, 0.3);
+    this._joyThumb.setPosition(hintX, hintY).setVisible(true).setAlpha(0.3);
 
     let originX = hintX, originY = hintY;
     const DEAD_ZONE = 12;
@@ -80,9 +85,10 @@ export default class TouchControls {
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
       originY = pointer.y;
-      // Move joystick to touch point, full opacity
-      this._joyBase.setPosition(originX, originY).setAlpha(0.08);
-      this._joyThumb.setPosition(originX, originY).setAlpha(0.25);
+      // Move joystick to touch point, active opacity
+      this._joyOrbit.setPosition(originX, originY).setAlpha(0.35);
+      this._joyBase.setPosition(originX, originY).setAlpha(0.15);
+      this._joyThumb.setPosition(originX, originY).setAlpha(0.5);
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
       this._updateDirection(0, 0, dz);
     });
@@ -120,10 +126,11 @@ export default class TouchControls {
   }
 
   _restJoystick() {
-    // Reset thumb to center of base, dim both — stay visible at last position
-    if (this._joyBase) this._joyBase.setAlpha(0.06);
+    // Reset thumb to center of base, dim all — stay visible at last position
+    if (this._joyOrbit) this._joyOrbit.setAlpha(0.15);
+    if (this._joyBase) this._joyBase.setAlpha(0.12);
     if (this._joyThumb) {
-      this._joyThumb.setPosition(this._joyBase.x, this._joyBase.y).setAlpha(0.15);
+      this._joyThumb.setPosition(this._joyBase.x, this._joyBase.y).setAlpha(0.3);
     }
   }
 
