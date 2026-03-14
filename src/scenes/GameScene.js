@@ -851,11 +851,11 @@ export default class GameScene extends Phaser.Scene {
         stars.push({ g: sg, t: i / NUM_STARS, speed: 0.00018 + Math.random() * 0.00008 });
       }
 
-      // Spray can pictogram — always visible in the center of the mural area
-      const sprayIcon = this.add.image(x, y, 'icon_spray')
-        .setDisplaySize(22, 22)
+      // Spray can pictogram — hidden by default, appears with glow when player is near
+      const sprayIcon = this.add.image(x, y - h / 2 - 14, 'icon_spray')
+        .setDisplaySize(20, 20)
         .setDepth(depth + 0.3)
-        .setAlpha(0.7)
+        .setAlpha(0)
         .setTint(0xffe090);
 
       // Interaction zone — slightly wider than visual for comfortable reach
@@ -924,12 +924,11 @@ export default class GameScene extends Phaser.Scene {
         });
       }
 
-      // --- Spray can icon — always visible, bobs gently, brighter when near ---
-      if (entry.sprayIcon && entry.sprayIcon.visible) {
-        const baseAlpha = 0.45 + gt * 0.5;
-        entry.sprayIcon.setAlpha(baseAlpha);
+      // --- Spray can icon — only when active (player nearby), fades with glowT ---
+      if (entry.sprayIcon) {
+        entry.sprayIcon.setAlpha(gt * 0.85);
         const bob = Math.sin(time * 0.003) * 2;
-        entry.sprayIcon.setPosition(rx + rw / 2, ry + rh / 2 + bob);
+        entry.sprayIcon.setY(ry - 14 + bob);
       }
 
       // --- Star particles ---
@@ -2597,13 +2596,15 @@ export default class GameScene extends Phaser.Scene {
 
       // Mouse painting on desktop: when mouse button is held, drive hand to mouse world pos
       let mouseWorld = null;
-      if (!isTouch && this.input.activePointer.isDown) {
-        const pointer = this.input.activePointer;
-        const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-        const b = this.paintArm.bounds;
-        if (b && worldPoint.x >= b.x && worldPoint.x <= b.x + b.w &&
-            worldPoint.y >= b.y && worldPoint.y <= b.y + b.h) {
-          mouseWorld = { x: worldPoint.x, y: worldPoint.y };
+      if (!isTouch) {
+        const pointer = this.input.manager.activePointer;
+        if (pointer.buttons & 1) { // left mouse button held (raw state, not consumed by UI)
+          const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+          const b = this.paintArm.bounds;
+          if (b) {
+            // Allow painting even slightly outside bounds — clamp happens in PaintArm
+            mouseWorld = { x: worldPoint.x, y: worldPoint.y };
+          }
         }
       }
 
