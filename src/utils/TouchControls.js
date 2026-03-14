@@ -316,13 +316,20 @@ export default class TouchControls {
     const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88, 0xff88ff, 0x88ffff];
     const numColors = colorNames ? colorNames.length : 4;
     const cam = scene.cameras.main;
+    const isMobile = this.enabled;
 
-    // Circle layout — right side of screen so it doesn't cover the play field
-    const cx = cam.width - 180;
-    const cy = cam.height / 2;
-    const ORBIT_R = 140; // radius of the ring — bigger gap between X and colors
-    const BTN_R   = 56;  // color button radius
-    const EXIT_R  = 44;  // center exit button radius
+    // Scale down 30% on desktop
+    const scale = isMobile ? 1.0 : 0.7;
+    const ORBIT_R = Math.round(140 * scale);
+    const BTN_R   = Math.round(56 * scale);
+    const EXIT_R  = Math.round(44 * scale);
+    const fontSize = Math.round(48 * scale);
+    const exitFontSize = Math.round(56 * scale);
+
+    // Position: bottom-right corner with small margin from edges
+    const margin = Math.round(20 * scale);
+    const cx = cam.width - margin - ORBIT_R - BTN_R;
+    const cy = cam.height - margin - ORBIT_R - BTN_R;
 
     // Color buttons around the circle
     for (let i = 0; i < numColors; i++) {
@@ -338,8 +345,8 @@ export default class TouchControls {
         .setInteractive();
 
       const text = scene.add.text(x, y, String(i + 1), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '48px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 6,
+        fontFamily: 'ChangaOne, monospace', fontSize: fontSize + 'px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(6 * scale),
         padding: { x: 4, y: 4 }
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(has ? 0.95 : 0.2);
 
@@ -362,8 +369,8 @@ export default class TouchControls {
       .setStrokeStyle(3, 0xff4444, 0.85)
       .setInteractive();
     const exitText = scene.add.text(cx, cy, '✕', {
-      fontFamily: 'ChangaOne, monospace', fontSize: '56px', fontStyle: 'bold',
-      color: '#ff4444', stroke: '#110000', strokeThickness: 7,
+      fontFamily: 'ChangaOne, monospace', fontSize: exitFontSize + 'px', fontStyle: 'bold',
+      color: '#ff4444', stroke: '#110000', strokeThickness: Math.round(7 * scale),
       padding: { x: 4, y: 4 }
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setAlpha(1);
 
