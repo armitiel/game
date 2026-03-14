@@ -54,7 +54,7 @@ export const COP = {
   SPEED: 60,
   DETECTION_RANGE: 180,
   WIDTH: 24,
-  HEIGHT: 72,          // scaled from 128px Walk_P frames
+  HEIGHT: 151,         // 168 * 0.9 — 10% smaller
   COLOR: 0x3366ff,     // niebieski
   ALERT_COLOR: 0xff3333,
   FRAME_SIZE: 128      // Walk_P frame size after downscale
