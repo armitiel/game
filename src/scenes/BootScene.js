@@ -164,8 +164,8 @@ export default class BootScene extends Phaser.Scene {
    *  Generates frames directly at COP.HEIGHT size (no scaling needed at runtime).
    *  This gives much better quality than downscaling to 128 then upscaling. */
   generateCopSheet() {
-    // Generate at DISPLAY size — 1080→COP.HEIGHT directly, scale=1 at runtime
-    const copFrameSize = COP.HEIGHT;
+    // Generate at 2x display size for crisp rendering (downscaled with LINEAR filtering)
+    const copFrameSize = COP.HEIGHT * 2;
     const copFrameCount = 24;
     const copSheetCanvas = document.createElement('canvas');
     copSheetCanvas.width = copFrameSize * copFrameCount;

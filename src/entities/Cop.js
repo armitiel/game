@@ -11,26 +11,27 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.setCollideWorldBounds(true);
     this.setDepth(4.5); // in front of shadows (2) and ladders (4)
 
-    // Spritesheet is generated at COP.HEIGHT×COP.HEIGHT — no scaling needed (scale=1).
-    // This gives crisp rendering (1080→168 direct downscale, no upscaling blur).
-    const F = COP.HEIGHT;  // frame size = display size
+    // Spritesheet is generated at 2x COP.HEIGHT — scale 0.5 for crisp rendering.
+    const F = COP.HEIGHT * 2;  // frame size in texture (2x display)
+    this.setScale(0.5);
+
+    // LINEAR filtering for smooth downscale
+    this.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     // Physics body — proportional to character in the Walk_P frame.
-    // Feet at ~79% of frame height (measured from Walk_P PNGs).
+    // All values in texture coords (2x), Phaser applies scale automatically.
     const FEET_Y = Math.round(F * 0.86);
-    const bodyW = Math.round(F * 0.345);     // ~58 (proportional to 44/128)
-    const bodyH = Math.round(F * 0.50);      // ~84 (proportional to 64/128)
-    const bodyOffX = Math.round((F - bodyW) / 2);  // center horizontally
-    const bodyOffY = FEET_Y - bodyH;                // body top
+    const bodyW = Math.round(F * 0.345);
+    const bodyH = Math.round(F * 0.50);
+    const bodyOffX = Math.round((F - bodyW) / 2);
+    const bodyOffY = FEET_Y - bodyH;
     this.body.setSize(bodyW, bodyH);
     this.body.setOffset(bodyOffX, bodyOffY);
 
-    // y parameter = platform/ground surface level.
-    // Position sprite so body bottom (feet) sits exactly on that surface.
-    // With scale=1 and origin(0.5,0.5):
-    //   body.bottom = sprite.y - F/2 + bodyOffY + bodyH = sprite.y + (FEET_Y - F/2)
-    //   Want body.bottom = y  →  sprite.y = y - (FEET_Y - F/2)
-    this.y = y - (FEET_Y - F / 2);
+    // Position sprite so body bottom (feet) sits on spawn y.
+    // body.bottom = sprite.y - F/2*scale + bodyOffY*scale + bodyH*scale
+    //             = sprite.y + (FEET_Y - F/2) * 0.5
+    this.y = y - (FEET_Y - F / 2) * 0.5;
 
     // Start walk animation
     this.play('cop_walk');
