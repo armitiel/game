@@ -308,7 +308,7 @@ export default class TouchControls {
     // Circle layout — right side of screen so it doesn't cover the play field
     const cx = cam.width - 180;
     const cy = cam.height / 2;
-    const ORBIT_R = 115; // radius of the ring of color buttons
+    const ORBIT_R = 140; // radius of the ring — bigger gap between X and colors
     const BTN_R   = 56;  // color button radius
     const EXIT_R  = 44;  // center exit button radius
 
@@ -344,13 +344,12 @@ export default class TouchControls {
       this.colorButtons.push({ bg, text, hasColor: has });
     }
 
-    // EXIT — "✕" offset below the circle so it doesn't overlap color buttons
-    const exitY = cy + ORBIT_R + BTN_R + 30;
-    const exitBg = scene.add.circle(cx, exitY, EXIT_R, 0x1a0000, 0.88)
+    // EXIT — "✕" in the center of the circle
+    const exitBg = scene.add.circle(cx, cy, EXIT_R, 0x1a0000, 0.88)
       .setScrollFactor(0).setDepth(202)
       .setStrokeStyle(3, 0xff4444, 0.85)
       .setInteractive();
-    const exitText = scene.add.text(cx, exitY, '✕', {
+    const exitText = scene.add.text(cx, cy, '✕', {
       fontFamily: 'ChangaOne, monospace', fontSize: '56px', fontStyle: 'bold',
       color: '#ff4444', stroke: '#110000', strokeThickness: 7,
       padding: { x: 4, y: 4 }
