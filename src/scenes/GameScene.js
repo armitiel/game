@@ -851,8 +851,8 @@ export default class GameScene extends Phaser.Scene {
         stars.push({ g: sg, t: i / NUM_STARS, speed: 0.00018 + Math.random() * 0.00008 });
       }
 
-      // Spray can pictogram — always visible on the right side of the mural wall
-      const sprayIcon = this.add.image(x + w / 2 + 16, y, 'icon_spray')
+      // Spray can pictogram — always visible in the center of the mural area
+      const sprayIcon = this.add.image(x, y, 'icon_spray')
         .setDisplaySize(22, 22)
         .setDepth(depth + 0.3)
         .setAlpha(0.7)
@@ -929,7 +929,7 @@ export default class GameScene extends Phaser.Scene {
         const baseAlpha = 0.45 + gt * 0.5;
         entry.sprayIcon.setAlpha(baseAlpha);
         const bob = Math.sin(time * 0.003) * 2;
-        entry.sprayIcon.setY(ry + rh / 2 + bob);
+        entry.sprayIcon.setPosition(rx + rw / 2, ry + rh / 2 + bob);
       }
 
       // --- Star particles ---
