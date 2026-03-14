@@ -134,6 +134,12 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('icon_music', 'assets/sprites/elementy/nutka.png');
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
 
+    // === Load cop walk frames (Walk_P directory, 24 frames) ===
+    for (let i = 1; i <= 24; i++) {
+      const num = String(i).padStart(4, '0');
+      this.load.image(`cop_walk_raw_${i}`, `assets/sprites/Walk_P/${num}.png`);
+    }
+
     // === Load paint arm assets ===
     this.load.image('paint_hand', 'assets/sprites/hand.png');
     this.load.image('paint_arm', 'assets/sprites/arm.png');
@@ -155,14 +161,40 @@ export default class BootScene extends Phaser.Scene {
   }
 
   generateOtherTextures() {
-    // Cop sprite
+    // Cop walk spritesheet — combine 24 raw Walk_P frames into a single sheet
+    const copFrameW = 128, copFrameH = 128, copFrameCount = 24;
+    const copSheetCanvas = document.createElement('canvas');
+    copSheetCanvas.width = copFrameW * copFrameCount;
+    copSheetCanvas.height = copFrameH;
+    const copCtx = copSheetCanvas.getContext('2d');
+    copCtx.imageSmoothingEnabled = true;
+    for (let i = 0; i < copFrameCount; i++) {
+      const src = this.textures.get(`cop_walk_raw_${i + 1}`).getSourceImage();
+      copCtx.drawImage(src, 0, 0, src.width, src.height, i * copFrameW, 0, copFrameW, copFrameH);
+      this.textures.remove(`cop_walk_raw_${i + 1}`);
+    }
+    this.textures.addSpriteSheet('cop_sheet', copSheetCanvas, { frameWidth: copFrameW, frameHeight: copFrameH });
+
+    // Cop walk animation
+    this.anims.create({
+      key: 'cop_walk',
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 0, end: copFrameCount - 1 }),
+      frameRate: 18,
+      repeat: -1
+    });
+
+    // Cop idle — first frame held
+    this.anims.create({
+      key: 'cop_idle',
+      frames: [{ key: 'cop_sheet', frame: 0 }],
+      frameRate: 1,
+      repeat: 0
+    });
+
+    // Legacy 'cop' texture fallback (for any code that references it)
     const copGfx = this.make.graphics({ add: false });
     copGfx.fillStyle(COP.COLOR, 1);
     copGfx.fillRect(0, 0, COP.WIDTH, COP.HEIGHT);
-    copGfx.fillStyle(0x1a1a44, 1);
-    copGfx.fillRect(2, 0, COP.WIDTH - 4, 8);
-    copGfx.fillStyle(0xffdd33, 1);
-    copGfx.fillCircle(COP.WIDTH / 2, 18, 3);
     copGfx.generateTexture('cop', COP.WIDTH, COP.HEIGHT);
     copGfx.destroy();
 

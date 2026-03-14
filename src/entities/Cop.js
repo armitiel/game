@@ -3,14 +3,29 @@ import { COP } from '../config/gameConfig.js';
 
 export default class Cop extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, patrolLeft, patrolRight) {
-    super(scene, x, y, 'cop');
+    super(scene, x, y, 'cop_sheet', 0);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
     this.setCollideWorldBounds(true);
     this.setDepth(4.5); // in front of shadows (2) and ladders (4)
-    this.body.setSize(COP.WIDTH - 4, COP.HEIGHT - 2);
+
+    // Scale 128px frame to match game world (similar height to player ~60px body)
+    const targetH = COP.HEIGHT;
+    const copScale = targetH / 128;
+    this.setScale(copScale);
+
+    // Physics body — centered on character within the 128px frame
+    const bodyW = Math.round(24 / copScale);
+    const bodyH = Math.round((targetH - 4) / copScale);
+    const bodyOffX = Math.round((128 - bodyW) / 2);
+    const bodyOffY = Math.round(128 - bodyH - 4 / copScale);
+    this.body.setSize(bodyW, bodyH);
+    this.body.setOffset(bodyOffX, bodyOffY);
+
+    // Start walk animation
+    this.play('cop_walk');
 
     // Patrol bounds
     this.patrolLeft = patrolLeft;
@@ -34,6 +49,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     }).setOrigin(0.5).setVisible(false).setDepth(10);
 
     this.setVelocityX(COP.SPEED * this.direction);
+    this.setFlipX(this.direction === -1);
   }
 
   update(time, delta, player) {
@@ -61,6 +77,9 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
       case 'DETECT':
         this.setVelocityX(0);
+        if (this.anims.isPlaying && this.anims.currentAnim?.key === 'cop_walk') {
+          this.play('cop_idle');
+        }
         this.alertTimer += delta;
         if (this.alertTimer >= this.alertDuration) {
           this.enterAlert(player);
@@ -190,6 +209,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.alertTimer = 0;
     this.alertMark.setVisible(false);
     this.clearTint();
+    this.play('cop_walk');
     this.setVelocityX(COP.SPEED * this.direction);
   }
 
@@ -198,6 +218,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.alertTimer = 0;
     this.alertMark.setVisible(false);
     this.clearTint();
+    this.play('cop_walk');
     this.setVelocityX(COP.SPEED * this.direction);
   }
 
