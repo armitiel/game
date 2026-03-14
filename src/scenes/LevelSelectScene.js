@@ -197,14 +197,36 @@ export default class LevelSelectScene extends Phaser.Scene {
     const levels = this.getLevelsForMode(modeKey);
     const modeNames = { stealth: 'STEALTH', puzzle: 'PUZZLE', tower: 'WIEZA' };
 
-    this.add.text(cx, 40, modeNames[modeKey] || modeKey.toUpperCase(), {
-      font: 'bold 20px ChangaOne, monospace', fill: '#667788',
-      stroke: '#000000', strokeThickness: 3
+    // Mode title with 3D depth effect (matches mode select screen)
+    const titleText = modeNames[modeKey] || modeKey.toUpperCase();
+    const titleY = 40;
+    const titleStyle = {
+      fontFamily: 'ChangaOne',
+      fontSize: '48px',
+      fontStyle: 'bold'
+    };
+    for (let d = 4; d >= 1; d--) {
+      this.add.text(cx, titleY + d * 2, titleText, {
+        ...titleStyle,
+        color: '#003311',
+        stroke: '#001a08',
+        strokeThickness: 7
+      }).setOrigin(0.5).setAlpha(0.6);
+    }
+    this.add.text(cx, titleY, titleText, {
+      ...titleStyle,
+      color: '#00ff88',
+      stroke: '#003322',
+      strokeThickness: 7
     }).setOrigin(0.5);
 
-    this.add.text(cx, 70, 'WYBIERZ LEVEL', {
-      font: 'bold 24px ChangaOne, monospace', fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 4
+    // Subtitle (instruction)
+    const subtitleY = titleY + 50;
+    this.add.text(cx, subtitleY, 'WYBIERZ LEVEL', {
+      font: 'bold 24px ChangaOne, monospace',
+      fill: '#00ff88',
+      stroke: '#003322',
+      strokeThickness: 4
     }).setOrigin(0.5);
 
     const cardW = 220;
@@ -214,30 +236,51 @@ export default class LevelSelectScene extends Phaser.Scene {
     const startX = cx - totalW / 2 + cardW / 2;
     const cardY = gh / 2;
 
+    const useFrame = (modeKey === 'stealth');
+
     for (let i = 0; i < levels.length; i++) {
       const level = levels[i];
       const globalIdx = LEVELS.indexOf(level);
       const x = startX + i * (cardW + gap);
 
-      const card = this.add.rectangle(x, cardY, cardW, cardH, 0x1a1a3a, 0.9)
+      // Stealth levels get a decorative frame background (frame.png)
+      if (useFrame) {
+        this.add.image(x, cardY, 'frame')
+          .setDisplaySize(cardW + 24, cardH + 24)
+          .setOrigin(0.5)
+          .setDepth(0)
+          .setAlpha(0.95);
+      }
+
+      // Stealth cards get an unobtrusive frame background, but keep UI text/size consistent with the previous screen
+      const card = this.add.rectangle(x, cardY, cardW, cardH, useFrame ? 0x000000 : 0x1a1a3a, useFrame ? 0 : 0.9)
         .setStrokeStyle(2, 0x334466)
         .setInteractive({ useHandCursor: true });
 
-      this.add.text(x, cardY - 80, String(i + 1), {
-        font: 'bold 48px ChangaOne, monospace', fill: '#334466',
-        stroke: '#000000', strokeThickness: 4
-      }).setOrigin(0.5);
+      // Level name (larger for better visibility, auto-fit to card width)
+      const nameStyle = {
+        font: 'bold 64px ChangaOne, monospace',
+        fill: useFrame ? '#a6ffef' : '#00ff88',
+        stroke: '#003322',
+        strokeThickness: 6,
+        shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, stroke: true, fill: true }
+      };
+      const nameText = this.add.text(x, cardY - 80, level.name, nameStyle).setOrigin(0.5);
+      const maxWidth = cardW - 24;
+      if (nameText.width > maxWidth) {
+        nameText.setScale(maxWidth / nameText.width);
+      }
 
-      this.add.text(x, cardY - 20, level.name, {
-        font: 'bold 18px ChangaOne, monospace', fill: '#00ff88',
-        stroke: '#003322', strokeThickness: 3
-      }).setOrigin(0.5);
-
-      this.add.text(x, cardY + 20, level.description, {
-        font: '11px ChangaOne, monospace', fill: '#667788',
-        stroke: '#000000', strokeThickness: 2,
-        wordWrap: { width: cardW - 20 }, align: 'center'
-      }).setOrigin(0.5);
+      // Level description (bigger and more readable)
+      const descStyle = {
+        font: '18px ChangaOne, monospace',
+        fill: useFrame ? '#cceeff' : '#d0e6ff',
+        stroke: useFrame ? '#001a10' : '#000000',
+        strokeThickness: 3,
+        wordWrap: { width: cardW - 20 },
+        align: 'center'
+      };
+      this.add.text(x, cardY + 0, level.description, descStyle).setOrigin(0.5);
 
       const spots = level.paintSpots ? level.paintSpots.length : 0;
       const cops = level.cops ? level.cops.length : 0;
@@ -245,13 +288,14 @@ export default class LevelSelectScene extends Phaser.Scene {
       if (modeKey === 'stealth') statsStr += `   Cops: ${cops}`;
       if (modeKey === 'tower' && level.timer) statsStr += `   Czas: ${level.timer.startSeconds}s`;
 
-      this.add.text(x, cardY + 65, statsStr, {
-        font: '10px ChangaOne, monospace', fill: '#556677',
-        stroke: '#000000', strokeThickness: 2
-      }).setOrigin(0.5);
-
-      card.on('pointerover', () => card.setStrokeStyle(2, 0x00ff88));
-      card.on('pointerout', () => card.setStrokeStyle(2, 0x334466));
+      // Stats (murale / cops) slightly larger
+      const statsStyle = {
+        font: '12px ChangaOne, monospace',
+        fill: '#556677',
+        stroke: '#000000',
+        strokeThickness: 2
+      };
+      this.add.text(x, cardY + 70, statsStr, statsStyle).setOrigin(0.5);
 
       card.on('pointerdown', () => {
         this.scene.start('IntroScene', { levelIndex: globalIdx });

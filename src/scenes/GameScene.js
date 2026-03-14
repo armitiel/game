@@ -359,7 +359,7 @@ export default class GameScene extends Phaser.Scene {
         for (let wy = by + wPadY; wy + wH < canvasH - 5; wy += wGapY) {
           for (let wx = bx + wPadX; wx + wW < bx + bw - 5; wx += wGapX) {
             const rnd = ((wx * 13 + wy * 7 + i * 31 + seedOffset) % 100);
-            const lit = rnd > 20; // ~80% lit
+            const lit = rnd > 50; // ~50% lit
             if (lit) {
               const bright = rnd > 60; // ~40% extra bright
               ctx.fillStyle = bright ? 'rgba(255,200,100,0.25)' : 'rgba(255,170,68,0.15)';
@@ -1901,7 +1901,9 @@ export default class GameScene extends Phaser.Scene {
     // HUD layout: single horizontal bar at the top
     // [home] [can1] [can2] ... [counter] [heart1] [heart2] ...    [mute]
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    const uiScale = isMobile ? 1.8 : 1;
+    // Scale UI relative to actual screen height (base design = 720px)
+    const screenScale = gh / 720;
+    const uiScale = isMobile ? 1.8 * screenScale : screenScale;
     const slotColors = this.levelColors;
     const bgPad = Math.round(6 * uiScale);
     const innerPad = Math.round(8 * uiScale);
@@ -1909,8 +1911,8 @@ export default class GameScene extends Phaser.Scene {
     const barY = bgPad;
     const centerY = barY + Math.round(barH / 2);
 
-    // Home button size
-    const homeBtnSize = Math.round(40 * uiScale);
+    // Home button size (15% bigger)
+    const homeBtnSize = Math.round(68 * uiScale); // match icon size for better hit area
     const homeX = bgPad + innerPad + Math.round(homeBtnSize / 2);
     const homeY = centerY;
 
@@ -1950,19 +1952,24 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // Painted spots counter — wall icon + text after the cans
+    // Painted spots counter — wall icon + badge text in a container
     const lastCanX = canStartX + (slotColors.length - 1) * canSpacing;
     const wallIconX = lastCanX + Math.round(46 * uiScale);
-    const wallIconSize = Math.round(24 * uiScale);
-    this.hudWallIcon = this.add.image(wallIconX, centerY, 'icon_wall')
+    const wallIconSize = Math.round(36 * uiScale);
+    const counterFontSize = Math.round(barH * 0.52);
+
+    this.hudWallIcon = this.add.image(0, 0, 'icon_wall')
       .setDisplaySize(wallIconSize, wallIconSize)
-      .setOrigin(0.5).setDepth(101).setScrollFactor(0);
-    const counterX = wallIconX + Math.round(14 * uiScale);
-    this.hudCountText = this.add.text(counterX, centerY, '', {
-      font: `bold ${Math.round(22 * uiScale)}px ChangaOne, monospace`,
-      fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 2
-    }).setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
+      .setOrigin(0.5);
+    this.hudCountText = this.add.text(Math.round(wallIconSize * 0.55), 0, '', {
+      font: `bold ${counterFontSize}px ChangaOne, monospace`,
+      fill: '#ffffff',
+      stroke: '#000000', strokeThickness: Math.round(uiScale * 3)
+    }).setOrigin(0, 0.5);
+
+    this.hudCountContainer = this.add.container(wallIconX, centerY, [
+      this.hudWallIcon, this.hudCountText
+    ]).setDepth(101).setScrollFactor(0);
 
     // Status text (desktop only)
     if (!isMobile) {
@@ -2043,8 +2050,8 @@ export default class GameScene extends Phaser.Scene {
     this.menuBtnHit = this.add.rectangle(homeX, homeY, homeBtnSize, homeBtnSize, 0x000000, 0)
       .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
     this.menuBtn = this.add.image(homeX, homeY, 'icon_home')
-      .setDisplaySize(Math.round(38 * uiScale), Math.round(38 * uiScale))
-      .setOrigin(0.5).setDepth(101).setScrollFactor(0);
+      .setDisplaySize(Math.round(68 * uiScale), Math.round(68 * uiScale))
+      .setOrigin(0.5).setDepth(102).setScrollFactor(0);
     this.menuBtn.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     this.menuBtnHit.on('pointerdown', () => {
@@ -2053,13 +2060,18 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // Hearts — after counter
+    // counterX is the right edge of the painted spots counter (wall icon + number badge)
+    // We approximate it based on the wall icon position/size and expected text width.
+    const counterX = wallIconX + Math.round(wallIconSize * 1.1 + counterFontSize * 0.6);
+
     this.hudHearts = [];
     let heartsEndX = counterX + Math.round(30 * uiScale);
     if (this.mode === 'stealth') {
       this._addingHud = true;
       const heartScale = uiScale * 24 / 40;
       const heartSpacing = Math.round(28 * uiScale);
-      const heartStartX = counterX + Math.round(36 * uiScale);
+      // Reduce gap between mural counter and hearts
+      const heartStartX = counterX + Math.round(8 * uiScale);
       for (let i = 0; i < this.player.maxHp; i++) {
         const hx = heartStartX + i * heartSpacing;
         const full = this.add.image(hx, centerY, 'heart_icon')
@@ -2095,15 +2107,56 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // Background bar only under the icon group (home + cans + counter + hearts)
-    const barRight = heartsEndX + innerPad;
-    this.hudBgBar = this.add.rectangle(bgPad, barY, barRight - bgPad, barH, 0x000000, 0.6)
-      .setDepth(100).setScrollFactor(0).setOrigin(0, 0);
+    // HUD background bar (3-slice): left edge, stretchable middle, right edge.
+    // The assets are provided as back_ui0.png, back_ui.png, back_ui2.png.
+    // The bar should only cover the left-side HUD elements (ends just after hearts).
+    // Start drawing the bar from the middle of the home icon.
+    const barLeft = homeX; // homeX is the center of the home icon
+    const barBaseRight = heartsEndX + innerPad; // end after hearts + padding
+    const barBaseWidth = barBaseRight - barLeft;
+    // Reduce right-side padding: add only a small constant buffer so the background ends closer to the hearts.
+    const barExtra = Math.round(6 * uiScale);
+    const barRight = barBaseRight + barExtra;
+    const barWidth = barRight - barLeft;
+    const barHeight = barH;
 
-    // Small background pill behind mute button
-    const muteBgW = Math.round(40 * uiScale);
-    this.hudBgMute = this.add.rectangle(muteX, centerY, muteBgW, barH, 0x000000, 0.6)
-      .setDepth(100).setScrollFactor(0);
+    let hudBgLeft = null;
+    let hudBgMid = null;
+    let hudBgRight = null;
+
+    if (this.textures.exists('hud_bg_left') && this.textures.exists('hud_bg_mid') && this.textures.exists('hud_bg_right')) {
+      hudBgLeft = this.add.image(barLeft, barY, 'hud_bg_left')
+        .setOrigin(0, 0).setScrollFactor(0).setDepth(98);
+      const leftScale = barHeight / hudBgLeft.height;
+      const leftW = Math.round(hudBgLeft.width * leftScale);
+      hudBgLeft.setDisplaySize(leftW, barHeight);
+
+      hudBgRight = this.add.image(0, barY, 'hud_bg_right')
+        .setOrigin(0, 0).setScrollFactor(0).setDepth(98);
+      const rightScale = barHeight / hudBgRight.height;
+      const rightW = Math.round(hudBgRight.width * rightScale);
+      hudBgRight.setDisplaySize(rightW, barHeight);
+      hudBgRight.setX(barLeft + barWidth - rightW);
+
+      hudBgMid = this.add.image(0, barY, 'hud_bg_mid')
+        .setOrigin(0, 0).setScrollFactor(0).setDepth(98);
+      const midWidth = Math.max(0, barWidth - leftW - rightW);
+      hudBgMid.setDisplaySize(midWidth, barHeight);
+      hudBgMid.setX(barLeft + leftW);
+
+      this.hudBgLeft = hudBgLeft;
+      this.hudBgMid = hudBgMid;
+      this.hudBgRight = hudBgRight;
+    } else {
+      // Fallback solid bar if textures are missing
+      this.hudBgBar = this.add.rectangle(bgPad, barY, barRight - bgPad, barH, 0x000000, 0.6)
+        .setDepth(100).setScrollFactor(0).setOrigin(0, 0);
+
+      // Small background pill behind mute button
+      const muteBgW = Math.round(40 * uiScale);
+      this.hudBgMute = this.add.rectangle(muteX, centerY, muteBgW, barH, 0x000000, 0.6)
+        .setDepth(100).setScrollFactor(0);
+    }
 
     // Collect all HUD elements for camera management
     const slotElements = [];
@@ -2111,8 +2164,12 @@ export default class GameScene extends Phaser.Scene {
     const heartElements = [];
     this.hudHearts.forEach(h => heartElements.push(h.full, h.empty));
 
-    const hudElements = [this.hudBgBar, this.hudBgMute, this.hudWallIcon, this.hudCountText, this.statusText, this.menuBtn, this.menuBtnHit, this.muteBtn, this.muteBtnHit,
-      ...slotElements, ...heartElements, ...this.touch.getElements()].filter(Boolean);
+    const hudElements = [
+      this.hudBgBar, this.hudBgMute,
+      this.hudBgLeft, this.hudBgMid, this.hudBgRight,
+      this.hudCountContainer, this.statusText, this.menuBtn, this.menuBtnHit, this.muteBtn, this.muteBtnHit,
+      ...slotElements, ...heartElements, ...this.touch.getElements()
+    ].filter(Boolean);
     this.cameras.main.ignore(hudElements);
 
     this.children.list.forEach(child => {

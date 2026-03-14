@@ -97,6 +97,7 @@ export default class BootScene extends Phaser.Scene {
     // === Load logo ===
     this.load.image('logo', 'assets/sprites/logo.png');
     this.load.image('bckg', 'assets/sprites/bckg.png');
+    this.load.image('frame', 'assets/sprites/frame.png');
     this.load.spritesheet('mode_frames', 'assets/sprites/frames.png', {
       frameWidth: 512, frameHeight: 1024
     });
@@ -121,6 +122,12 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('carton_img', 'assets/sprites/elementy/karton.png');
     this.load.image('icon_home', 'assets/sprites/elementy/home.png');
     this.load.image('icon_wall', 'assets/sprites/elementy/wall.png');
+
+    // HUD background slices (left, center, right)
+    this.load.image('hud_bg_left', 'assets/sprites/elementy/back_ui0.png');
+    this.load.image('hud_bg_mid', 'assets/sprites/elementy/back_ui.png');
+    this.load.image('hud_bg_right', 'assets/sprites/elementy/back_ui2.png');
+
     // UI pictograms (SVG)
     this.load.svg('icon_hand', 'assets/sprites/elementy/hand.svg', { width: 64, height: 64 });
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
