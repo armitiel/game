@@ -173,8 +173,8 @@ export default class TouchControls {
     // Fixed button positions — triangle layout in bottom-right corner
     const jumpX = cam.width - 85;
     const jumpY = cam.height - 95;
-    const actX  = cam.width - 185;
-    const actY  = cam.height - 190;
+    const actX  = cam.width - 85;
+    const actY  = cam.height - 200;
     const eX    = cam.width - 215;
     const eY    = cam.height - 90;
 
@@ -196,7 +196,7 @@ export default class TouchControls {
       } else {
         const hex = '#' + color.toString(16).padStart(6, '0');
         el = scene.add.text(x, y, label, {
-          fontFamily: 'ChangaOne, monospace', fontSize: `${Math.floor(r * 0.7)}px`, fontStyle: 'bold',
+          fontFamily: 'ChangaOne, monospace', fontSize: `${Math.floor(r * 0.56)}px`, fontStyle: 'bold',
           color: hex, stroke: '#000000', strokeThickness: 4,
           padding: { x: 4, y: 4 }
         }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.55);
