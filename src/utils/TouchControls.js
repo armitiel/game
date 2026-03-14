@@ -73,10 +73,10 @@ export default class TouchControls {
     // Initial position — bottom-left corner, will move to touch point on first use
     const hintX = 110;
     const hintY = cam.height - 130;
-    this._joyOrbit.setPosition(hintX, hintY).setVisible(true).setAlpha(0.15);
-    this._joyBase.setPosition(hintX, hintY).setVisible(true).setAlpha(0.12);
-    this._joyBase.setStrokeStyle(2.5, 0xffffff, 0.3);
-    this._joyThumb.setPosition(hintX, hintY).setVisible(true).setAlpha(0.3);
+    this._joyOrbit.setPosition(hintX, hintY).setVisible(true).setAlpha(0.25);
+    this._joyBase.setPosition(hintX, hintY).setVisible(true).setAlpha(0.18);
+    this._joyBase.setStrokeStyle(2.5, 0xffffff, 0.4);
+    this._joyThumb.setPosition(hintX, hintY).setVisible(true).setAlpha(0.4);
 
     let originX = hintX, originY = hintY;
     const DEAD_ZONE = 12;
@@ -86,9 +86,9 @@ export default class TouchControls {
       originX = pointer.x;
       originY = pointer.y;
       // Move joystick to touch point, active opacity
-      this._joyOrbit.setPosition(originX, originY).setAlpha(0.35);
-      this._joyBase.setPosition(originX, originY).setAlpha(0.15);
-      this._joyThumb.setPosition(originX, originY).setAlpha(0.5);
+      this._joyOrbit.setPosition(originX, originY).setAlpha(0.45);
+      this._joyBase.setPosition(originX, originY).setAlpha(0.2);
+      this._joyThumb.setPosition(originX, originY).setAlpha(0.6);
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
       this._updateDirection(0, 0, dz);
     });
@@ -127,10 +127,10 @@ export default class TouchControls {
 
   _restJoystick() {
     // Reset thumb to center of base, dim all — stay visible at last position
-    if (this._joyOrbit) this._joyOrbit.setAlpha(0.15);
-    if (this._joyBase) this._joyBase.setAlpha(0.12);
+    if (this._joyOrbit) this._joyOrbit.setAlpha(0.25);
+    if (this._joyBase) this._joyBase.setAlpha(0.18);
     if (this._joyThumb) {
-      this._joyThumb.setPosition(this._joyBase.x, this._joyBase.y).setAlpha(0.3);
+      this._joyThumb.setPosition(this._joyBase.x, this._joyBase.y).setAlpha(0.4);
     }
   }
 
