@@ -93,6 +93,8 @@ canvas { display: block; cursor: crosshair; }
     <button class="tool-btn" data-tool="checkpoint">Checkpoint</button>
     <button class="tool-btn" data-tool="wire">Kabel</button>
     <button class="tool-btn" data-tool="paper">Gazeta</button>
+    <button class="tool-btn" data-tool="bottle">Butelka</button>
+    <button class="tool-btn" data-tool="carton">Karton</button>
   </div>
 
   <div class="section">
@@ -334,6 +336,8 @@ const ASSET_PATHS = {
   lamp: '/assets/sprites/elementy/lamp.png',
   blok: '/assets/sprites/elementy/blok.png',
   paper: '/assets/sprites/elementy/paper.png',
+  bottle: '/assets/sprites/elementy/butelka.png',
+  carton: '/assets/sprites/elementy/karton.png',
 };
 
 let assetsLoaded = false;
@@ -440,6 +444,8 @@ const COLORS = {
   checkpoint: '#00ff88',
   wire: '#ffff44',
   paper: '#c8b88a',
+  bottle: '#5a8a3a',
+  carton: '#b89a6a',
 };
 
 // ============================================================
@@ -682,6 +688,46 @@ function draw() {
     ctx.restore();
     if (isSelected('paper', i)) drawSelectionBorder(p.x - pw / 2, p.y - ph, pw, ph, s);
     drawLabel(p.x, p.y - ph - 4, 'GAZ', s);
+  });
+
+  // Bottles (butelki)
+  (level.bottles || []).forEach((b, i) => {
+    const bw = 38, bh = 14;
+    ctx.save();
+    ctx.translate(b.x * s, b.y * s);
+    ctx.rotate(((b.angle || 0) * Math.PI) / 180);
+    if (ASSETS.bottle) {
+      ctx.drawImage(ASSETS.bottle, (-bw / 2) * s, (-bh) * s, bw * s, bh * s);
+    } else {
+      ctx.fillStyle = COLORS.bottle;
+      ctx.fillRect((-bw / 2) * s, (-bh) * s, bw * s, bh * s);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect((-bw / 2) * s, (-bh) * s, bw * s, bh * s);
+    }
+    ctx.restore();
+    if (isSelected('bottle', i)) drawSelectionBorder(b.x - bw / 2, b.y - bh, bw, bh, s);
+    drawLabel(b.x, b.y - bh - 4, 'BUT', s);
+  });
+
+  // Cartons (kartony)
+  (level.cartons || []).forEach((c, i) => {
+    const cw = 34, ch = 16;
+    ctx.save();
+    ctx.translate(c.x * s, c.y * s);
+    ctx.rotate(((c.angle || 0) * Math.PI) / 180);
+    if (ASSETS.carton) {
+      ctx.drawImage(ASSETS.carton, (-cw / 2) * s, (-ch) * s, cw * s, ch * s);
+    } else {
+      ctx.fillStyle = COLORS.carton;
+      ctx.fillRect((-cw / 2) * s, (-ch) * s, cw * s, ch * s);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect((-cw / 2) * s, (-ch) * s, cw * s, ch * s);
+    }
+    ctx.restore();
+    if (isSelected('carton', i)) drawSelectionBorder(c.x - cw / 2, c.y - ch, cw, ch, s);
+    drawLabel(c.x, c.y - ch - 4, 'KAR', s);
   });
 
   // Lamps — light cone + image
@@ -970,6 +1016,18 @@ function hitTest(mx, my) {
     if (Math.abs(mx - p.x) < 20 && my >= p.y - 30 && my <= p.y + 4) return { type: 'paper', index: i };
   }
 
+  // Bottles
+  for (let i = (level.bottles || []).length - 1; i >= 0; i--) {
+    const b = level.bottles[i];
+    if (Math.abs(mx - b.x) < 20 && my >= b.y - 16 && my <= b.y + 4) return { type: 'bottle', index: i };
+  }
+
+  // Cartons
+  for (let i = (level.cartons || []).length - 1; i >= 0; i--) {
+    const c = level.cartons[i];
+    if (Math.abs(mx - c.x) < 20 && my >= c.y - 18 && my <= c.y + 4) return { type: 'carton', index: i };
+  }
+
   // Cops
   for (let i = (level.cops || []).length - 1; i >= 0; i--) {
     const c = level.cops[i];
@@ -1043,6 +1101,8 @@ function getElemPos(sel) {
     case 'trashCan': return { x: e.x, y: e.y };
     case 'lamp': return { x: e.x, y: e.y };
     case 'paper': return { x: e.x, y: e.y };
+    case 'bottle': return { x: e.x, y: e.y };
+    case 'carton': return { x: e.x, y: e.y };
     case 'checkpoint': return { x: level.checkpoint.x, y: level.checkpoint.y };
     case 'wire': return { x: e.x1, y: e.y1 };
   }
@@ -1062,6 +1122,8 @@ function moveElem(sel, dx, dy) {
     case 'cop': e.x += dx; e.y += dy; e.minX += dx; e.maxX += dx; break;
     case 'trashCan': e.x += dx; e.y += dy; break;
     case 'paper': e.x += dx; e.y += dy; break;
+    case 'bottle': e.x += dx; e.y += dy; break;
+    case 'carton': e.x += dx; e.y += dy; break;
     case 'lamp': e.x += dx; e.y += dy; break;
     case 'checkpoint': level.checkpoint.x += dx; level.checkpoint.y += dy; break;
     case 'wire': e.x1 += dx; e.y1 += dy; e.x2 += dx; e.y2 += dy; break;
@@ -1080,6 +1142,8 @@ function getArray(type) {
     case 'cop': return level.cops;
     case 'trashCan': return level.trashCans;
     case 'paper': return level.papers;
+    case 'bottle': return level.bottles;
+    case 'carton': return level.cartons;
     case 'lamp': return level.lamps;
     case 'checkpoint': return [level.checkpoint];
     case 'wire': return level.foregroundWires;
@@ -1265,6 +1329,16 @@ function createElement(type, r, start, end) {
       level.papers.push({ x: start.x, y: start.y });
       selected = { type: 'paper', index: level.papers.length - 1 };
       break;
+    case 'bottle':
+      if (!level.bottles) level.bottles = [];
+      level.bottles.push({ x: start.x, y: start.y });
+      selected = { type: 'bottle', index: level.bottles.length - 1 };
+      break;
+    case 'carton':
+      if (!level.cartons) level.cartons = [];
+      level.cartons.push({ x: start.x, y: start.y });
+      selected = { type: 'carton', index: level.cartons.length - 1 };
+      break;
     case 'lamp':
       if (!level.lamps) level.lamps = [];
       level.lamps.push({ x: start.x, y: start.y, radius: 120, intensity: 0.35 });
@@ -1347,6 +1421,12 @@ function showProps() {
       html += field('x', e.x) + field('y', e.y) + field('depth', e.depth ?? '');
       break;
     case 'paper':
+      html += field('x', e.x) + field('y', e.y) + field('angle', e.angle ?? 0);
+      break;
+    case 'bottle':
+      html += field('x', e.x) + field('y', e.y) + field('angle', e.angle ?? 0);
+      break;
+    case 'carton':
       html += field('x', e.x) + field('y', e.y) + field('angle', e.angle ?? 0);
       break;
     case 'lamp':
@@ -1567,6 +1647,26 @@ function generateExport() {
       lv.papers.forEach(p => {
         const ang = p.angle != null && p.angle !== 0 ? `, angle: ${Math.round(p.angle)}` : '';
         out += `    { x: ${Math.round(p.x)}, y: ${rel(Math.round(p.y), HH, hVar)}${ang} },\n`;
+      });
+      out += `  ],\n`;
+    }
+
+    // Bottles
+    if (lv.bottles && lv.bottles.length > 0) {
+      out += `  bottles: [\n`;
+      lv.bottles.forEach(b => {
+        const ang = b.angle != null && b.angle !== 0 ? `, angle: ${Math.round(b.angle)}` : '';
+        out += `    { x: ${Math.round(b.x)}, y: ${rel(Math.round(b.y), HH, hVar)}${ang} },\n`;
+      });
+      out += `  ],\n`;
+    }
+
+    // Cartons
+    if (lv.cartons && lv.cartons.length > 0) {
+      out += `  cartons: [\n`;
+      lv.cartons.forEach(c => {
+        const ang = c.angle != null && c.angle !== 0 ? `, angle: ${Math.round(c.angle)}` : '';
+        out += `    { x: ${Math.round(c.x)}, y: ${rel(Math.round(c.y), HH, hVar)}${ang} },\n`;
       });
       out += `  ],\n`;
     }

@@ -33,7 +33,7 @@ export const LEVEL_1 = {
     { x: 1140, topY: H - 500, bottomY: H - 262, minX: 950, maxX: 1190 },
   ],
   shadows: [
-    { x: 80, y: H - 135, w: 75, h: 100 },
+    { x: 80, y: H - 130, w: 75, h: 100 },
     { x: 568, y: H - 135, w: 75, h: 100 },
   ],
   fillWalls: [
@@ -68,6 +68,13 @@ export const LEVEL_1 = {
     { x: 550, y: H - 25 },
     { x: 1050, y: H - 25 },
     { x: 200, y: H - 150 },
+  ],
+  bottles: [
+    { x: 380, y: H - 25 },
+  ],
+  cartons: [
+    { x: 700, y: H - 25 },
+    { x: 100, y: H - 411 },
   ],
   foregroundWires: [
     { x1: -10, y1: H - 520, x2: 1270, y2: H - 550 },
@@ -149,6 +156,15 @@ export const LEVEL_2 = {
     { x: 144, y: L2_H - 24 },
     { x: 460, y: L2_H - 23 },
   ],
+  bottles: [
+    { x: 320, y: L2_H - 24 },
+    { x: 700, y: L2_H - 24 },
+    { x: 200, y: L2_H - 244 },
+  ],
+  cartons: [
+    { x: 550, y: L2_H - 24 },
+    { x: 80, y: L2_H - 244 },
+  ],
   foregroundWires: [
     { x1: 0, y1: L2_H - 380, x2: L2_W, y2: L2_H - 400 },
     { x1: 0, y1: L2_H - 880, x2: L2_W, y2: L2_H - 860 },
@@ -216,6 +232,14 @@ export const LEVEL_3 = {
   papers: [
     { x: 240, y: H - 32 },
     { x: 1100, y: H - 32 },
+  ],
+  bottles: [
+    { x: 430, y: H - 32 },
+    { x: 850, y: H - 32 },
+  ],
+  cartons: [
+    { x: 600, y: H - 32 },
+    { x: 160, y: H - 160 },
   ],
   foregroundWires: [
     { x1: 0, y1: H - 520, x2: W, y2: H - 540 },
@@ -286,6 +310,14 @@ export const LEVEL_4 = {
     { x: 100, y: L4_H - 475 },
   ],
   cops: [
+  ],
+  bottles: [
+    { x: 350, y: L4_H - 32 },
+    { x: 600, y: L4_H - 32 },
+  ],
+  cartons: [
+    { x: 200, y: L4_H - 32 },
+    { x: 500, y: L4_H - 200 },
   ],
   foregroundWires: [
     { x1: 0, y1: L4_H - 350, x2: L4_W, y2: L4_H - 370 },
