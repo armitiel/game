@@ -10,6 +10,8 @@ import PaintByNumbers from '../entities/PaintByNumbers.js';
 import SynthSFX from '../utils/SynthSFX.js';
 import TouchControls from '../utils/TouchControls.js';
 import Paper from '../entities/Paper.js';
+import Bottle from '../entities/Bottle.js';
+import Carton from '../entities/Carton.js';
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -195,9 +197,13 @@ export default class GameScene extends Phaser.Scene {
       this.setupTowerMode();
     }
 
-    // === Newspapers (paper props that react to player passing) ===
+    // === Litter props that react to player passing ===
     this.papers = [];
+    this.bottles = [];
+    this.cartons = [];
     this.createPapers();
+    this.createBottles();
+    this.createCartons();
 
     // === Wind leaves effect ===
     this.createLeafEffect();
@@ -826,9 +832,9 @@ export default class GameScene extends Phaser.Scene {
 
     const addSpot = (x, y, w, h, paintingKey, spotDepth) => {
       const depth = spotDepth ?? 2;
-      // Subtle outline marking the mural area — background fill wall shows through
+      // Outline marking the mural area — star-colored border
       const visual = this.add.graphics();
-      visual.lineStyle(1, 0xffffff, 0.15);
+      visual.lineStyle(1.5, 0xffe090, 0.3);
       visual.strokeRect(x - w / 2, y - h / 2, w, h);
       visual.setDepth(depth);
 
@@ -845,6 +851,13 @@ export default class GameScene extends Phaser.Scene {
         stars.push({ g: sg, t: i / NUM_STARS, speed: 0.00018 + Math.random() * 0.00008 });
       }
 
+      // Spray can pictogram — always visible on the right side of the mural wall
+      const sprayIcon = this.add.image(x + w / 2 + 16, y, 'icon_spray')
+        .setDisplaySize(22, 22)
+        .setDepth(depth + 0.3)
+        .setAlpha(0.7)
+        .setTint(0xffe090);
+
       // Interaction zone — slightly wider than visual for comfortable reach
       const interactPad = 10;  // small extra reach on each side
       const zone = this.add.zone(x - w / 2 - interactPad, y - h / 2, w + interactPad * 2, h).setOrigin(0, 0);
@@ -859,7 +872,7 @@ export default class GameScene extends Phaser.Scene {
       this.paintSpotZones.add(zone);
       this.totalSpots++;
 
-      this._muralGlows.push({ zone, glowG, stars, glowT: 0, rx: x - w / 2, ry: y - h / 2, rw: w, rh: h });
+      this._muralGlows.push({ zone, glowG, stars, sprayIcon, glowT: 0, rx: x - w / 2, ry: y - h / 2, rw: w, rh: h });
     };
 
     this.levelData.paintSpots.forEach(s => addSpot(s.x, s.y, s.w, s.h, s.paintingKey, s.depth));
@@ -885,6 +898,7 @@ export default class GameScene extends Phaser.Scene {
       if (entry.zone.getData('painted')) {
         entry.glowG.clear();
         entry.stars.forEach(s => s.g.clear());
+        if (entry.sprayIcon) entry.sprayIcon.setAlpha(0);
         return;
       }
 
@@ -908,6 +922,14 @@ export default class GameScene extends Phaser.Scene {
           entry.glowG.lineStyle(l.lw, 0xffd080, l.alpha * gt * pulse);
           entry.glowG.strokeRect(rx, ry, rw, rh);
         });
+      }
+
+      // --- Spray can icon — always visible, bobs gently, brighter when near ---
+      if (entry.sprayIcon && entry.sprayIcon.visible) {
+        const baseAlpha = 0.45 + gt * 0.5;
+        entry.sprayIcon.setAlpha(baseAlpha);
+        const bob = Math.sin(time * 0.003) * 2;
+        entry.sprayIcon.setY(ry + rh / 2 + bob);
       }
 
       // --- Star particles ---
@@ -1030,6 +1052,20 @@ export default class GameScene extends Phaser.Scene {
     (this.levelData.papers || []).forEach(p => {
       const paper = new Paper(this, p.x, p.y, p.angle);
       this.papers.push(paper);
+    });
+  }
+
+  createBottles() {
+    (this.levelData.bottles || []).forEach(b => {
+      const bottle = new Bottle(this, b.x, b.y, b.angle);
+      this.bottles.push(bottle);
+    });
+  }
+
+  createCartons() {
+    (this.levelData.cartons || []).forEach(c => {
+      const carton = new Carton(this, c.x, c.y, c.angle);
+      this.cartons.push(carton);
     });
   }
 
@@ -1536,6 +1572,14 @@ export default class GameScene extends Phaser.Scene {
 
     this.activePaintSpot = spot;
 
+    // Hide spray icon and outline while painting
+    const muralEntry = this._muralGlows && this._muralGlows.find(function(e) { return e.zone === spot; });
+    if (muralEntry) {
+      if (muralEntry.sprayIcon) muralEntry.sprayIcon.setVisible(false);
+      const vis = spot.getData('visual');
+      if (vis && vis.setVisible) vis.setVisible(false);
+    }
+
     // Auto-flip player to face the mural (center of paint area)
     const muralCenterX = bounds.x + bounds.w / 2;
     if (muralCenterX < this.player.x) {
@@ -1839,6 +1883,17 @@ export default class GameScene extends Phaser.Scene {
       this.pbn.destroy();
     }
     this.pbn = null;
+
+    // Restore spray icon and outline after painting
+    if (this.activePaintSpot && this._muralGlows) {
+      const spot = this.activePaintSpot;
+      const entry = this._muralGlows.find(function(e) { return e.zone === spot; });
+      if (entry) {
+        if (entry.sprayIcon && !spot.getData('painted')) entry.sprayIcon.setVisible(true);
+        const vis = spot.getData('visual');
+        if (vis && vis.setVisible && !spot.getData('painted')) vis.setVisible(true);
+      }
+    }
     this.activePaintSpot = null;
   }
 
@@ -2330,6 +2385,43 @@ export default class GameScene extends Phaser.Scene {
         }
       }
     }
+    // Bottle blow — same logic as paper
+    if (this.bottles.length > 0) {
+      const px = this.player.x;
+      const py = this.player.y;
+      const pvx = this.player.body.velocity.x;
+      const speed = Math.abs(pvx);
+      if (speed > 40) {
+        for (const bottle of this.bottles) {
+          bottle.tick(delta);
+          const dy = py - bottle.homeY;
+          if (Math.abs(px - bottle.x) < 50 && dy > -80 && dy < 15) {
+            bottle.disturb(pvx, speed);
+          }
+        }
+      } else {
+        for (const bottle of this.bottles) bottle.tick(delta);
+      }
+    }
+    // Carton blow
+    if (this.cartons.length > 0) {
+      const px = this.player.x;
+      const py = this.player.y;
+      const pvx = this.player.body.velocity.x;
+      const speed = Math.abs(pvx);
+      if (speed > 40) {
+        for (const carton of this.cartons) {
+          carton.tick(delta);
+          const dy = py - carton.homeY;
+          if (Math.abs(px - carton.x) < 50 && dy > -80 && dy < 15) {
+            carton.disturb(pvx, speed);
+          }
+        }
+      } else {
+        for (const carton of this.cartons) carton.tick(delta);
+      }
+    }
+
     // Animate mural glow & star particles
     this._updateMuralGlow(time, delta);
 
