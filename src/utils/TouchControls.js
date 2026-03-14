@@ -275,46 +275,66 @@ export default class TouchControls {
   }
 
   /**
-   * Create color selector buttons for paint-by-numbers mode.
-   * Vertical stack on right side + EXIT button at the bottom.
-   * Sized to fit up to 6 colors + EXIT within mobile viewport.
+   * Show/hide the main joystick + action buttons.
+   * Called when entering/exiting paint mode.
+   */
+  _setMainButtonsVisible(visible) {
+    if (!this.buttons) return;
+    this.buttons.forEach(b => {
+      if (!b || !b.setVisible) return;
+      b.setVisible(visible);
+      if (b.input) {
+        if (visible) b.setInteractive();
+        else b.disableInteractive();
+      }
+    });
+  }
+
+  /**
+   * Create color selector buttons arranged in a circle for paint-by-numbers mode.
+   * EXIT button ("✕") sits in the center of the circle.
+   * Main controls (joystick + action buttons) are hidden until exit.
    */
   createColorButtons(scene, onSelect, colorNames, onExit) {
     if (!this.enabled) return;
     this.colorButtons = [];
 
+    // Hide joystick + action buttons while selecting paint color
+    this._setMainButtonsVisible(false);
+
     const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88, 0xff88ff, 0x88ffff];
     const numColors = colorNames ? colorNames.length : 4;
-    const camH = scene.cameras.main.height;
-    const radius = 28;
-    const gap = 10;
-    const step = radius * 2 + gap;
-    // Total slots: numColors + 1 (exit)
-    const totalSlots = numColors + 1;
-    // Center the stack vertically
-    const stackH = totalSlots * step - gap;
-    const topY = (camH - stackH) / 2 + radius;
-    const x = scene.cameras.main.width - 60;
+    const cam = scene.cameras.main;
 
+    // Circle layout — centered on screen
+    const cx = cam.width / 2;
+    const cy = cam.height / 2;
+    const ORBIT_R = 135; // radius of the ring of color buttons
+    const BTN_R   = 48;  // color button radius
+    const EXIT_R  = 46;  // center exit button radius
+
+    // Color buttons around the circle
     for (let i = 0; i < numColors; i++) {
-      const y = topY + i * step;
+      const angle = -Math.PI / 2 + i * (2 * Math.PI / numColors);
+      const x = cx + Math.cos(angle) * ORBIT_R;
+      const y = cy + Math.sin(angle) * ORBIT_R;
+      const color = colorHexes[i] || 0xffffff;
 
-      const bg = scene.add.circle(x, y, radius, colorHexes[i] || 0xffffff, 0.6)
-        .setScrollFactor(0)
-        .setDepth(200)
-        .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains)
-        .setStrokeStyle(2, 0xffffff, 0.5);
+      const bg = scene.add.circle(x, y, BTN_R, color, 0.65)
+        .setScrollFactor(0).setDepth(200)
+        .setStrokeStyle(2, 0xffffff, 0.45)
+        .setInteractive();
 
       const text = scene.add.text(x, y, String(i + 1), {
-        font: 'bold 20px ChangaOne, monospace',
-        fill: '#ffffff',
-        stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.8);
+        font: 'bold 30px ChangaOne, monospace',
+        fill: '#ffffff', stroke: '#000000', strokeThickness: 4
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.9);
 
       bg.on('pointerdown', () => {
         this.colorButtons.forEach((btn, idx) => {
-          if (idx >= numColors) return; // skip exit button
-          btn.bg.setStrokeStyle(idx === i ? 3 : 2, 0xffffff, idx === i ? 1 : 0.3);
+          if (idx >= numColors) return;
+          btn.bg.setStrokeStyle(idx === i ? 4 : 2, 0xffffff, idx === i ? 1 : 0.3);
+          btn.text.setAlpha(idx === i ? 1 : 0.7);
         });
         onSelect(i);
       });
@@ -322,21 +342,19 @@ export default class TouchControls {
       this.colorButtons.push({ bg, text });
     }
 
-    // EXIT button at bottom of stack — extra gap to separate from colors
-    const exitY = topY + numColors * step + 14;
-    const exitBg = scene.add.circle(x, exitY, radius, 0x111111, 0.7)
-      .setScrollFactor(0)
-      .setDepth(200)
-      .setInteractive(new Phaser.Geom.Circle(radius, radius, radius), Phaser.Geom.Circle.Contains)
-      .setStrokeStyle(2, 0x444444, 0.7);
-    const exitText = scene.add.text(x, exitY, '✕', {
-      font: 'bold 22px ChangaOne, monospace', fill: '#ff6666',
-      stroke: '#330000', strokeThickness: 3
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.9);
+    // EXIT — large "✕" in the center of the circle
+    const exitBg = scene.add.circle(cx, cy, EXIT_R, 0x1a0000, 0.88)
+      .setScrollFactor(0).setDepth(202)
+      .setStrokeStyle(3, 0xff4444, 0.85)
+      .setInteractive();
+    const exitText = scene.add.text(cx, cy, '✕', {
+      font: 'bold 40px ChangaOne, monospace', fill: '#ff4444',
+      stroke: '#110000', strokeThickness: 5
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setAlpha(1);
 
-    exitBg.on('pointerdown', () => {
-      if (onExit) onExit();
-    });
+    exitBg.on('pointerdown', () => { if (onExit) onExit(); });
+    exitBg.on('pointerover', () => exitBg.setFillStyle(0x330000, 0.95));
+    exitBg.on('pointerout',  () => exitBg.setFillStyle(0x1a0000, 0.88));
 
     this.colorButtons.push({ bg: exitBg, text: exitText });
   }
@@ -348,6 +366,8 @@ export default class TouchControls {
         btn.text.destroy();
       });
       this.colorButtons = null;
+      // Restore main controls when leaving paint mode
+      this._setMainButtonsVisible(true);
     }
   }
 
