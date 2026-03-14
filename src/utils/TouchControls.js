@@ -295,7 +295,7 @@ export default class TouchControls {
    * EXIT button ("✕") sits in the center of the circle.
    * Main controls (joystick + action buttons) are hidden until exit.
    */
-  createColorButtons(scene, onSelect, colorNames, onExit) {
+  createColorButtons(scene, onSelect, colorNames, onExit, hasColorArr) {
     this.colorButtons = [];
 
     // Hide joystick + action buttons while selecting paint color (mobile only)
@@ -310,7 +310,7 @@ export default class TouchControls {
     const cy = cam.height / 2;
     const ORBIT_R = 115; // radius of the ring of color buttons
     const BTN_R   = 56;  // color button radius
-    const EXIT_R  = 52;  // center exit button radius
+    const EXIT_R  = 44;  // center exit button radius
 
     // Color buttons around the circle
     for (let i = 0; i < numColors; i++) {
@@ -318,19 +318,21 @@ export default class TouchControls {
       const x = cx + Math.cos(angle) * ORBIT_R;
       const y = cy + Math.sin(angle) * ORBIT_R;
       const color = colorHexes[i] || 0xffffff;
+      const has = hasColorArr ? hasColorArr[i] : true;
 
-      const bg = scene.add.circle(x, y, BTN_R, color, 0.65)
+      const bg = scene.add.circle(x, y, BTN_R, color, has ? 0.65 : 0.12)
         .setScrollFactor(0).setDepth(200)
-        .setStrokeStyle(2, 0xffffff, 0.45)
+        .setStrokeStyle(2, 0xffffff, has ? 0.45 : 0.12)
         .setInteractive();
 
       const text = scene.add.text(x, y, String(i + 1), {
         fontFamily: 'ChangaOne, monospace', fontSize: '48px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 6,
         padding: { x: 4, y: 4 }
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.95);
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(has ? 0.95 : 0.2);
 
       bg.on('pointerdown', () => {
+        if (hasColorArr && !hasColorArr[i]) return; // can't select unavailable color
         this.colorButtons.forEach((btn, idx) => {
           if (idx >= numColors) return;
           btn.bg.setStrokeStyle(idx === i ? 4 : 2, 0xffffff, idx === i ? 1 : 0.3);
@@ -339,15 +341,16 @@ export default class TouchControls {
         onSelect(i);
       });
 
-      this.colorButtons.push({ bg, text });
+      this.colorButtons.push({ bg, text, hasColor: has });
     }
 
-    // EXIT — large "✕" in the center of the circle
-    const exitBg = scene.add.circle(cx, cy, EXIT_R, 0x1a0000, 0.88)
+    // EXIT — "✕" offset below the circle so it doesn't overlap color buttons
+    const exitY = cy + ORBIT_R + BTN_R + 30;
+    const exitBg = scene.add.circle(cx, exitY, EXIT_R, 0x1a0000, 0.88)
       .setScrollFactor(0).setDepth(202)
       .setStrokeStyle(3, 0xff4444, 0.85)
       .setInteractive();
-    const exitText = scene.add.text(cx, cy, '✕', {
+    const exitText = scene.add.text(cx, exitY, '✕', {
       fontFamily: 'ChangaOne, monospace', fontSize: '56px', fontStyle: 'bold',
       color: '#ff4444', stroke: '#110000', strokeThickness: 7,
       padding: { x: 4, y: 4 }

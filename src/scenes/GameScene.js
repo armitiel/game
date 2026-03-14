@@ -1602,6 +1602,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Color selector HUD — circular buttons (same UI on mobile and desktop)
+    const hasColorArr = this.pbn.colorMap.map(c => this.player.hasPaint(c.toLowerCase()));
     this._addingHud = true;
     this.touch.createColorButtons(this, (colorIdx) => {
       if (this.pbn) {
@@ -1615,7 +1616,7 @@ export default class GameScene extends Phaser.Scene {
         this.player.stopPainting();
         this.cancelPainting();
       }
-    });
+    }, hasColorArr);
     this._addingHud = false;
     // Hide from main cam (they render on uiCam only)
     if (this.touch.colorButtons) {
