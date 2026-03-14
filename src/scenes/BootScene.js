@@ -173,7 +173,11 @@ export default class BootScene extends Phaser.Scene {
       copCtx.drawImage(src, 0, 0, src.width, src.height, i * copFrameW, 0, copFrameW, copFrameH);
       this.textures.remove(`cop_walk_raw_${i + 1}`);
     }
-    this.textures.addSpriteSheet('cop_sheet', copSheetCanvas, { frameWidth: copFrameW, frameHeight: copFrameH });
+    // Add as canvas texture, then manually define spritesheet frames
+    const copTex = this.textures.addCanvas('cop_sheet', copSheetCanvas);
+    for (let i = 0; i < copFrameCount; i++) {
+      copTex.add(i, 0, i * copFrameW, 0, copFrameW, copFrameH);
+    }
 
     // Cop walk animation
     this.anims.create({
