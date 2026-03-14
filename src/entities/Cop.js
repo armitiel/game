@@ -11,19 +11,26 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.setCollideWorldBounds(true);
     this.setDepth(4.5); // in front of shadows (2) and ladders (4)
 
-    // Scale 128px frame down to game-world size
-    // Character occupies ~60% of the 128px frame vertically
-    const copScale = COP.HEIGHT / 128;
-    this.setScale(copScale);
+    // Spritesheet is generated at COP.HEIGHT×COP.HEIGHT — no scaling needed (scale=1).
+    // This gives crisp rendering (1080→168 direct downscale, no upscaling blur).
+    const F = COP.HEIGHT;  // frame size = display size
 
-    // Physics body — the character sits in the lower ~70% of the frame, centered horizontally
-    // In 128px frame coords: character is ~40px wide, ~76px tall, starting at ~y=40
-    const bodyW = 40;
-    const bodyH = 76;
-    const bodyOffX = (128 - bodyW) / 2;  // center horizontally
-    const bodyOffY = 128 - bodyH - 6;    // feet near bottom with small margin
+    // Physics body — proportional to character in the Walk_P frame.
+    // Feet at ~79% of frame height (measured from Walk_P PNGs).
+    const FEET_Y = Math.round(F * 0.79);
+    const bodyW = Math.round(F * 0.345);     // ~58 (proportional to 44/128)
+    const bodyH = Math.round(F * 0.50);      // ~84 (proportional to 64/128)
+    const bodyOffX = Math.round((F - bodyW) / 2);  // center horizontally
+    const bodyOffY = FEET_Y - bodyH;                // body top
     this.body.setSize(bodyW, bodyH);
     this.body.setOffset(bodyOffX, bodyOffY);
+
+    // y parameter = platform/ground surface level.
+    // Position sprite so body bottom (feet) sits exactly on that surface.
+    // With scale=1 and origin(0.5,0.5):
+    //   body.bottom = sprite.y - F/2 + bodyOffY + bodyH = sprite.y + (FEET_Y - F/2)
+    //   Want body.bottom = y  →  sprite.y = y - (FEET_Y - F/2)
+    this.y = y - (FEET_Y - F / 2);
 
     // Start walk animation
     this.play('cop_walk');
@@ -32,6 +39,9 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.patrolLeft = patrolLeft;
     this.patrolRight = patrolRight;
     this.direction = 1; // 1 = right, -1 = left
+
+    // Direction change cooldown — prevents flip-flopping at edges
+    this._dirCooldown = 0;
 
     // AI State
     this.state = 'PATROL'; // PATROL | DETECT | ALERT
@@ -44,7 +54,9 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
     // Exclamation mark for alert
     this.alertMark = scene.add.text(x, y - 30, '!', {
-      font: 'bold 24px ChangaOne, monospace',
+      fontFamily: 'ChangaOne',
+      fontSize: '24px',
+      fontStyle: 'bold',
       fill: '#ff3333',
       stroke: '#330000', strokeThickness: 4
     }).setOrigin(0.5).setVisible(false).setDepth(10);
@@ -54,24 +66,16 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(time, delta, player) {
-    this.alertMark.setPosition(this.x, this.y - 30);
+    this.alertMark.setPosition(this.x, this.y - 40);
 
-    // Debug: log every 120 frames (~2s)
-    if (!this._dbgFrame) this._dbgFrame = 0;
-    this._dbgFrame++;
-    if (this._dbgFrame % 120 === 1) {
-      const canSee = this.canSeePlayer(player);
-      const dx = player ? (player.x - this.x).toFixed(0) : '?';
-      const dy = player ? Math.abs(player.y - this.y).toFixed(0) : '?';
-      console.log(`[COP] state=${this.state} pos=(${this.x.toFixed(0)},${this.y.toFixed(0)}) dir=${this.direction} player=(${player?.x?.toFixed(0)},${player?.y?.toFixed(0)}) dx=${dx} dy=${dy} hidden=${player?.isHidden} canSee=${canSee}`);
-    }
+    // Tick direction cooldown
+    if (this._dirCooldown > 0) this._dirCooldown -= delta;
 
     switch (this.state) {
       case 'PATROL':
         this.patrol();
         this.drawDetectionZone();
         if (this.canSeePlayer(player)) {
-          console.log('[COP] DETECTED PLAYER! Entering DETECT state');
           this.enterDetect();
         }
         break;
@@ -88,6 +92,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
         if (!this.canSeePlayer(player)) {
           this.returnToPatrol();
         }
+        this.drawDetectionZone();
         break;
 
       case 'ALERT':
@@ -97,24 +102,29 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   }
 
   patrol() {
+    let wantFlip = false;
+
     // --- Patrol bounds ---
-    if (this.x <= this.patrolLeft) {
-      this.direction = 1;
-      this.setFlipX(false);
-    } else if (this.x >= this.patrolRight) {
-      this.direction = -1;
-      this.setFlipX(true);
+    if (this.x <= this.patrolLeft && this.direction === -1) {
+      wantFlip = true;
+    } else if (this.x >= this.patrolRight && this.direction === 1) {
+      wantFlip = true;
     }
 
     // --- Edge detection: don't walk off platforms ---
-    if (this.body.blocked.down) {
+    if (!wantFlip && this.body.blocked.down) {
       const probeX = this.x + this.direction * (this.body.halfWidth + 4);
-      const probeY = this.body.bottom + 6; // just below feet
+      const probeY = this.body.bottom + 6;
       if (!this._hasGroundAt(probeX, probeY)) {
-        // No ground ahead — reverse direction
-        this.direction *= -1;
-        this.setFlipX(this.direction === -1);
+        wantFlip = true;
       }
+    }
+
+    // Apply direction change with cooldown to prevent flip-flopping
+    if (wantFlip && this._dirCooldown <= 0) {
+      this.direction *= -1;
+      this.setFlipX(this.direction === -1);
+      this._dirCooldown = 300; // ms — ignore further flips for 300ms
     }
 
     this.setVelocityX(COP.SPEED * this.direction);
@@ -183,16 +193,6 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.alertMark.setText('?');
     this.alertMark.setStyle({ fill: '#ffff00' });
     this.setTint(COP.ALERT_COLOR);
-
-    // Detection cone turns red
-    this.detectionCone.clear();
-    const dir = this.direction;
-    this.detectionCone.fillStyle(0xff0000, 0.15);
-    this.detectionCone.fillTriangle(
-      this.x, this.y - 20,
-      this.x + COP.DETECTION_RANGE * dir, this.y - 40,
-      this.x + COP.DETECTION_RANGE * dir, this.y + 20
-    );
   }
 
   enterAlert(player) {
@@ -217,6 +217,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   resetState() {
     this.state = 'PATROL';
     this.alertTimer = 0;
+    this._dirCooldown = 0;
     this.alertMark.setVisible(false);
     this.clearTint();
     this.play('cop_walk');
