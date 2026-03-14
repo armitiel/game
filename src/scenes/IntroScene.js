@@ -63,7 +63,10 @@ export default class IntroScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-SPACE', () => this._goToGame());
     this.input.keyboard.on('keydown-ENTER', () => this._goToGame());
     this.input.keyboard.on('keydown-ESC', () => this._goToGame());
-    this.input.on('pointerdown', () => this._goToGame());
+    // Click/tap on the HTML overlay (Phaser pointerdown won't fire — overlay covers canvas)
+    this._onOverlayTap = () => this._goToGame();
+    this._container.addEventListener('click', this._onOverlayTap);
+    this._container.addEventListener('touchstart', this._onOverlayTap);
   }
 
   _goToGame() {

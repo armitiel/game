@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 
 /**
  * Carton — crushed cardboard box prop on the ground.
- * Slides when the player runs past.
+ * When the player walks past it nudges along the ground
+ * and stays where it lands (never returns to original position).
+ * Displayed in front of the player.
  */
 export default class Carton extends Phaser.GameObjects.Image {
   constructor(scene, x, y, baseAngle) {
@@ -15,74 +17,66 @@ export default class Carton extends Phaser.GameObjects.Image {
     this.baseAngle = baseAngle ?? Phaser.Math.Between(-6, 6);
     this.setAngle(this.baseAngle);
     this.setOrigin(0.5, 1);
-    this.setDepth(4.5);
-    // Source: 441x206 → ratio 2.14:1, display ~34x16
-    this.setDisplaySize(34, 16);
+    this.setDepth(5.5);       // in front of player (5)
+    // Source: 441x206 → ratio 2.14:1, display ~44x21 (+30%)
+    this.setDisplaySize(44, 21);
 
     this._bsX = this.scaleX;
     this._bsY = this.scaleY;
 
-    this._isBlowing = false;
-    this._blowCooldown = 0;
+    this._isRolling = false;
+    this._rollCooldown = 0;
   }
 
   tick(delta) {
-    if (this._blowCooldown > 0) this._blowCooldown -= delta;
+    if (this._rollCooldown > 0) this._rollCooldown -= delta;
   }
 
+  /**
+   * Nudge the carton along the ground when the player passes by.
+   * Slides a short distance, stays where it lands.
+   */
   disturb(playerVelX, playerSpeed) {
-    if (this._isBlowing || this._blowCooldown > 0) return;
-    this._isBlowing = true;
-    this._blowCooldown = 2000;
+    if (this._isRolling || this._rollCooldown > 0) return;
+    this._isRolling = true;
+    this._rollCooldown = 800;
 
     const dir = playerVelX >= 0 ? 1 : -1;
-    const strength = Phaser.Math.Clamp(playerSpeed / 160, 0.4, 1.2);
+    const strength = Phaser.Math.Clamp(playerSpeed / 180, 0.3, 1.0);
 
-    const driftX = dir * Phaser.Math.Between(15, 40) * strength;
-    const liftY = -Phaser.Math.Between(6, 18) * strength;
-    const rawSpin = dir * Phaser.Math.Between(20, 50) * strength;
-    const spinDeg = Phaser.Math.Clamp(rawSpin, -30, 30);
+    const nudge = dir * Phaser.Math.Between(10, 25) * strength;
+    const roll  = dir * Phaser.Math.Between(8, 25) * strength;
 
-    const scene = this.scene;
-    const bsX = this._bsX;
-    const bsY = this._bsY;
+    const scene  = this.scene;
     const groundY = this.homeY;
 
-    // Phase 1 — lift and slide
+    // Phase 1 — quick nudge with slight tilt
+    const targetX = this.x + nudge;
+    const midAngle = Phaser.Math.Clamp(this.angle + roll, -20, 20);
     scene.tweens.add({
       targets: this,
-      x: this.x + driftX * 0.7,
-      y: Math.min(this.y + liftY, groundY),
-      angle: this.baseAngle + spinDeg * 0.5,
-      scaleX: bsX * (0.85 + 0.15 * Math.random()),
-      scaleY: bsY * (1.05 + 0.1 * Math.random()),
-      duration: 220,
+      x: targetX,
+      y: groundY,
+      angle: midAngle,
+      duration: 200,
       ease: 'Sine.easeOut',
       onComplete: () => {
-        // Phase 2 — slide on ground
+        // Phase 2 — tiny extra slide + settle
+        const restX = targetX + dir * Phaser.Math.Between(2, 6);
+        const restAngle = midAngle * 0.3 + Phaser.Math.Between(-2, 2);
         scene.tweens.add({
           targets: this,
-          x: this.x + driftX * 0.3,
+          x: restX,
           y: groundY,
-          angle: this.baseAngle + spinDeg,
-          scaleX: bsX * (1.1 + 0.1 * Math.random()),
-          scaleY: bsY * (0.85 + 0.1 * Math.random()),
+          angle: Phaser.Math.Clamp(restAngle, -15, 15),
           duration: 280,
-          ease: 'Sine.easeInOut',
+          ease: 'Sine.easeOut',
           onComplete: () => {
-            // Phase 3 — settle
-            const settleX = this.homeX + dir * Phaser.Math.Between(3, 12);
-            scene.tweens.add({
-              targets: this,
-              x: settleX,
-              y: groundY,
-              angle: this.baseAngle + Phaser.Math.Between(-4, 4),
-              scaleX: bsX,
-              scaleY: bsY,
-              duration: 500,
-              ease: 'Sine.easeOut',
-              onComplete: () => { this._isBlowing = false; }
-            });
+            // Stay where it landed
+            this.homeX = this.x;
+            this.homeY = groundY;
+            this.baseAngle = this.angle;
+            this._isRolling = false;
           }
         });
       }

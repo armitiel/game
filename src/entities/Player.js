@@ -39,8 +39,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.maxHp = PLAYER.MAX_HP;
     this._invincibleUntil = 0; // timestamp — immune to damage until this time
 
-    // Paint inventory: { red: 2, blue: 1, ... } — counts per color
+    // Paint inventory: { red: 85.3, blue: 100, ... } — float units of paint per color
     this.inventory = { red: 0, blue: 0, yellow: 0, green: 0 };
+    // Max capacity per color (for HUD bar display) — set when cans are collected
+    this.paintMax = { red: 0, blue: 0, yellow: 0, green: 0 };
     this.paintedCount = 0;
 
     // Animation state tracking (prevents restarting same anim)
@@ -219,11 +221,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.ladderCooldown > 0) this.ladderCooldown--;
 
     const t = this.touch;
-    const left = this.cursors.left.isDown || this.wasdKeys.left.isDown || (t && t.left);
-    const right = this.cursors.right.isDown || this.wasdKeys.right.isDown || (t && t.right);
-    const up = this.cursors.up.isDown || this.wasdKeys.up.isDown || (t && t.up);
-    const down = this.cursors.down.isDown || this.wasdKeys.down.isDown || (t && t.down);
-    const jumpRaw = Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.wasdKeys.up) || (t && t.jumpJustPressed);
+    // Tutorial control lock — scene may restrict certain inputs
+    const cl = (this.scene && this.scene._tutControlLock) || null;
+    const leftRaw = this.cursors.left.isDown || this.wasdKeys.left.isDown || (t && t.left);
+    const rightRaw = this.cursors.right.isDown || this.wasdKeys.right.isDown || (t && t.right);
+    const upRaw = this.cursors.up.isDown || this.wasdKeys.up.isDown || (t && t.up);
+    const downRaw = this.cursors.down.isDown || this.wasdKeys.down.isDown || (t && t.down);
+    const left = cl ? (cl.left && leftRaw) : leftRaw;
+    const right = cl ? (cl.right && rightRaw) : rightRaw;
+    const up = cl ? (cl.up && upRaw) : upRaw;
+    const down = cl ? (cl.down && downRaw) : downRaw;
+    const jumpRaw = (cl ? cl.jump : true) && (Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.wasdKeys.up) || (t && t.jumpJustPressed));
     // Don't jump with UP right after exiting a ladder (prevents unwanted jump at top)
     const jump = jumpRaw && this.ladderCooldown <= 0;
 
@@ -488,8 +496,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // === Normal movement ===
     this.body.allowGravity = true;
 
-    // === Hide in shadow: DOWN while stopped on ground in shadow zone (not on ladder) ===
-    if (down && !left && !right && !up && onGround && this.inShadowZone && !this.onLadder && Math.abs(this.body.velocity.x) < 10) {
+    // === Hide in shadow: DOWN/UP/diagonal-up while stopped on ground in shadow zone (not on ladder) ===
+    if ((down || up) && !jump && onGround && this.inShadowZone && !this.onLadder && Math.abs(this.body.velocity.x) < 10) {
       this.startHiding();
       this.updateHiddenIcon();
       return;
@@ -913,23 +921,36 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.isHidden = hidden;
   }
 
-  collectPaint(colorName) {
+  /**
+   * Add paint units to inventory (called when picking up a can).
+   * @param {string} colorName
+   * @param {number} amount  units to add (default PAINT_PER_CAN from config)
+   */
+  collectPaint(colorName, amount) {
     const key = colorName.toLowerCase();
-    this.inventory[key] = (this.inventory[key] || 0) + 1;
+    const units = amount ?? (PAINT.PAINT_PER_CAN || 100);
+    this.inventory[key] = (this.inventory[key] || 0) + units;
+    // Track max for HUD bar (grows with each can collected)
+    this.paintMax[key] = Math.max(this.paintMax[key] || 0, this.inventory[key]);
   }
 
   hasPaint(colorName) {
-    return (this.inventory[colorName.toLowerCase()] || 0) > 0;
+    return (this.inventory[colorName.toLowerCase()] || 0) > 0.01;
   }
 
   hasAllColors(colorList) {
     return colorList.every(c => this.hasPaint(c));
   }
 
-  usePaint(colorName) {
+  /**
+   * Consume a specific amount of paint (per-pixel usage).
+   * @returns {boolean} true if enough paint was available
+   */
+  usePaint(colorName, amount) {
     const key = colorName.toLowerCase();
-    if ((this.inventory[key] || 0) > 0) {
-      this.inventory[key]--;
+    const cost = amount ?? 1;
+    if ((this.inventory[key] || 0) >= cost - 0.001) {
+      this.inventory[key] = Math.max(0, this.inventory[key] - cost);
       this.paintedCount++;
       return true;
     }
@@ -937,11 +958,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   useColors(colorList) {
-    colorList.forEach(c => this.usePaint(c));
+    colorList.forEach(c => this.usePaint(c, 1));
   }
 
   getPaintCount(colorName) {
     return this.inventory[colorName.toLowerCase()] || 0;
+  }
+
+  /**
+   * Get paint fill ratio (0..1) for HUD bar display.
+   */
+  getPaintRatio(colorName) {
+    const key = colorName.toLowerCase();
+    const max = this.paintMax[key] || 1;
+    return Math.min(1, (this.inventory[key] || 0) / max);
   }
 
   // === HIDING IN SHADOW ===
@@ -1011,8 +1041,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    // Exit hiding if: any movement key (left/right/up), jump, or player leaves shadow zone
-    if (left || right || up || jump || !this.inShadowZone) {
+    // Exit hiding if: any movement key (left/right), jump, or player leaves shadow zone
+    if (left || right || jump || !this.inShadowZone) {
       // Determine exit direction for flip
       let exitDir = 0; // 0 = neutral, -1 = left, 1 = right
       if (left) exitDir = -1;

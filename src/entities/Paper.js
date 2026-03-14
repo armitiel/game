@@ -61,9 +61,9 @@ export default class Paper extends Phaser.GameObjects.Image {
 
     const driftX  = dir * Phaser.Math.Between(25, 55) * strength;
     const liftY   = -Phaser.Math.Between(8, 22) * strength;
-    // Clamp rotation to ±90° from base so paper never flips below ground line
-    const rawSpin = dir * Phaser.Math.Between(60, 160) * strength;
-    const maxSpin = 85 - Math.abs(this.baseAngle); // stay within -90..+90 total
+    // Clamp rotation so paper never visually dips below the ground line
+    const rawSpin = dir * Phaser.Math.Between(30, 80) * strength;
+    const maxSpin = 35 - Math.abs(this.baseAngle); // stay within -35..+35 total
     const spinDeg = Phaser.Math.Clamp(rawSpin, -maxSpin, maxSpin);
 
     const scene = this.scene;
@@ -72,7 +72,7 @@ export default class Paper extends Phaser.GameObjects.Image {
     const groundY = this.homeY;
 
     // Helper: clamp angle so paper image stays above ground
-    const clampAngle = (a) => Phaser.Math.Clamp(a, -88, 88);
+    const clampAngle = (a) => Phaser.Math.Clamp(a, -35, 35);
 
     // Phase 1 — quick lift + sideways slide with crumple deformation
     const p1x = this.x + driftX * 0.6;

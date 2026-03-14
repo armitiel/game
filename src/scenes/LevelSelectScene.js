@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { LEVELS, STEALTH_LEVELS, PUZZLE_LEVELS, TOWER_LEVELS } from '../config/levels.js';
+import { LEVELS, STEALTH_LEVELS, PUZZLE_LEVELS, TOWER_LEVELS, LEVEL_TUTORIAL } from '../config/levels.js';
 
 export default class LevelSelectScene extends Phaser.Scene {
   constructor() {
@@ -165,7 +165,27 @@ export default class LevelSelectScene extends Phaser.Scene {
       });
     });
 
-    this.add.text(cx, gh - 40, '[ Kliknij tryb lub nacisnij 1-3 | ESC = menu ]', {
+    // Tutorial button — small link at bottom
+    const tutIdx = LEVELS.indexOf(LEVEL_TUTORIAL);
+    if (tutIdx >= 0) {
+      const tutBtn = this.add.text(cx, gh - 70, '[ TUTORIAL ]', {
+        fontFamily: 'ChangaOne', fontSize: '18px', fontStyle: 'bold',
+        color: '#88aacc', stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      tutBtn.on('pointerover', () => tutBtn.setStyle({ color: '#00ff88' }));
+      tutBtn.on('pointerout', () => tutBtn.setStyle({ color: '#88aacc' }));
+      tutBtn.on('pointerdown', () => {
+        this.scene.start('GameScene', { levelIndex: tutIdx });
+      });
+
+      // T key shortcut
+      this.input.keyboard.on('keydown-T', () => {
+        this.scene.start('GameScene', { levelIndex: tutIdx });
+      });
+    }
+
+    this.add.text(cx, gh - 40, '[ Kliknij tryb lub nacisnij 1-3 | T = tutorial | ESC = menu ]', {
       font: '12px ChangaOne, monospace', fill: '#445566',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);

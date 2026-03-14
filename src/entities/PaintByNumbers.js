@@ -34,11 +34,26 @@ export default class PaintByNumbers {
     this.filledCount = 0;
     this.totalPaintable = 0;
 
-    // Count paintable cells
+    // Count paintable cells (total and per color index)
+    this.cellsPerColor = {};  // { colorIndex: count }
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
-        if (this.targetGrid[r][c] >= 0) this.totalPaintable++;
+        const ci = this.targetGrid[r][c];
+        if (ci >= 0) {
+          this.totalPaintable++;
+          this.cellsPerColor[ci] = (this.cellsPerColor[ci] || 0) + 1;
+        }
       }
+    }
+
+    // Pre-calculate paint cost per cell for each color
+    // Cost = PAINT_PER_CAN / (cells of that color) / SURPLUS factor
+    // So 1 can covers exactly its share of the mural (with surplus margin)
+    this.costPerCell = {};
+    const paintPerCan = PAINT.PAINT_PER_CAN || 100;
+    const surplus = PAINT.PAINT_SURPLUS || 1.15;
+    for (const [ci, count] of Object.entries(this.cellsPerColor)) {
+      this.costPerCell[ci] = paintPerCan / (count * surplus);
     }
 
     // Currently selected color (index into this.colorMap)
@@ -242,6 +257,13 @@ export default class PaintByNumbers {
 
   getSelectedColorHex() {
     return PAINT.COLORS[this.getSelectedColorName()] || 0xffffff;
+  }
+
+  /**
+   * Get paint cost for one cell of the currently selected color.
+   */
+  getCellCost() {
+    return this.costPerCell[this.selectedColorIndex] || 1;
   }
 
   /**

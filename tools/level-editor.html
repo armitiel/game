@@ -52,6 +52,7 @@ canvas { display: block; cursor: crosshair; }
       <option value="stealth">Stealth</option>
       <option value="puzzle">Puzzle</option>
       <option value="tower">Tower</option>
+      <option value="tutorial">Tutorial</option>
     </select>
     <label>Level:</label>
     <select id="levelSelect" style="width:140px"></select>
@@ -62,11 +63,7 @@ canvas { display: block; cursor: crosshair; }
   <div id="levelMeta" style="font-size:11px;display:flex;flex-direction:column;gap:3px;">
     <div>
       <label>Nazwa: <input id="metaName" style="width:120px;background:#222;color:#eee;border:1px solid #555;font-size:11px;padding:1px 4px" /></label>
-      <label>Tryb: <select id="metaMode" style="width:80px;background:#222;color:#eee;border:1px solid #555;font-size:11px">
-        <option value="stealth">Stealth</option>
-        <option value="puzzle">Puzzle</option>
-        <option value="tower">Tower</option>
-      </select></label>
+      <label>Tryb: <span id="metaModeLabel" style="color:#0f8;font-weight:bold"></span></label>
     </div>
     <div>
       <label>Opis: <input id="metaDesc" style="width:220px;background:#222;color:#eee;border:1px solid #555;font-size:11px;padding:1px 4px" /></label>
@@ -95,6 +92,8 @@ canvas { display: block; cursor: crosshair; }
     <button class="tool-btn" data-tool="paper">Gazeta</button>
     <button class="tool-btn" data-tool="bottle">Butelka</button>
     <button class="tool-btn" data-tool="carton">Karton</button>
+    <button class="tool-btn" data-tool="tutGate" style="background:#503;border-color:#a06">Bramka tut.</button>
+    <button class="tool-btn" data-tool="tutHint" style="background:#530;border-color:#a60">Hint tut.</button>
   </div>
 
   <div class="section">
@@ -808,6 +807,32 @@ function draw() {
     }
   });
 
+  // Tutorial gates (vertical barriers)
+  (level.tutorialGates || []).forEach((g, i) => {
+    ctx.fillStyle = 'rgba(255,50,100,0.3)';
+    ctx.fillRect((g.x - 4) * s, 0, 8 * s, wh * s);
+    ctx.strokeStyle = '#ff3366';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(g.x * s, 0); ctx.lineTo(g.x * s, wh * s); ctx.stroke();
+    ctx.setLineDash([]);
+    if (isSelected('tutGate', i)) drawSelectionBorder(g.x - 10, 0, 20, wh, s);
+    drawLabel(g.x, 20, `GATE P${g.phase}`, s);
+  });
+
+  // Tutorial hints (text markers)
+  (level.tutorialHints || []).forEach((h, i) => {
+    const hw = 100, hh = 24;
+    ctx.fillStyle = 'rgba(255,200,50,0.25)';
+    ctx.fillRect((h.x - hw / 2) * s, (h.y - hh / 2) * s, hw * s, hh * s);
+    ctx.strokeStyle = '#ffcc33';
+    ctx.lineWidth = 1;
+    ctx.strokeRect((h.x - hw / 2) * s, (h.y - hh / 2) * s, hw * s, hh * s);
+    if (isSelected('tutHint', i)) drawSelectionBorder(h.x - hw / 2, h.y - hh / 2, hw, hh, s);
+    const label = h.desktop ? h.desktop.slice(0, 20) : `Hint P${h.phase}`;
+    drawLabel(h.x, h.y, `H${h.phase}: ${label}`, s);
+  });
+
   // Drawing preview
   if (drawing && drawRect) {
     ctx.strokeStyle = '#0f8';
@@ -1072,6 +1097,18 @@ function hitTest(mx, my) {
     if (mx >= fw.x && mx <= fw.x + fw.w && my >= fw.y && my <= fw.y + fw.h) return { type: 'fillWall', index: i };
   }
 
+  // Tutorial gates
+  for (let i = (level.tutorialGates || []).length - 1; i >= 0; i--) {
+    const g = level.tutorialGates[i];
+    if (Math.abs(mx - g.x) < 12) return { type: 'tutGate', index: i };
+  }
+
+  // Tutorial hints
+  for (let i = (level.tutorialHints || []).length - 1; i >= 0; i--) {
+    const h = level.tutorialHints[i];
+    if (Math.abs(mx - h.x) < 60 && Math.abs(my - h.y) < 20) return { type: 'tutHint', index: i };
+  }
+
   // Wires
   for (let i = (level.foregroundWires || []).length - 1; i >= 0; i--) {
     const w = level.foregroundWires[i];
@@ -1105,6 +1142,8 @@ function getElemPos(sel) {
     case 'carton': return { x: e.x, y: e.y };
     case 'checkpoint': return { x: level.checkpoint.x, y: level.checkpoint.y };
     case 'wire': return { x: e.x1, y: e.y1 };
+    case 'tutGate': return { x: e.x, y: 0 };
+    case 'tutHint': return { x: e.x, y: e.y };
   }
 }
 
@@ -1127,6 +1166,8 @@ function moveElem(sel, dx, dy) {
     case 'lamp': e.x += dx; e.y += dy; break;
     case 'checkpoint': level.checkpoint.x += dx; level.checkpoint.y += dy; break;
     case 'wire': e.x1 += dx; e.y1 += dy; e.x2 += dx; e.y2 += dy; break;
+    case 'tutGate': e.x += dx; break;
+    case 'tutHint': e.x += dx; e.y += dy; break;
   }
 }
 
@@ -1147,6 +1188,8 @@ function getArray(type) {
     case 'lamp': return level.lamps;
     case 'checkpoint': return [level.checkpoint];
     case 'wire': return level.foregroundWires;
+    case 'tutGate': return level.tutorialGates;
+    case 'tutHint': return level.tutorialHints;
   }
   return null;
 }
@@ -1353,6 +1396,20 @@ function createElement(type, r, start, end) {
       level.foregroundWires.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y });
       selected = { type: 'wire', index: level.foregroundWires.length - 1 };
       break;
+    case 'tutGate':
+      if (!level.tutorialGates) level.tutorialGates = [];
+      const nextGatePhase = level.tutorialGates.length > 0
+        ? Math.max(...level.tutorialGates.map(g => g.phase)) + 1 : 1;
+      level.tutorialGates.push({ x: start.x, phase: nextGatePhase });
+      selected = { type: 'tutGate', index: level.tutorialGates.length - 1 };
+      break;
+    case 'tutHint':
+      if (!level.tutorialHints) level.tutorialHints = [];
+      const nextHintPhase = level.tutorialHints.length > 0
+        ? Math.max(...level.tutorialHints.map(h => h.phase)) + 1 : 0;
+      level.tutorialHints.push({ phase: nextHintPhase, x: start.x, y: start.y, desktop: 'Hint tekst (desktop)', mobile: 'Hint tekst (mobile)' });
+      selected = { type: 'tutHint', index: level.tutorialHints.length - 1 };
+      break;
   }
 }
 
@@ -1439,6 +1496,14 @@ function showProps() {
     case 'wire':
       html += field('x1', e.x1) + field('y1', e.y1) + field('x2', e.x2) + field('y2', e.y2) + field('depth', e.depth ?? '');
       break;
+    case 'tutGate':
+      html += field('x', e.x) + field('phase', e.phase);
+      break;
+    case 'tutHint':
+      html += field('x', e.x) + field('y', e.y) + field('phase', e.phase);
+      html += ` <label>Desktop: <input data-field="desktop" value="${(e.desktop || '').replace(/"/g, '&quot;')}" style="width:200px" /></label>`;
+      html += ` <label>Mobile: <input data-field="mobile" value="${(e.mobile || '').replace(/"/g, '&quot;')}" style="width:200px" /></label>`;
+      break;
   }
 
   panel.innerHTML = html;
@@ -1449,7 +1514,7 @@ function showProps() {
       pushUndo();
       const f = inp.dataset.field;
       let v;
-      if (f === 'paintingKey' || f === 'color') { v = inp.value || undefined; }
+      if (f === 'paintingKey' || f === 'color' || f === 'desktop' || f === 'mobile') { v = inp.value || undefined; }
       else if (f === 'depth' || f === 'intensity') { v = inp.value.trim() === '' ? undefined : parseFloat(inp.value); }
       else { v = parseInt(inp.value); }
       if (selected.type === 'checkpoint') {
@@ -1534,17 +1599,29 @@ function duplicateSelected() {
 function generateExport() {
   let out = `import { GAME } from './gameConfig.js';\n\nconst H = GAME.HEIGHT;\nconst W = GAME.WIDTH;\n\n`;
 
+  // Build variable names: LEVEL_TUTORIAL for tutorial mode, LEVEL_N for others
+  const varNames = [];
+  let normalIdx = 0;
+  levels.forEach((lv, li) => {
+    if (lv.mode === 'tutorial') {
+      varNames.push('LEVEL_TUTORIAL');
+    } else {
+      normalIdx++;
+      varNames.push(`LEVEL_${normalIdx}`);
+    }
+  });
+
   levels.forEach((lv, li) => {
     const WW = lv.worldWidth;
     const HH = lv.worldHeight;
     const isStdSize = WW === GAME_W && HH === GAME_H;
-    const varName = `LEVEL_${li + 1}`;
+    const varName = varNames[li];
     let hVar = 'H', wVar = 'W';
 
     if (!isStdSize) {
-      const prefix = `L${li + 1}_`;
-      wVar = `${prefix}W`;
-      hVar = `${prefix}H`;
+      const suffix = varName.replace('LEVEL_', '');
+      wVar = suffix === 'TUTORIAL' ? 'TW' : `L${suffix}_W`;
+      hVar = suffix === 'TUTORIAL' ? 'TH' : `L${suffix}_H`;
       out += `const ${wVar} = ${WW};\nconst ${hVar} = ${HH};\n\n`;
     }
 
@@ -1678,14 +1755,38 @@ function generateExport() {
     });
     out += `  ],\n`;
 
+    // Tutorial gates
+    if (lv.tutorialGates && lv.tutorialGates.length > 0) {
+      out += `  tutorialGates: [\n`;
+      lv.tutorialGates.forEach(g => {
+        out += `    { x: ${Math.round(g.x)}, phase: ${g.phase} },\n`;
+      });
+      out += `  ],\n`;
+    }
+
+    // Tutorial hints
+    if (lv.tutorialHints && lv.tutorialHints.length > 0) {
+      out += `  tutorialHints: [\n`;
+      lv.tutorialHints.forEach(h => {
+        out += `    { phase: ${h.phase}, x: ${Math.round(h.x)}, y: ${rel(Math.round(h.y), HH, hVar)}, desktop: '${(h.desktop || '').replace(/'/g, "\\'")}', mobile: '${(h.mobile || '').replace(/'/g, "\\'")}' },\n`;
+      });
+      out += `  ],\n`;
+    }
+
+    // mapWidth/mapHeight for tutorial levels
+    if (lv.mode === 'tutorial') {
+      out += `  mapWidth: ${wVar},\n`;
+      out += `  mapHeight: ${hVar},\n`;
+    }
+
     out += `};\n\n`;
   });
 
-  out += `export const LEVELS = [${levels.map((_, i) => `LEVEL_${i + 1}`).join(', ')}];\n\n`;
+  out += `export const LEVELS = [${varNames.join(', ')}];\n\n`;
   const byMode = { stealth: [], puzzle: [], tower: [] };
   levels.forEach((lv, i) => {
     const m = lv.mode || 'stealth';
-    if (byMode[m]) byMode[m].push(`LEVEL_${i + 1}`);
+    if (byMode[m]) byMode[m].push(varNames[i]);
   });
   out += `export const STEALTH_LEVELS = [${byMode.stealth.join(', ')}];\n`;
   out += `export const PUZZLE_LEVELS = [${byMode.puzzle.join(', ')}];\n`;
@@ -1736,7 +1837,7 @@ function getFilteredLevelEntries() {
 function refreshLevelSelect() {
   const filteredLevels = getFilteredLevelEntries();
   if (filteredLevels.length === 0) {
-    const fallbackMode = ['stealth', 'puzzle', 'tower']
+    const fallbackMode = ['stealth', 'puzzle', 'tower', 'tutorial']
       .find(mode => levels.some(lv => (lv.mode || 'stealth') === mode));
     if (fallbackMode && fallbackMode !== getActiveModeFilter()) {
       levelModeFilter.value = fallbackMode;
@@ -1767,8 +1868,8 @@ function refreshLevelMeta() {
   document.getElementById('metaDesc').value = level.description || '';
   document.getElementById('metaW').value = level.worldWidth;
   document.getElementById('metaH').value = level.worldHeight;
-  document.getElementById('metaMode').value = level.mode || 'stealth';
-  levelModeFilter.value = level.mode || 'stealth';
+  const modeLabel = document.getElementById('metaModeLabel');
+  if (modeLabel) modeLabel.textContent = (level.mode || 'stealth').toUpperCase();
 }
 
 function switchToLevel(idx) {
@@ -1795,7 +1896,7 @@ levelSelect.addEventListener('change', () => {
 });
 
 // Level meta editors
-['metaName', 'metaDesc', 'metaW', 'metaH', 'metaMode'].forEach(id => {
+['metaName', 'metaDesc', 'metaW', 'metaH'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     pushUndo();
     level.name = document.getElementById('metaName').value.trim() || 'Nowy';
@@ -1804,8 +1905,6 @@ levelSelect.addEventListener('change', () => {
     const newH = parseInt(document.getElementById('metaH').value) || level.worldHeight;
     level.worldWidth = Math.max(400, newW);
     level.worldHeight = Math.max(400, newH);
-    level.mode = document.getElementById('metaMode').value;
-    levelModeFilter.value = level.mode;
     // Auto-derive paintings from paintSpots
     level.paintings = [...new Set((level.paintSpots || []).map(ps => ps.paintingKey).filter(Boolean))];
     refreshLevelSelect();
@@ -1834,6 +1933,10 @@ document.getElementById('btnAddLevel').addEventListener('click', () => {
     lamps: [],
     foregroundWires: [],
   };
+  if (newLevel.mode === 'tutorial') {
+    newLevel.tutorialGates = [];
+    newLevel.tutorialHints = [];
+  }
   levels.push(newLevel);
   refreshLevelSelect();
   switchToLevel(levels.length - 1);

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PAINT } from '../config/gameConfig.js';
 
 export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, colorName) {
@@ -29,7 +30,7 @@ export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
   }
 
   collect(player) {
-    player.collectPaint(this.colorName);
+    player.collectPaint(this.colorName, PAINT.PAINT_PER_CAN);
 
     // Contact point: midpoint between player and can
     const px = (this.x + player.x) / 2;

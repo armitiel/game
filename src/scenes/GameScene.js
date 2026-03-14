@@ -197,6 +197,11 @@ export default class GameScene extends Phaser.Scene {
       this.setupTowerMode();
     }
 
+    // === Tutorial mode ===
+    if (this.mode === 'tutorial') {
+      this.setupTutorial();
+    }
+
     // === Litter props that react to player passing ===
     this.papers = [];
     this.bottles = [];
@@ -268,109 +273,170 @@ export default class GameScene extends Phaser.Scene {
     const ld = this.levelData;
     const ww = ld.worldWidth;
     const wh = ld.worldHeight;
-    const bg = this.add.graphics();
-    bg.setDepth(0);
 
-    // Night sky — vertical gradient (deep navy top → blue-indigo bottom)
+    // === SKY (fixed behind everything, scrollFactor 0) ===
+    const sky = this.add.graphics().setDepth(0).setScrollFactor(0);
+    const gh = this.cameras.main.height;
+    const gw = this.cameras.main.width;
     const gradientSteps = 64;
     for (let i = 0; i < gradientSteps; i++) {
       const t = i / (gradientSteps - 1);
-      // Top: #080820 → Bottom: #1a1a50
       const r = Math.round(8 + t * 18);
       const g = Math.round(8 + t * 18);
       const b = Math.round(32 + t * 48);
-      bg.fillStyle((r << 16) | (g << 8) | b, 1);
-      const sy = Math.floor(wh * i / gradientSteps);
-      const sh = Math.ceil(wh / gradientSteps) + 1;
-      bg.fillRect(0, sy, ww, sh);
+      sky.fillStyle((r << 16) | (g << 8) | b, 1);
+      const sy = Math.floor(gh * i / gradientSteps);
+      const sh = Math.ceil(gh / gradientSteps) + 1;
+      sky.fillRect(0, sy, gw, sh);
     }
 
-    // Stars
-    const starCount = Math.floor(40 * (wh / GAME.HEIGHT));
+    // Stars on sky
+    const starCount = Math.floor(50 * (gh / GAME.HEIGHT));
     for (let i = 0; i < starCount; i++) {
-      const sx = Phaser.Math.Between(0, ww);
-      const sy = Phaser.Math.Between(0, wh / 3);
+      const sx = Phaser.Math.Between(0, gw);
+      const sy = Phaser.Math.Between(0, gh / 3);
       const size = Math.random() > 0.8 ? 2 : 1;
-      bg.fillStyle(0xffffff, Math.random() * 0.5 + 0.2);
-      bg.fillRect(sx, sy, size, size);
+      sky.fillStyle(0xffffff, Math.random() * 0.5 + 0.2);
+      sky.fillRect(sx, sy, size, size);
     }
 
-    // Distant buildings — stylized with gradients and warm windows
-    const buildingCount = Math.ceil(ww / 100) + 2;
-    const buildingColors = [
-      [0x0f1028, 0x1a1e3a], // dark navy
-      [0x121430, 0x1e2240], // deep blue
-      [0x0e1025, 0x181c35], // darker
-      [0x141838, 0x222848], // medium blue
-    ];
+    // Moon on sky
+    sky.fillStyle(0xddeeff, 0.8);
+    sky.fillCircle(gw - 80, 50, 25);
+    sky.fillStyle(0x0a0a1a, 1);
+    sky.fillCircle(gw - 70, 45, 22);
 
-    for (let i = 0; i < buildingCount; i++) {
-      const seed = (i * 7 + 3) % 17;
-      const bw = 45 + (seed * 4) % 55;
-      const bh = 80 + (seed * 13) % Math.min(Math.round(wh * 0.35), 320);
-      const bx = i * 95 - 30 + ((seed * 5) % 20);
-      const by = wh - bh;
-      const colors = buildingColors[i % buildingColors.length];
+    // === Helper: draw buildings onto a canvas ===
+    const drawBuildings = (canvasW, canvasH, params) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      const ctx = canvas.getContext('2d');
 
-      // Building body with vertical gradient
-      const gradSteps = 8;
-      for (let gs = 0; gs < gradSteps; gs++) {
-        const t = gs / (gradSteps - 1);
-        const c0r = (colors[0] >> 16) & 0xff, c0g = (colors[0] >> 8) & 0xff, c0b = colors[0] & 0xff;
-        const c1r = (colors[1] >> 16) & 0xff, c1g = (colors[1] >> 8) & 0xff, c1b = colors[1] & 0xff;
-        const gr = Math.round(c0r + (c1r - c0r) * t);
-        const gg = Math.round(c0g + (c1g - c0g) * t);
-        const gb = Math.round(c0b + (c1b - c0b) * t);
-        bg.fillStyle((gr << 16) | (gg << 8) | gb, 1);
-        const sy = by + Math.floor(bh * gs / gradSteps);
-        const sh = Math.ceil(bh / gradSteps) + 1;
-        bg.fillRect(bx, sy, bw, sh);
-      }
+      const { count, minW, maxW, minH, maxH, colors, winScale, seedOffset } = params;
 
-      // Subtle lighter edge on left side
-      bg.fillStyle(0xffffff, 0.04);
-      bg.fillRect(bx, by, 3, bh);
+      for (let i = 0; i < count; i++) {
+        const seed = ((i + seedOffset) * 7 + 3) % 17;
+        const bw = minW + (seed * 4) % (maxW - minW);
+        const bh = minH + (seed * 13) % (maxH - minH);
+        const spacing = canvasW / count;
+        const bx = Math.round(i * spacing + ((seed * 5) % (spacing * 0.3)));
+        const by = canvasH - bh;
+        const col = colors[i % colors.length];
 
-      // Subtle darker edge on right side
-      bg.fillStyle(0x000000, 0.15);
-      bg.fillRect(bx + bw - 3, by, 3, bh);
+        // Building body gradient
+        const gradSteps = 8;
+        for (let gs = 0; gs < gradSteps; gs++) {
+          const t = gs / (gradSteps - 1);
+          const r0 = (col[0] >> 16) & 0xff, g0 = (col[0] >> 8) & 0xff, b0 = col[0] & 0xff;
+          const r1 = (col[1] >> 16) & 0xff, g1 = (col[1] >> 8) & 0xff, b1 = col[1] & 0xff;
+          const cr = Math.round(r0 + (r1 - r0) * t);
+          const cg = Math.round(g0 + (g1 - g0) * t);
+          const cb = Math.round(b0 + (b1 - b0) * t);
+          ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+          const sy = by + Math.floor(bh * gs / gradSteps);
+          const sh = Math.ceil(bh / gradSteps) + 1;
+          ctx.fillRect(bx, sy, bw, sh);
+        }
 
-      // Roof cap — slightly wider, darker
-      bg.fillStyle(0x0a0c1e, 1);
-      bg.fillRect(bx - 2, by, bw + 4, 5);
-      bg.fillStyle(0xffffff, 0.05);
-      bg.fillRect(bx - 2, by, bw + 4, 2);
+        // Left highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.fillRect(bx, by, 3, bh);
+        // Right shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(bx + bw - 3, by, 3, bh);
 
-      // Windows — warm orange/yellow glow
-      const winW = 8, winH = 11, winGapX = 17, winGapY = 22;
-      const winPadX = 8, winPadY = 14;
-      for (let wy = by + winPadY; wy + winH < wh - 5; wy += winGapY) {
-        for (let wx = bx + winPadX; wx + winW < bx + bw - 5; wx += winGapX) {
-          const lit = ((wx * 7 + wy * 3 + i) % 10) > 3; // deterministic random
-          if (lit) {
-            // Window glow (outer)
-            bg.fillStyle(0xffaa44, 0.12);
-            bg.fillRect(wx - 2, wy - 2, winW + 4, winH + 4);
-            // Window fill
-            bg.fillStyle(0xffbb55, 0.55);
-            bg.fillRect(wx, wy, winW, winH);
-            // Brighter center
-            bg.fillStyle(0xffdd88, 0.35);
-            bg.fillRect(wx + 1, wy + 1, winW - 2, winH - 2);
-          } else {
-            // Dark window
-            bg.fillStyle(0x0a0c18, 0.7);
-            bg.fillRect(wx, wy, winW, winH);
+        // Roof cap
+        ctx.fillStyle = '#0a0c1e';
+        ctx.fillRect(bx - 2, by, bw + 4, 5);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(bx - 2, by, bw + 4, 2);
+
+        // Windows
+        const wW = Math.round(8 * winScale), wH = Math.round(11 * winScale);
+        const wGapX = Math.round(17 * winScale), wGapY = Math.round(22 * winScale);
+        const wPadX = Math.round(8 * winScale), wPadY = Math.round(14 * winScale);
+        for (let wy = by + wPadY; wy + wH < canvasH - 5; wy += wGapY) {
+          for (let wx = bx + wPadX; wx + wW < bx + bw - 5; wx += wGapX) {
+            const rnd = ((wx * 13 + wy * 7 + i * 31 + seedOffset) % 100);
+            const lit = rnd > 20; // ~80% lit
+            if (lit) {
+              const bright = rnd > 60; // ~40% extra bright
+              ctx.fillStyle = bright ? 'rgba(255,200,100,0.25)' : 'rgba(255,170,68,0.15)';
+              ctx.fillRect(wx - 2, wy - 2, wW + 4, wH + 4);
+              ctx.fillStyle = bright ? 'rgba(255,220,130,0.85)' : 'rgba(255,187,85,0.6)';
+              ctx.fillRect(wx, wy, wW, wH);
+              ctx.fillStyle = bright ? 'rgba(255,240,180,0.6)' : 'rgba(255,221,136,0.4)';
+              ctx.fillRect(wx + 1, wy + 1, wW - 2, wH - 2);
+            } else {
+              ctx.fillStyle = 'rgba(10,12,24,0.7)';
+              ctx.fillRect(wx, wy, wW, wH);
+            }
           }
         }
       }
-    }
+      return canvas;
+    };
 
-    // Moon
-    bg.fillStyle(0xddeeff, 0.8);
-    bg.fillCircle(ww - 100, 60, 25);
-    bg.fillStyle(0x0a0a1a, 1);
-    bg.fillCircle(ww - 90, 55, 22);
+    // Parallax strip width — wider than world so buildings don't run out during scroll
+    const stripW = Math.round(ww * 1.5);
+
+    // === FAR LAYER (slow parallax, smaller/darker buildings) ===
+    const farH = Math.round(wh * 0.7);
+    const farCanvas = drawBuildings(stripW, farH, {
+      count: Math.ceil(stripW / 130),
+      minW: 50, maxW: 110,
+      minH: 100, maxH: Math.min(Math.round(farH * 0.55), 350),
+      winScale: 1,
+      seedOffset: 0,
+      colors: [
+        [0x0a0c1e, 0x12142a],
+        [0x0c0e22, 0x14162e],
+        [0x080a18, 0x101228],
+        [0x0e1024, 0x161a32],
+      ],
+    });
+    // Apply blur to far layer (more blur = further away)
+    const farBlur = document.createElement('canvas');
+    farBlur.width = farCanvas.width; farBlur.height = farCanvas.height;
+    const farBlurCtx = farBlur.getContext('2d');
+    farBlurCtx.filter = 'blur(4px)';
+    farBlurCtx.drawImage(farCanvas, 0, 0);
+
+    const farKey = '__parallax_far';
+    if (this.textures.exists(farKey)) this.textures.remove(farKey);
+    this.textures.addCanvas(farKey, farBlur);
+    this.add.image(0, wh - farH - 60, farKey)
+      .setOrigin(0, 0).setDepth(0.1).setScrollFactor(0.15, 0.3);
+
+    // === NEAR LAYER (faster parallax, bigger/brighter buildings) ===
+    const nearH = Math.round(wh * 0.85);
+    const nearCanvas = drawBuildings(stripW, nearH, {
+      count: Math.ceil(stripW / 110),
+      minW: 60, maxW: 130,
+      minH: 140, maxH: Math.min(Math.round(nearH * 0.65), 480),
+      winScale: 1.2,
+      seedOffset: 50,
+      colors: [
+        [0x0f1028, 0x1a1e3a],
+        [0x121430, 0x1e2240],
+        [0x0e1025, 0x181c35],
+        [0x141838, 0x222848],
+      ],
+    });
+
+    // Apply subtle blur to near layer
+    const nearBlur = document.createElement('canvas');
+    nearBlur.width = nearCanvas.width; nearBlur.height = nearCanvas.height;
+    const nearBlurCtx = nearBlur.getContext('2d');
+    nearBlurCtx.filter = 'blur(1.5px)';
+    nearBlurCtx.drawImage(nearCanvas, 0, 0);
+
+    const nearKey = '__parallax_near';
+    if (this.textures.exists(nearKey)) this.textures.remove(nearKey);
+    this.textures.addCanvas(nearKey, nearBlur);
+    this.add.image(0, wh - nearH - 30, nearKey)
+      .setOrigin(0, 0).setDepth(0.2).setScrollFactor(0.4, 0.6);
   }
 
   createPlatforms() {
@@ -769,11 +835,151 @@ export default class GameScene extends Phaser.Scene {
 
   createPaintCans() {
     this.paintCans = this.physics.add.group();
-    const colors = this.levelColors;
-    this.levelData.paintCans.forEach((c, i) => {
-      // Use explicit color if specified, otherwise auto-assign round-robin from painting colors
-      const color = c.color || colors[i % colors.length];
-      const can = new PaintCan(this, c.x, c.y, color);
+    const ld = this.levelData;
+
+    // If level has explicit paintCans with color — use those (backward compat)
+    if (ld.paintCans && ld.paintCans.length > 0 && ld.paintCans[0].color) {
+      ld.paintCans.forEach(c => {
+        const can = new PaintCan(this, c.x, c.y, c.color);
+        this.paintCans.add(can);
+      });
+      return;
+    }
+
+    // === AUTO-GENERATE paint cans based on mural requirements ===
+    const paintPerCan = PAINT.PAINT_PER_CAN || 100;
+    const surplus = PAINT.PAINT_SURPLUS || 1.15;
+
+    // 1. Calculate paint demand per color across ALL murals
+    const demand = {};  // { 'red': totalCells, 'blue': totalCells }
+    const paintings = ld.paintings || [];
+    paintings.forEach(key => {
+      const data = this.cache.json.get(key);
+      if (!data || !data.grid || !data.colors) return;
+      for (let r = 0; r < data.grid.length; r++) {
+        for (let c = 0; c < data.grid[r].length; c++) {
+          const ci = data.grid[r][c];
+          if (ci >= 0) {
+            const colorName = (data.colors[ci] || 'red').toLowerCase();
+            demand[colorName] = (demand[colorName] || 0) + 1;
+          }
+        }
+      }
+    });
+
+    // 2. Calculate how many cans per color are needed
+    // Cost per cell for color = paintPerCan / (cells_of_color * surplus)
+    // Total paint needed = cells * costPerCell = paintPerCan / surplus
+    // So cans needed = ceil(1 / surplus) = 1 per mural's color share
+    // But with multiple murals we need more — calculate precisely:
+    const cansNeeded = {};  // { 'red': 2, 'blue': 1 }
+    for (const [color, cells] of Object.entries(demand)) {
+      // Each can gives paintPerCan units. Each cell costs paintPerCan/(cellsInOneMural*surplus)
+      // But cells here is TOTAL across all murals. We need totalPaint / paintPerCan cans.
+      // totalPaint = cells * (paintPerCan / (cellsInThisMural * surplus))
+      // Since cells from multiple murals have different costs, simplify:
+      // Total paint needed = paintPerCan / surplus (one can's worth per mural per color)
+      // Actually, the cost formula in PBN is per-mural. Here we just need enough paint:
+      // total paint consumed = sum over each mural of (cellsOfColorInMural * costPerCell)
+      // costPerCell = paintPerCan / (cellsOfColorInMural * surplus)
+      // So total = sum of (paintPerCan / surplus) per mural that uses this color = numMuralsWithColor * paintPerCan / surplus
+      // cans needed = total / paintPerCan = numMuralsWithColor / surplus
+
+      // Count how many murals use this color
+      let muralsWithColor = 0;
+      paintings.forEach(key => {
+        const data = this.cache.json.get(key);
+        if (data && data.colors) {
+          if (data.colors.some(c => c.toLowerCase() === color)) muralsWithColor++;
+        }
+      });
+      cansNeeded[color] = Math.ceil(muralsWithColor / surplus);
+      // Minimum 1 can per color
+      if (cansNeeded[color] < 1) cansNeeded[color] = 1;
+    }
+
+    // 3. Build flat list of cans to spawn: [{ color }, { color }, ...]
+    const canList = [];
+    for (const [color, count] of Object.entries(cansNeeded)) {
+      for (let i = 0; i < count; i++) {
+        canList.push(color);
+      }
+    }
+
+    // Shuffle to mix colors
+    for (let i = canList.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [canList[i], canList[j]] = [canList[j], canList[i]];
+    }
+
+    // 4. Collect all valid spawn surfaces (ground + platforms)
+    const surfaces = [];
+    (ld.ground || []).forEach(g => {
+      surfaces.push({ x: g.x, y: g.y, w: g.w });
+    });
+    (ld.platforms || []).forEach(p => {
+      surfaces.push({ x: p.x, y: p.y, w: p.w });
+    });
+
+    // Sort surfaces from bottom (high Y) to top (low Y) — player encounters lower ones first
+    surfaces.sort((a, b) => b.y - a.y);
+
+    // 5. Collect positions to AVOID (paint spots, ladders, trash, etc.)
+    const avoidZones = [];
+    (ld.paintSpots || []).forEach(ps => {
+      avoidZones.push({ x: ps.x, w: ps.w + 40 }); // extra margin
+    });
+    (ld.trashCans || []).forEach(t => {
+      avoidZones.push({ x: t.x - 30, w: 60 });
+    });
+
+    const isAvoid = (px) => {
+      return avoidZones.some(z => px >= z.x - 20 && px <= z.x + z.w + 20);
+    };
+
+    // 6. Distribute cans evenly across surfaces
+    const totalCans = canList.length;
+    const placedCans = [];
+
+    // Spread cans across surfaces proportionally to their width
+    const totalWidth = surfaces.reduce((sum, s) => sum + s.w, 0);
+    let canIdx = 0;
+
+    for (const surf of surfaces) {
+      const share = Math.max(1, Math.round(totalCans * (surf.w / totalWidth)));
+      const cansOnSurf = Math.min(share, totalCans - canIdx);
+      if (cansOnSurf <= 0) continue;
+
+      const spacing = surf.w / (cansOnSurf + 1);
+      for (let i = 0; i < cansOnSurf && canIdx < totalCans; i++) {
+        let cx = surf.x + spacing * (i + 1);
+        // Nudge away from avoid zones
+        let attempts = 0;
+        while (isAvoid(cx) && attempts < 10) {
+          cx += 25;
+          attempts++;
+        }
+        // Clamp to surface bounds
+        cx = Phaser.Math.Clamp(cx, surf.x + 20, surf.x + surf.w - 20);
+
+        const cy = surf.y - 30; // float above surface
+        placedCans.push({ x: cx, y: cy, color: canList[canIdx] });
+        canIdx++;
+      }
+    }
+
+    // If some cans weren't placed (narrow surfaces), put remaining on ground
+    while (canIdx < totalCans) {
+      const ground = surfaces[0]; // widest / lowest
+      const cx = ground.x + Phaser.Math.Between(40, ground.w - 40);
+      const cy = ground.y - 30;
+      placedCans.push({ x: cx, y: cy, color: canList[canIdx] });
+      canIdx++;
+    }
+
+    // 7. Create actual PaintCan objects
+    placedCans.forEach(c => {
+      const can = new PaintCan(this, c.x, c.y, c.color);
       this.paintCans.add(can);
     });
   }
@@ -835,7 +1041,7 @@ export default class GameScene extends Phaser.Scene {
       // Outline marking the mural area — star-colored border
       const visual = this.add.graphics();
       visual.lineStyle(1.5, 0xffe090, 0.3);
-      visual.strokeRect(x - w / 2, y - h / 2, w, h);
+      visual.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 8);
       visual.setDepth(depth);
 
       // Glow border (animated when player is nearby)
@@ -852,7 +1058,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       // Spray can pictogram — hidden by default, appears with glow when player is near
-      const sprayIcon = this.add.image(x, y - h / 2 - 14, 'icon_spray')
+      const sprayIcon = this.add.image(x, y, 'icon_spray')
         .setDisplaySize(20, 20)
         .setDepth(depth + 0.3)
         .setAlpha(0)
@@ -920,7 +1126,7 @@ export default class GameScene extends Phaser.Scene {
         ];
         layers.forEach(l => {
           entry.glowG.lineStyle(l.lw, 0xffd080, l.alpha * gt * pulse);
-          entry.glowG.strokeRect(rx, ry, rw, rh);
+          entry.glowG.strokeRoundedRect(rx, ry, rw, rh, 8);
         });
       }
 
@@ -928,7 +1134,7 @@ export default class GameScene extends Phaser.Scene {
       if (entry.sprayIcon) {
         entry.sprayIcon.setAlpha(gt * 0.85);
         const bob = Math.sin(time * 0.003) * 2;
-        entry.sprayIcon.setY(ry - 14 + bob);
+        entry.sprayIcon.setY(ry + rh / 2 + bob);
       }
 
       // --- Star particles ---
@@ -1196,6 +1402,485 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // === TUTORIAL MODE ===
+
+  setupTutorial() {
+    this._tutPhase = 0;
+    this._tutGates = [];
+    this._tutHintElements = [];  // all world-space hint elements
+    this._tutOverlayElements = []; // UI-cam overlay elements
+    this._tutTransitioning = false;
+    this._tutControlLock = { left: true, right: true, jump: false, up: false, down: false, interact: false };
+    this._tutIsMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    // Hi-res multiplier for crisp text at camera zoom
+    this._tutTextRes = Math.max(2, Math.ceil(this.cameras.main.zoom));
+
+    const ld = this.levelData;
+
+    // Build physical gates (thin invisible walls)
+    (ld.tutorialGates || []).forEach(g => {
+      const gateWall = this.add.rectangle(g.x, 0, 8, ld.worldHeight * 2, 0xff4444, 0)
+        .setOrigin(0.5, 0).setDepth(10);
+      this.physics.add.existing(gateWall, true);
+      this.physics.add.collider(this.player, gateWall);
+      gateWall._gatePhase = g.phase;
+      this._tutGates.push(gateWall);
+    });
+
+    // Show first hint + overlay
+    this._showTutorialHint(0);
+    this._showTutorialOverlay(0);
+
+    // Welcome flash (on UI cam — always crisp)
+    this._addingHud = true;
+    const gw = this.scale.width;
+    const welcomeText = this.add.text(gw / 2, 80, 'TUTORIAL', {
+      fontFamily: 'ChangaOne', fontSize: '42px', fontStyle: 'bold',
+      color: '#00ff88', stroke: '#003322', strokeThickness: 6
+    }).setOrigin(0.5).setDepth(301).setScrollFactor(0).setResolution(2);
+    this._addingHud = false;
+    this.cameras.main.ignore(welcomeText);
+    this.tweens.add({
+      targets: welcomeText, alpha: 0, y: welcomeText.y - 30,
+      duration: 2500, delay: 1500, onComplete: () => welcomeText.destroy()
+    });
+  }
+
+  /**
+   * Render a world-space hint using a canvas texture for crisp text at any zoom.
+   */
+  _showTutorialHint(phase) {
+    // Destroy old hint elements
+    this._tutHintElements.forEach(el => el.destroy());
+    this._tutHintElements = [];
+
+    const ld = this.levelData;
+    const hints = ld.tutorialHints || [];
+    const hint = hints.find(h => h.phase === phase);
+    if (!hint) return;
+
+    const text = this._tutIsMobile ? hint.mobile : hint.desktop;
+    const RES = this._tutTextRes;  // super-sampling factor
+
+    // --- Create canvas texture for crisp world-space text ---
+    const fontSize = 15;
+    const pad = 10;
+    const strokeW = 3;
+
+    // Measure text width using offscreen canvas
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.font = `bold ${fontSize * RES}px ChangaOne, monospace`;
+    const metrics = measure.measureText(text);
+    const textW = Math.ceil(metrics.width / RES) + pad * 2;
+    const textH = fontSize + pad * 2 + 4;
+    const canW = textW * RES;
+    const canH = textH * RES;
+
+    const texKey = `_tut_hint_${phase}_${Date.now()}`;
+    const canvas = document.createElement('canvas');
+    canvas.width = canW;
+    canvas.height = canH;
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    const r = 8 * RES;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(canW - r, 0);
+    ctx.quadraticCurveTo(canW, 0, canW, r);
+    ctx.lineTo(canW, canH - r);
+    ctx.quadraticCurveTo(canW, canH, canW - r, canH);
+    ctx.lineTo(r, canH);
+    ctx.quadraticCurveTo(0, canH, 0, canH - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = 'rgba(255,221,51,0.5)';
+    ctx.lineWidth = 2 * RES;
+    ctx.stroke();
+
+    // Text with stroke
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${fontSize * RES}px ChangaOne, monospace`;
+    ctx.lineWidth = strokeW * RES;
+    ctx.strokeStyle = '#332200';
+    ctx.strokeText(text, canW / 2, canH / 2);
+    ctx.fillStyle = '#ffdd33';
+    ctx.fillText(text, canW / 2, canH / 2);
+
+    if (this.textures.exists(texKey)) this.textures.remove(texKey);
+    this.textures.addCanvas(texKey, canvas);
+
+    const img = this.add.image(hint.x, hint.y, texKey)
+      .setDisplaySize(textW, textH)
+      .setOrigin(0.5)
+      .setDepth(20);
+
+    // Pulse animation
+    this.tweens.add({
+      targets: img, alpha: { from: 0, to: 1 },
+      duration: 400, ease: 'Sine.easeIn'
+    });
+    this.tweens.add({
+      targets: img,
+      scaleX: img.scaleX * 1.03, scaleY: img.scaleY * 1.03,
+      duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    });
+
+    // Arrow indicator pointing down to the relevant area
+    const arrow = this.add.triangle(hint.x, hint.y + textH / 2 + 10, 0, 0, 12, 16, -12, 16, 0xffdd33, 0.7)
+      .setDepth(20).setOrigin(0.5, 0);
+    this.tweens.add({
+      targets: arrow, y: arrow.y + 6,
+      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    });
+
+    this._tutHintElements.push(img, arrow);
+  }
+
+  /**
+   * Show a screen-space control overlay on the UI camera.
+   * On mobile: shows joystick area + button highlights.
+   * On desktop: shows key icons.
+   */
+  _showTutorialOverlay(phase) {
+    // Destroy previous overlay
+    this._tutOverlayElements.forEach(el => el.destroy());
+    this._tutOverlayElements = [];
+
+    const gw = this.scale.width;
+    const gh = this.scale.height;
+
+    if (this._tutIsMobile) {
+      this._showMobileOverlay(phase, gw, gh);
+    } else {
+      this._showDesktopOverlay(phase, gw, gh);
+    }
+  }
+
+  _showMobileOverlay(phase, gw, gh) {
+    const els = [];
+    this._addingHud = true;
+
+    // Semi-transparent overlay panel at bottom
+    const panelH = 80;
+    const panelY = gh - panelH;
+    const panel = this.add.rectangle(gw / 2, panelY + panelH / 2, gw, panelH, 0x000000, 0.6)
+      .setDepth(290).setScrollFactor(0);
+    els.push(panel);
+
+    // Phase-specific control graphics
+    if (phase === 0) {
+      // Phase 0: Show joystick area with left/right arrows
+      const joyX = 110;
+      const joyY = panelY + panelH / 2;
+      const ring = this.add.circle(joyX, joyY, 30, 0xffffff, 0.15)
+        .setStrokeStyle(2, 0xffdd33, 0.8).setDepth(291).setScrollFactor(0);
+      const arrowL = this.add.text(joyX - 42, joyY, '◀', {
+        fontSize: '22px', color: '#ffdd33'
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      const arrowR = this.add.text(joyX + 42, joyY, '▶', {
+        fontSize: '22px', color: '#ffdd33'
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      const label = this.add.text(gw / 2, joyY, 'Przeciagnij joystick ← →', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      // Animate arrows
+      this.tweens.add({ targets: arrowL, x: arrowL.x - 6, duration: 500, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: arrowR, x: arrowR.x + 6, duration: 500, yoyo: true, repeat: -1 });
+      els.push(ring, arrowL, arrowR, label);
+    } else if (phase === 1) {
+      // Phase 1: Highlight JUMP button
+      const btnX = gw - 85;
+      const btnY = panelY + panelH / 2;
+      const jumpCircle = this.add.circle(btnX, btnY, 34, 0x33ff88, 0.25)
+        .setStrokeStyle(3, 0x33ff88, 0.9).setDepth(291).setScrollFactor(0);
+      const jumpLabel = this.add.text(btnX, btnY, 'JUMP', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        color: '#33ff88', stroke: '#003322', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      const desc = this.add.text(gw / 2 - 40, btnY, 'Nacisnij przycisk JUMP!', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      // Pulse the button
+      this.tweens.add({
+        targets: jumpCircle, scaleX: 1.15, scaleY: 1.15,
+        duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+      els.push(jumpCircle, jumpLabel, desc);
+    } else if (phase === 2) {
+      // Phase 2: Show joystick ↑↓ + E button
+      const joyX = 110;
+      const joyY = panelY + panelH / 2;
+      const ring = this.add.circle(joyX, joyY, 30, 0xffffff, 0.15)
+        .setStrokeStyle(2, 0xffaa33, 0.8).setDepth(291).setScrollFactor(0);
+      const arrowU = this.add.text(joyX, joyY - 32, '▲', {
+        fontSize: '18px', color: '#ffaa33'
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      const arrowD = this.add.text(joyX, joyY + 32, '▼', {
+        fontSize: '18px', color: '#ffaa33'
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      this.tweens.add({ targets: arrowU, y: arrowU.y - 4, duration: 500, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: arrowD, y: arrowD.y + 4, duration: 500, yoyo: true, repeat: -1 });
+
+      const eX = gw - 215;
+      const eCircle = this.add.circle(eX, joyY, 26, 0xffaa33, 0.25)
+        .setStrokeStyle(3, 0xffaa33, 0.9).setDepth(291).setScrollFactor(0);
+      const eLabel = this.add.text(eX, joyY, 'E', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '18px', fontStyle: 'bold',
+        color: '#ffaa33', stroke: '#332200', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      this.tweens.add({
+        targets: eCircle, scaleX: 1.15, scaleY: 1.15,
+        duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+
+      const desc = this.add.text(gw / 2, joyY, 'Drabina ↑↓ | E = kosz', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      els.push(ring, arrowU, arrowD, eCircle, eLabel, desc);
+    } else if (phase === 3) {
+      // Phase 3: Simple text — collect paint
+      const desc = this.add.text(gw / 2, panelY + panelH / 2, 'Przejdz obok puszek by je zebrac!', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
+        color: '#ffdd33', stroke: '#332200', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      els.push(desc);
+    } else if (phase === 4) {
+      // Phase 4: Highlight ACT button for painting
+      const btnX = gw - 85;
+      const btnY = panelY + panelH / 2;
+      const actCircle = this.add.circle(btnX, btnY - 10, 30, 0x3388ff, 0.25)
+        .setStrokeStyle(3, 0x3388ff, 0.9).setDepth(291).setScrollFactor(0);
+      const actLabel = this.add.text(btnX, btnY - 10, 'ACT', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        color: '#3388ff', stroke: '#001133', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      this.tweens.add({
+        targets: actCircle, scaleX: 1.15, scaleY: 1.15,
+        duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+      const desc = this.add.text(gw / 2 - 40, btnY, 'Podejdz do muralu i nacisnij ACT!', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      els.push(actCircle, actLabel, desc);
+    }
+
+    // Hide all overlay elements from main cam
+    els.forEach(el => this.cameras.main.ignore(el));
+    this._addingHud = false;
+
+    // Auto-fade after delay
+    this.time.delayedCall(6000, () => {
+      this.tweens.add({
+        targets: els.filter(e => e.active), alpha: 0,
+        duration: 800, onComplete: () => {
+          els.forEach(e => { if (e.active) e.destroy(); });
+        }
+      });
+    });
+
+    this._tutOverlayElements = els;
+  }
+
+  _showDesktopOverlay(phase, gw, gh) {
+    const els = [];
+    this._addingHud = true;
+
+    // Desktop: show key icons at bottom-center
+    const panelH = 60;
+    const panelY = gh - panelH;
+    const cy = panelY + panelH / 2;
+    const panel = this.add.rectangle(gw / 2, cy, gw * 0.5, panelH, 0x000000, 0.6)
+      .setDepth(290).setScrollFactor(0);
+    els.push(panel);
+
+    // Helper: draw a keyboard key icon
+    const drawKey = (x, y, label, highlight) => {
+      const keyW = label.length > 2 ? 54 : 32;
+      const keyH = 28;
+      const bg = this.add.rectangle(x, y, keyW, keyH, highlight ? 0x332200 : 0x222222, 0.9)
+        .setStrokeStyle(2, highlight ? 0xffdd33 : 0x555555, 1)
+        .setDepth(291).setScrollFactor(0);
+      const txt = this.add.text(x, y, label, {
+        fontFamily: 'ChangaOne, monospace', fontSize: '12px', fontStyle: 'bold',
+        color: highlight ? '#ffdd33' : '#888888',
+        stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5).setDepth(292).setScrollFactor(0).setResolution(2);
+      if (highlight) {
+        this.tweens.add({ targets: bg, scaleX: 1.1, scaleY: 1.1, duration: 500, yoyo: true, repeat: -1 });
+      }
+      els.push(bg, txt);
+    };
+
+    const baseX = gw / 2 - 80;
+
+    if (phase === 0) {
+      drawKey(baseX, cy, '←', true);
+      drawKey(baseX + 40, cy, '→', true);
+      const desc = this.add.text(baseX + 100, cy, 'poruszanie', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      els.push(desc);
+    } else if (phase === 1) {
+      drawKey(baseX - 20, cy, '←', false);
+      drawKey(baseX + 20, cy, '→', false);
+      drawKey(baseX + 70, cy, '↑', true);
+      drawKey(baseX + 130, cy, 'SPACE', true);
+      const desc = this.add.text(baseX + 180, cy, 'skok', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      els.push(desc);
+    } else if (phase === 2) {
+      drawKey(baseX - 20, cy, '↑', true);
+      drawKey(baseX + 20, cy, '↓', true);
+      const lbl1 = this.add.text(baseX + 50, cy, 'drabina', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '11px', fontStyle: 'bold',
+        color: '#ffaa33', stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      drawKey(baseX + 120, cy, 'E', true);
+      const lbl2 = this.add.text(baseX + 145, cy, 'przesun kosz', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '11px', fontStyle: 'bold',
+        color: '#ffaa33', stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      els.push(lbl1, lbl2);
+    } else if (phase === 3) {
+      const desc = this.add.text(gw / 2, cy, 'Zbierz puszki z farba — przejdz obok!', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        color: '#ffdd33', stroke: '#332200', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      els.push(desc);
+    } else if (phase === 4) {
+      drawKey(gw / 2 - 30, cy, 'SPACE', true);
+      const desc = this.add.text(gw / 2 + 20, cy, '= maluj mural', {
+        fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
+      els.push(desc);
+    }
+
+    // Hide from main cam
+    els.forEach(el => this.cameras.main.ignore(el));
+    this._addingHud = false;
+
+    // Auto-fade
+    this.time.delayedCall(6000, () => {
+      this.tweens.add({
+        targets: els.filter(e => e.active), alpha: 0,
+        duration: 800, onComplete: () => {
+          els.forEach(e => { if (e.active) e.destroy(); });
+        }
+      });
+    });
+
+    this._tutOverlayElements = els;
+  }
+
+  _advanceTutorialPhase(newPhase) {
+    if (this._tutTransitioning) return;
+    if (this._tutPhase >= newPhase) return;
+    this._tutTransitioning = true;
+    this._tutPhase = newPhase;
+
+    // Remove the gate matching this phase (gate.phase = "open when entering this phase")
+    const gateToRemove = this._tutGates.find(g => g._gatePhase === newPhase);
+    if (gateToRemove) {
+      const fx = this.add.rectangle(gateToRemove.x, this.levelData.worldHeight / 2, 12, this.levelData.worldHeight, 0x00ff88, 0.6)
+        .setDepth(15);
+      this.tweens.add({
+        targets: fx, alpha: 0, scaleX: 3,
+        duration: 400, onComplete: () => fx.destroy()
+      });
+      gateToRemove.destroy();
+      this._tutGates = this._tutGates.filter(g => g !== gateToRemove);
+    }
+
+    // Update control lock based on phase
+    switch (newPhase) {
+      case 1:
+        this._tutControlLock = { left: true, right: true, jump: true, up: true, down: false, interact: false };
+        break;
+      case 2:
+        this._tutControlLock = { left: true, right: true, jump: true, up: true, down: true, interact: true };
+        break;
+      case 3:
+      case 4:
+        this._tutControlLock = { left: true, right: true, jump: true, up: true, down: true, interact: true };
+        break;
+    }
+
+    // Camera pan to next area, then show hint + overlay
+    const hints = this.levelData.tutorialHints || [];
+    const hint = hints.find(h => h.phase === newPhase);
+    if (hint) {
+      const cam = this.cameras.main;
+      cam.stopFollow();
+
+      // "Bravo!" feedback (UI cam — always crisp)
+      this._addingHud = true;
+      const gw = this.scale.width;
+      const bravoTexts = ['Brawo!', 'Swietnie!', 'Super!', 'Dobrze!', 'Tak trzymaj!'];
+      const bravoText = this.add.text(gw / 2, 120, bravoTexts[newPhase - 1] || 'Brawo!', {
+        fontFamily: 'ChangaOne', fontSize: '28px', fontStyle: 'bold',
+        color: '#00ff88', stroke: '#003322', strokeThickness: 4
+      }).setOrigin(0.5).setDepth(302).setScrollFactor(0).setResolution(2);
+      this._addingHud = false;
+      this.cameras.main.ignore(bravoText);
+      this.tweens.add({
+        targets: bravoText, alpha: 0, y: bravoText.y - 20,
+        duration: 1200, delay: 600, onComplete: () => bravoText.destroy()
+      });
+
+      // Pan to hint location
+      cam.pan(hint.x, hint.y, 800, 'Sine.easeInOut', false, (c, progress) => {
+        if (progress >= 1) {
+          this._showTutorialHint(newPhase);
+          this.time.delayedCall(1200, () => {
+            cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
+              if (p2 >= 1) {
+                cam.startFollow(this.player, true, 0.1, 0.1);
+                this._tutTransitioning = false;
+                // Show overlay after camera returns to player
+                this._showTutorialOverlay(newPhase);
+              }
+            });
+          });
+        }
+      });
+    } else {
+      this._tutTransitioning = false;
+    }
+  }
+
+  updateTutorial(delta) {
+    if (this._tutTransitioning) return;
+
+    const px = this.player.x;
+    const phase = this._tutPhase;
+
+    if (phase === 0 && px > 350) {
+      this._advanceTutorialPhase(1);
+    } else if (phase === 1 && px > 700) {
+      this._advanceTutorialPhase(2);
+    } else if (phase === 2 && px > 1150) {
+      this._advanceTutorialPhase(3);
+    } else if (phase === 3 && px > 1550) {
+      this._advanceTutorialPhase(4);
+    }
+  }
+
   // === HUD ===
 
   createHUD() {
@@ -1213,47 +1898,73 @@ export default class GameScene extends Phaser.Scene {
       this.uiCam.setSize(gameSize.width, gameSize.height);
     });
 
-    // Paint inventory — slots auto-derived from level's paintings
+    // HUD layout: single horizontal bar at the top
+    // [home] [can1] [can2] ... [counter] [heart1] [heart2] ...    [mute]
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const uiScale = isMobile ? 1.8 : 1;
     const slotColors = this.levelColors;
-    // Can display: 102x72 scaled to 28px tall → tighter spacing
-    const slotSpacing = Math.round(26 * uiScale);
-    const slotStartX = Math.round(28 * uiScale);
-    const slotY = Math.round(26 * uiScale);
-    this.hudBg = this.add.rectangle(Math.round(6 * uiScale), Math.round(6 * uiScale), slotColors.length * slotSpacing + Math.round(12 * uiScale), Math.round(42 * uiScale), 0x000000, 0.6)
-      .setDepth(100).setScrollFactor(0).setOrigin(0, 0);
+    const bgPad = Math.round(6 * uiScale);
+    const innerPad = Math.round(8 * uiScale);
+    const barH = Math.round(52 * uiScale);
+    const barY = bgPad;
+    const centerY = barY + Math.round(barH / 2);
+
+    // Home button size
+    const homeBtnSize = Math.round(40 * uiScale);
+    const homeX = bgPad + innerPad + Math.round(homeBtnSize / 2);
+    const homeY = centerY;
+
+    // Cans — positioned horizontally after home
+    const canScale = uiScale * 41 / (72 * 5); // HUD textures are 5x resolution (45% smaller)
+    const canSpacing = Math.round(38 * uiScale);
+    const canStartX = bgPad + innerPad + homeBtnSize + Math.round(20 * uiScale);
 
     this.hudSlots = [];
     for (let i = 0; i < slotColors.length; i++) {
-      const sx = slotStartX + i * slotSpacing;
-      // Both textures are native 102x72 from can.png — scale to ~28px tall
-      const canScale = uiScale * 28 / 72;
-      // Grey empty can (always visible as background)
-      const empty = this.add.image(sx, slotY, 'hud_can_empty')
-        .setDepth(100.5).setScrollFactor(0).setScale(canScale);
-      // Colored filled can (hidden until collected)
-      const filled = this.add.image(sx, slotY, `hud_can_${slotColors[i]}`)
-        .setDepth(101).setScrollFactor(0).setVisible(false).setScale(canScale);
-      // Count label below
-      const count = this.add.text(sx, slotY + Math.round(17 * uiScale), '', {
-        font: `bold ${Math.round(8 * uiScale)}px ChangaOne, monospace`,
-        fill: '#ffffff',
-        stroke: '#000000', strokeThickness: 2
-      }).setOrigin(0.5).setDepth(101).setScrollFactor(0).setAlpha(0);
+      const cx = canStartX + i * canSpacing;
+      const colorKey = slotColors[i].toLowerCase();
 
-      this.hudSlots.push({ color: slotColors[i], empty, filled, count });
+      const emptyFill = this.add.image(cx, centerY, 'hud_can_fill')
+        .setDepth(100.2).setScrollFactor(0).setScale(canScale).setTint(0x222233).setAlpha(0.5);
+
+      const fillKey = `hud_fill_${colorKey}`;
+      const hasFillTex = this.textures.exists(fillKey);
+      const fill = hasFillTex
+        ? this.add.image(cx, centerY, fillKey)
+            .setDepth(100.5).setScrollFactor(0).setScale(canScale).setVisible(false)
+        : null;
+      const fillTexH = fill ? fill.texture.getSourceImage().height : 1;
+      const fillTexW = fill ? fill.texture.getSourceImage().width : 1;
+
+      const shell = this.add.image(cx, centerY, 'hud_can_shell')
+        .setDepth(101).setScrollFactor(0).setScale(canScale).setAlpha(0.35);
+
+      // Smooth filtering for HUD icons
+      emptyFill.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      if (fill) fill.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      shell.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+
+      this.hudSlots.push({
+        color: slotColors[i], shell, fill, emptyFill,
+        fillTexW: fillTexW, fillTexH: fillTexH
+      });
     }
 
-    // Painted spots counter (after the slots)
-    const counterX = slotStartX + slotColors.length * slotSpacing + Math.round(8 * uiScale);
-    this.hudCountText = this.add.text(counterX, slotY, '', {
-      font: `bold ${Math.round(10 * uiScale)}px ChangaOne, monospace`,
+    // Painted spots counter — wall icon + text after the cans
+    const lastCanX = canStartX + (slotColors.length - 1) * canSpacing;
+    const wallIconX = lastCanX + Math.round(46 * uiScale);
+    const wallIconSize = Math.round(24 * uiScale);
+    this.hudWallIcon = this.add.image(wallIconX, centerY, 'icon_wall')
+      .setDisplaySize(wallIconSize, wallIconSize)
+      .setOrigin(0.5).setDepth(101).setScrollFactor(0);
+    const counterX = wallIconX + Math.round(14 * uiScale);
+    this.hudCountText = this.add.text(counterX, centerY, '', {
+      font: `bold ${Math.round(22 * uiScale)}px ChangaOne, monospace`,
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 2
     }).setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
 
-    // Status text (desktop only — mobile has no text hints)
+    // Status text (desktop only)
     if (!isMobile) {
       this.statusText = this.add.text(gw / 2, 10, '', {
         font: `${Math.round(12 * uiScale)}px ChangaOne, monospace`,
@@ -1328,36 +2039,48 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(500, tryPlayBgm);
     this.time.delayedCall(2000, tryPlayBgm);
 
-    // Menu button — return to main menu
-    const menuBtnX = gw - Math.round(110 * uiScale);
-    const menuBtnY = Math.round(18 * uiScale);
-    const menuBtnSize = Math.round(64 * uiScale);
-    this.menuBtnHit = this.add.rectangle(menuBtnX + menuBtnSize / 2 - 4, menuBtnY + menuBtnSize / 2 - 8, menuBtnSize, menuBtnSize, 0x000000, 0)
+    // Home button
+    this.menuBtnHit = this.add.rectangle(homeX, homeY, homeBtnSize, homeBtnSize, 0x000000, 0)
       .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
-    this.menuBtn = this.add.text(menuBtnX, menuBtnY, '\u2302', {
-      font: `bold ${Math.round(20 * uiScale)}px ChangaOne, monospace`,
-      fill: '#aabbcc',
-      backgroundColor: '#000000aa',
-      padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
-    }).setDepth(100).setScrollFactor(0);
+    this.menuBtn = this.add.image(homeX, homeY, 'icon_home')
+      .setDisplaySize(Math.round(38 * uiScale), Math.round(38 * uiScale))
+      .setOrigin(0.5).setDepth(101).setScrollFactor(0);
+    this.menuBtn.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     this.menuBtnHit.on('pointerdown', () => {
       if (this.bgm) this.bgm.stop();
       this.scene.start('MenuScene');
     });
 
-    const muteBtnSize = Math.round(64 * uiScale);
-    const muteBtnX = gw - Math.round(55 * uiScale);
-    const muteBtnY = Math.round(18 * uiScale);
-    // Invisible hit area for easier tapping on mobile
-    this.muteBtnHit = this.add.rectangle(muteBtnX + muteBtnSize / 2 - 4, muteBtnY + muteBtnSize / 2 - 8, muteBtnSize, muteBtnSize, 0x000000, 0)
+    // Hearts — after counter
+    this.hudHearts = [];
+    let heartsEndX = counterX + Math.round(30 * uiScale);
+    if (this.mode === 'stealth') {
+      this._addingHud = true;
+      const heartScale = uiScale * 24 / 40;
+      const heartSpacing = Math.round(28 * uiScale);
+      const heartStartX = counterX + Math.round(36 * uiScale);
+      for (let i = 0; i < this.player.maxHp; i++) {
+        const hx = heartStartX + i * heartSpacing;
+        const full = this.add.image(hx, centerY, 'heart_icon')
+          .setDepth(101).setScrollFactor(0).setScale(heartScale);
+        const empty = this.add.image(hx, centerY, 'heart_icon')
+          .setDepth(100.5).setScrollFactor(0).setScale(heartScale)
+          .setTint(0x331111).setAlpha(0.5);
+        this.hudHearts.push({ full, empty });
+        heartsEndX = hx + Math.round(14 * uiScale);
+      }
+      this._addingHud = false;
+    }
+
+    // Mute button — right end of bar
+    const muteX = gw - Math.round(36 * uiScale);
+    this.muteBtnHit = this.add.rectangle(muteX, centerY, Math.round(44 * uiScale), barH, 0x000000, 0)
       .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
-    this.muteBtn = this.add.text(muteBtnX, muteBtnY, '\u266B', {
-      font: `bold ${Math.round(20 * uiScale)}px ChangaOne, monospace`,
+    this.muteBtn = this.add.text(muteX, centerY, '\u266B', {
+      font: `bold ${Math.round(18 * uiScale)}px ChangaOne, monospace`,
       fill: '#00ff88',
-      backgroundColor: '#000000aa',
-      padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
-    }).setDepth(100).setScrollFactor(0);
+    }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
 
     this.muteBtnHit.on('pointerdown', () => {
       this.musicOn = !this.musicOn;
@@ -1372,57 +2095,36 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // === HEART HUD (stealth mode only) — on same line as paint cans, to the right ===
-    this.hudHearts = [];
-    if (this.mode === 'stealth') {
-      this._addingHud = true;
-      // Place hearts after counter text, on the same Y as paint slots
-      const heartScale = uiScale * 28 / 40; // 40px source → ~28px display
-      const heartSpacing = Math.round(34 * uiScale);
-      const heartStartX = counterX + Math.round(50 * uiScale);
-      for (let i = 0; i < this.player.maxHp; i++) {
-        const hx = heartStartX + i * heartSpacing;
-        const full = this.add.image(hx, slotY, 'heart_icon')
-          .setDepth(101).setScrollFactor(0).setScale(heartScale);
-        const empty = this.add.image(hx, slotY, 'heart_icon')
-          .setDepth(100.5).setScrollFactor(0).setScale(heartScale)
-          .setTint(0x331111).setAlpha(0.5);
-        this.hudHearts.push({ full, empty });
-      }
-      this._addingHud = false;
-    }
+    // Background bar only under the icon group (home + cans + counter + hearts)
+    const barRight = heartsEndX + innerPad;
+    this.hudBgBar = this.add.rectangle(bgPad, barY, barRight - bgPad, barH, 0x000000, 0.6)
+      .setDepth(100).setScrollFactor(0).setOrigin(0, 0);
 
-    // Resize HUD background to cover hearts too
-    if (this.hudHearts.length > 0) {
-      const lastHeart = this.hudHearts[this.hudHearts.length - 1];
-      const bgRight = lastHeart.full.x + Math.round(14 * uiScale);
-      this.hudBg.width = bgRight - this.hudBg.x;
-    }
+    // Small background pill behind mute button
+    const muteBgW = Math.round(40 * uiScale);
+    this.hudBgMute = this.add.rectangle(muteX, centerY, muteBgW, barH, 0x000000, 0.6)
+      .setDepth(100).setScrollFactor(0);
 
     // Collect all HUD elements for camera management
     const slotElements = [];
-    this.hudSlots.forEach(s => slotElements.push(s.empty, s.filled, s.count));
+    this.hudSlots.forEach(s => slotElements.push(s.emptyFill, s.shell, s.fill));
     const heartElements = [];
     this.hudHearts.forEach(h => heartElements.push(h.full, h.empty));
 
-    // Main camera ignores HUD + touch controls, UI camera ignores everything else
-    const hudElements = [this.hudBg, this.hudCountText, this.statusText, this.menuBtn, this.menuBtnHit, this.muteBtn, this.muteBtnHit,
+    const hudElements = [this.hudBgBar, this.hudBgMute, this.hudWallIcon, this.hudCountText, this.statusText, this.menuBtn, this.menuBtnHit, this.muteBtn, this.muteBtnHit,
       ...slotElements, ...heartElements, ...this.touch.getElements()].filter(Boolean);
     this.cameras.main.ignore(hudElements);
 
-    // Ignore all existing world objects on UI cam
     this.children.list.forEach(child => {
       if (!hudElements.includes(child)) {
         this.uiCam.ignore(child);
       }
     });
 
-    // Track HUD elements set for camera routing
     this._hudElements = new Set(hudElements);
 
-    // Auto-ignore any future objects added to the scene (unless marked as HUD)
     this.events.on('addedtoscene', (obj) => {
-      if (this._addingHud) return; // skip when adding HUD elements
+      if (this._addingHud) return;
       if (this.uiCam && !this._hudElements.has(obj)) {
         this.uiCam.ignore(obj);
       }
@@ -1437,17 +2139,26 @@ export default class GameScene extends Phaser.Scene {
 
   updateHUD() {
     this.updateHearts();
-    // Update each paint slot: show filled can + count if player has that color
+    // Update each paint slot: shell always visible, fill cropped to paint level
     for (let i = 0; i < this.hudSlots.length; i++) {
       const slot = this.hudSlots[i];
       const qty = this.player.getPaintCount(slot.color);
-      if (qty > 0) {
-        slot.filled.setVisible(true);
-        slot.count.setText(String(qty)).setAlpha(1);
-      } else {
-        slot.filled.setVisible(false);
-        slot.count.setAlpha(0);
+      const ratio = this.player.getPaintRatio(slot.color); // 0..1
+
+      // Shell (can_.png) — brighten when player has paint
+      slot.shell.setAlpha(qty > 0.01 ? 0.9 : 0.35);
+
+      // Fill body (can_fill.png recolored) — crop from top to show paint level
+      if (slot.fill) {
+        if (qty > 0.01 && ratio > 0.01) {
+          slot.fill.setVisible(true);
+          const cropTop = Math.round(slot.fillTexH * (1 - ratio));
+          slot.fill.setCrop(0, cropTop, slot.fillTexW, slot.fillTexH - cropTop);
+        } else {
+          slot.fill.setVisible(false);
+        }
       }
+
     }
 
     // Painted spots counter
@@ -1743,11 +2454,18 @@ export default class GameScene extends Phaser.Scene {
     const selectedColorName = this.pbn.getSelectedColorName().toLowerCase();
     if (!this.player.hasPaint(selectedColorName)) return;
 
+    // Check if player has enough paint for one cell
+    const cellCost = this.pbn.getCellCost();
+    if (this.player.getPaintCount(selectedColorName) < cellCost - 0.001) return;
+
     const result = this.pbn.tryFillCell(handX, handY);
 
     if (result === true) {
-      // Correctly painted — update spray color to match selected
+      // Correctly painted — consume paint per pixel
+      this.player.usePaint(selectedColorName, cellCost);
       this.player.paintColor = this.pbn.getSelectedColorHex();
+      // Update HUD bars in real-time
+      this.updateHUD();
     }
 
     // Update progress
@@ -1766,13 +2484,7 @@ export default class GameScene extends Phaser.Scene {
   completePainting() {
     const spot = this.activePaintSpot;
 
-    // Consume all required paint colors
-    if (this.pbn) {
-      const usedColors = this.pbn.colorMap;
-      usedColors.forEach(colorName => {
-        this.player.usePaint(colorName.toLowerCase());
-      });
-    }
+    // Paint was already consumed per-pixel in onPaintMove — no bulk deduction needed
 
     spot.setData('painted', true);
     spot.setData('pbnInstance', null);
@@ -2347,6 +3059,18 @@ export default class GameScene extends Phaser.Scene {
   // === UPDATE ===
 
   update(time, delta) {
+    // Tutorial transition — freeze player during camera pans
+    if (this._tutTransitioning) {
+      this.player.setVelocity(0, 0);
+      this.playerInShadow = false;
+      this.playerOnLadderThisFrame = false;
+      this.interactablePaintSpot = null;
+      this.currentLadderInfo = null;
+      this.nearbyTrash = null;
+      this.collidingTrash = null;
+      return;
+    }
+
     // Overlap callbacks fired BEFORE this update() call (during physics step).
     // So playerOnLadderThisFrame / playerInShadow already hold this frame's results.
 
@@ -2421,9 +3145,6 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // Animate mural glow & star particles
-    this._updateMuralGlow(time, delta);
-
     // 2. Check paint input (SPACE or touch ACT)
     // Allowed when: on solid ground OR on ladder (not mid-air)
     const onSolidGround = this.player.body.blocked.down;
@@ -2456,10 +3177,15 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
+    // Animate mural glow & star particles (after ladder detection so all spots are resolved)
+    this._updateMuralGlow(time, delta);
+
     // Tell player if near paint spot (so ladder SPACE doesn't jump but paints instead)
     this.player.nearPaintSpot = !!(this.interactablePaintSpot && canPaint);
 
-    if (this.interactablePaintSpot && !this.player.isPainting && !this.player.isPushingLadder && canPaint) {
+    // Tutorial lock: block painting if interact not yet unlocked
+    const tutAllowPaint = !this._tutControlLock || this._tutControlLock.interact;
+    if (tutAllowPaint && this.interactablePaintSpot && !this.player.isPainting && !this.player.isPushingLadder && canPaint) {
       const paintPressed = Phaser.Input.Keyboard.JustDown(this.paintKeySpace) ||
         (this.touch && this.touch.actionJustPressed);
       if (paintPressed) {
@@ -2482,8 +3208,9 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // 2b. E key — unified: ladder push OR trash push based on what's nearby
-    const eJustPressed = Phaser.Input.Keyboard.JustDown(this.player.grabKey) ||
-      (this.touch && this.touch.eJustPressed);
+    const tutAllowInteract = !this._tutControlLock || this._tutControlLock.interact;
+    const eJustPressed = tutAllowInteract && (Phaser.Input.Keyboard.JustDown(this.player.grabKey) ||
+      (this.touch && this.touch.eJustPressed));
     if (eJustPressed && !this.player.isPainting) {
       if (this.player.isPushingTrash) {
         // Already pushing trash → exit
@@ -2679,6 +3406,9 @@ export default class GameScene extends Phaser.Scene {
 
     // 4a2. Tower mode timer
     if (this.mode === 'tower') this.updateTowerTimer(delta);
+
+    // 4a3. Tutorial mode phase progression
+    if (this.mode === 'tutorial') this.updateTutorial(delta);
 
     // 4b. Touch button highlights — signal nearby interactables
     if (this.touch && this.touch.enabled) {

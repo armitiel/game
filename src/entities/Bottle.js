@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 
 /**
  * Bottle — lying bottle prop on the ground.
- * Rolls away when the player runs past.
+ * When the player walks past it nudges in the player's direction
+ * and stays where it lands (never returns to its original position).
+ * Displayed in front of the player (depth > 5).
  */
 export default class Bottle extends Phaser.GameObjects.Image {
   constructor(scene, x, y, baseAngle) {
@@ -15,69 +17,69 @@ export default class Bottle extends Phaser.GameObjects.Image {
     this.baseAngle = baseAngle ?? Phaser.Math.Between(-8, 8);
     this.setAngle(this.baseAngle);
     this.setOrigin(0.5, 1);
-    this.setDepth(4.5);
-    // Source: 903x332 → ratio 2.72:1, display ~38x14
+    this.setDepth(5.5);       // in front of player (5)
+    // Source: 903x332 → ratio ~2.7:1
     this.setDisplaySize(38, 14);
 
     this._bsX = this.scaleX;
     this._bsY = this.scaleY;
 
-    this._isBlowing = false;
-    this._blowCooldown = 0;
+    this._isRolling = false;
+    this._rollCooldown = 0;
   }
 
   tick(delta) {
-    if (this._blowCooldown > 0) this._blowCooldown -= delta;
+    if (this._rollCooldown > 0) this._rollCooldown -= delta;
   }
 
+  /**
+   * Nudge the bottle along the ground when the player passes by.
+   * It slides a short distance in the player's direction, rolls a bit, then stops.
+   * The new position becomes permanent — the bottle never resets.
+   */
   disturb(playerVelX, playerSpeed) {
-    if (this._isBlowing || this._blowCooldown > 0) return;
-    this._isBlowing = true;
-    this._blowCooldown = 2200;
+    if (this._isRolling || this._rollCooldown > 0) return;
+    this._isRolling = true;
+    this._rollCooldown = 800;
 
     const dir = playerVelX >= 0 ? 1 : -1;
-    const strength = Phaser.Math.Clamp(playerSpeed / 160, 0.4, 1.2);
+    const strength = Phaser.Math.Clamp(playerSpeed / 180, 0.3, 1.0);
 
-    const driftX = dir * Phaser.Math.Between(30, 70) * strength;
-    const liftY = -Phaser.Math.Between(4, 12) * strength;
-    const spinDeg = dir * Phaser.Math.Between(40, 120) * strength;
+    // Short nudge distance — bottle just scoots a bit
+    const nudge = dir * Phaser.Math.Between(12, 30) * strength;
+    // Gentle roll rotation (stays flat, ±25°)
+    const roll  = dir * Phaser.Math.Between(15, 40) * strength;
 
-    const scene = this.scene;
-    const bsX = this._bsX;
-    const bsY = this._bsY;
+    const scene  = this.scene;
     const groundY = this.homeY;
 
-    // Phase 1 — roll and slight lift
+    // Phase 1 — quick nudge with slight roll
+    const targetX = this.x + nudge;
+    const midAngle = Phaser.Math.Clamp(this.angle + roll, -25, 25);
     scene.tweens.add({
       targets: this,
-      x: this.x + driftX * 0.6,
-      y: Math.min(this.y + liftY, groundY),
-      angle: this.baseAngle + spinDeg * 0.5,
-      duration: 250,
+      x: targetX,
+      y: groundY,
+      angle: midAngle,
+      duration: 180,
       ease: 'Sine.easeOut',
       onComplete: () => {
-        // Phase 2 — continue rolling on ground
+        // Phase 2 — settle: tiny extra slide + angle dampens
+        const restX = targetX + dir * Phaser.Math.Between(2, 8);
+        const restAngle = midAngle * 0.4 + Phaser.Math.Between(-3, 3);
         scene.tweens.add({
           targets: this,
-          x: this.x + driftX * 0.4,
+          x: restX,
           y: groundY,
-          angle: this.baseAngle + spinDeg,
-          duration: 350,
-          ease: 'Sine.easeInOut',
+          angle: Phaser.Math.Clamp(restAngle, -20, 20),
+          duration: 300,
+          ease: 'Sine.easeOut',
           onComplete: () => {
-            // Phase 3 — settle
-            const settleX = this.homeX + dir * Phaser.Math.Between(5, 20);
-            scene.tweens.add({
-              targets: this,
-              x: settleX,
-              y: groundY,
-              angle: this.baseAngle + Phaser.Math.Between(-5, 5),
-              scaleX: bsX,
-              scaleY: bsY,
-              duration: 500,
-              ease: 'Sine.easeOut',
-              onComplete: () => { this._isBlowing = false; }
-            });
+            // Update home position — bottle stays where it landed
+            this.homeX = this.x;
+            this.homeY = groundY;
+            this.baseAngle = this.angle;
+            this._isRolling = false;
           }
         });
       }

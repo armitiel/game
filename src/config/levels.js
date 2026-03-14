@@ -3,6 +3,84 @@ import { GAME } from './gameConfig.js';
 const H = GAME.HEIGHT;
 const W = GAME.WIDTH;
 
+const TW = 2000;
+const TH = 720;
+
+export const LEVEL_TUTORIAL = {
+  name: 'Tutorial',
+  mode: 'tutorial',
+  description: 'Naucz sie podstaw gry',
+  worldWidth: TW,
+  worldHeight: TH,
+  checkpoint: { x: 60, y: TH - 101 },
+  paintings: ['painting_heart'],
+
+  platforms: [
+    { x: 480, y: TH - 160, w: 120 },
+    { x: 650, y: TH - 160, w: 100 },
+    { x: 850, y: TH - 280, w: 200 },
+    { x: 1050, y: TH - 180, w: 150 },
+    { x: 1300, y: TH - 180, w: 200 },
+    { x: 1450, y: TH - 300, w: 150 },
+    { x: 1750, y: TH - 200, w: 200 },
+  ],
+  ground: [
+    { x: 0, y: TH - 32, w: 570 },
+    { x: 630, y: TH - 32, w: 1370 },
+  ],
+  ladders: [
+    { x: 900, topY: TH - 280, bottomY: TH - 32, minX: 760, maxX: 1050 },
+  ],
+  shadows: [
+  ],
+  fillWalls: [
+    { x: 850, y: TH - 248, w: 200, h: 216 },
+    { x: 1700, y: TH - 400, w: 250, h: 368 },
+  ],
+  paintCans: [
+  ],
+  paintSpots: [
+    { x: 1820, y: TH - 260, w: 120, h: 180, paintingKey: 'painting_heart' },
+  ],
+  trashCans: [
+    { x: 1000, y: TH - 56 },
+  ],
+  cops: [
+  ],
+  lamps: [
+    { x: 180, y: TH - 23, radius: 100, intensity: 0.5 },
+    { x: 900, y: TH - 272, radius: 100, intensity: 0.5 },
+    { x: 1800, y: TH - 23, radius: 120, intensity: 0.6 },
+  ],
+  papers: [
+    { x: 150, y: TH - 25 },
+  ],
+  bottles: [
+    { x: 300, y: TH - 25 },
+  ],
+  cartons: [
+    { x: 780, y: TH - 25 },
+  ],
+  foregroundWires: [
+    { x1: -10, y1: TH - 520, x2: 2010, y2: TH - 550 },
+  ],
+  tutorialGates: [
+    { x: 400, phase: 1 },
+    { x: 750, phase: 2 },
+    { x: 1200, phase: 3 },
+    { x: 1600, phase: 4 },
+  ],
+  tutorialHints: [
+    { phase: 0, x: 200, y: TH - 100, desktop: 'Uzyj ← → by sie poruszac', mobile: 'Przeciagnij joystick w lewo/prawo' },
+    { phase: 1, x: 550, y: TH - 200, desktop: 'Nacisnij ↑ lub SPACJE by skoczyc!', mobile: 'Nacisnij przycisk JUMP by skoczyc!' },
+    { phase: 2, x: 950, y: TH - 340, desktop: 'Wejdz na drabine (↑↓) | E = przesun kosz', mobile: 'Joystick ↑↓ = drabina | przycisk E = kosz' },
+    { phase: 3, x: 1400, y: TH - 360, desktop: 'Zbierz puszki z farba!', mobile: 'Zbierz puszki z farba!' },
+    { phase: 4, x: 1800, y: TH - 460, desktop: 'Podejdz do muralu i nacisnij SPACJE!', mobile: 'Podejdz do muralu i nacisnij ACT!' },
+  ],
+  mapWidth: TW,
+  mapHeight: TH,
+};
+
 export const LEVEL_1 = {
   name: 'Ulica',
   mode: 'stealth',
@@ -43,10 +121,6 @@ export const LEVEL_1 = {
     { x: 1090, y: H - 620, w: 100, h: 120 },
   ],
   paintCans: [
-    { x: 120, y: H - 190 },
-    { x: 250, y: H - 450 },
-    { x: 550, y: H - 320 },
-    { x: 700, y: H - 450 },
   ],
   paintSpots: [
     { x: 400, y: H - 150, w: 140, h: 200, paintingKey: 'painting_heart' },
@@ -66,14 +140,13 @@ export const LEVEL_1 = {
   ],
   papers: [
     { x: 550, y: H - 25 },
-    { x: 1050, y: H - 25 },
     { x: 200, y: H - 150 },
   ],
   bottles: [
     { x: 380, y: H - 25 },
   ],
   cartons: [
-    { x: 700, y: H - 25 },
+    { x: 976, y: H - 153 },
     { x: 100, y: H - 411 },
   ],
   foregroundWires: [
@@ -125,14 +198,6 @@ export const LEVEL_2 = {
     { x: 0, y: L2_H - 970, w: 800, h: 940 },
   ],
   paintCans: [
-    { x: 120, y: L2_H - 290 },
-    { x: 650, y: L2_H - 540 },
-    { x: 180, y: L2_H - 540 },
-    { x: 600, y: L2_H - 790 },
-    { x: 150, y: L2_H - 790 },
-    { x: 400, y: L2_H - 1040 },
-    { x: 70, y: L2_H - 1040 },
-    { x: 760, y: L2_H - 1040 },
   ],
   paintSpots: [
     { x: 390, y: L2_H - 540, w: 480, h: 576, paintingKey: 'painting_mural_big' },
@@ -208,10 +273,6 @@ export const LEVEL_3 = {
     { x: 950, y: H - 248, w: 200, h: 216 },
   ],
   paintCans: [
-    { x: 100, y: H - 60 },
-    { x: 700, y: H - 200 },
-    { x: 40, y: H - 420 },
-    { x: 450, y: H - 640 },
   ],
   paintSpots: [
     { x: 620, y: H - 260, w: 120, h: 180, paintingKey: 'painting_heart' },
@@ -296,28 +357,24 @@ export const LEVEL_4 = {
     { x: 150, y: L4_H - 1768, w: 400, h: 268 },
   ],
   paintCans: [
-    { x: 100, y: L4_H - 60 },
-    { x: 300, y: L4_H - 60 },
-    { x: 500, y: L4_H - 60 },
-    { x: 350, y: L4_H - 740 },
   ],
   paintSpots: [
     { x: 170, y: L4_H - 530, w: 140, h: 200, paintingKey: 'painting_heart' },
     { x: 520, y: L4_H - 790, w: 140, h: 200, paintingKey: 'painting_star' },
   ],
   trashCans: [
-    { x: 500, y: L4_H - 56 },
-    { x: 100, y: L4_H - 475 },
+    { x: 500, y: L4_H - 45 },
+    { x: 42, y: L4_H - 460 },
   ],
   cops: [
   ],
   bottles: [
-    { x: 350, y: L4_H - 32 },
-    { x: 600, y: L4_H - 32 },
+    { x: 470, y: L4_H - 444 },
+    { x: 600, y: L4_H - 27 },
   ],
   cartons: [
-    { x: 200, y: L4_H - 32 },
-    { x: 500, y: L4_H - 200 },
+    { x: 720, y: L4_H - 30 },
+    { x: 500, y: L4_H - 195 },
   ],
   foregroundWires: [
     { x1: 0, y1: L4_H - 350, x2: L4_W, y2: L4_H - 370 },
@@ -326,7 +383,7 @@ export const LEVEL_4 = {
   ],
 };
 
-export const LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4];
+export const LEVELS = [LEVEL_TUTORIAL, LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4];
 
 export const STEALTH_LEVELS = [LEVEL_1, LEVEL_2];
 export const PUZZLE_LEVELS = [LEVEL_3];

@@ -107,6 +107,8 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('ladder_plank', 'assets/sprites/elementy/drabinka2.png');
     // Spray can base image — grayscale body will be recolored per paint color
     this.load.image('spray_can_base', 'assets/sprites/elementy/can.png');
+    this.load.image('can_shell', 'assets/sprites/elementy/can_.png');    // HUD: outer shell (always visible)
+    this.load.image('can_fill', 'assets/sprites/elementy/can_fill.png'); // HUD: fill body (cropped per paint level)
     this.load.image('trash', 'assets/sprites/elementy/trash.png');
     this.load.image('trash2', 'assets/sprites/elementy/trash2.png');
     this.load.image('heart_icon', 'assets/sprites/elementy/serce.png');
@@ -117,6 +119,8 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('paper_img', 'assets/sprites/elementy/paper.png');
     this.load.image('bottle_img', 'assets/sprites/elementy/butelka.png');
     this.load.image('carton_img', 'assets/sprites/elementy/karton.png');
+    this.load.image('icon_home', 'assets/sprites/elementy/home.png');
+    this.load.image('icon_wall', 'assets/sprites/elementy/wall.png');
     // UI pictograms (SVG)
     this.load.svg('icon_hand', 'assets/sprites/elementy/hand.svg', { width: 64, height: 64 });
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
@@ -135,6 +139,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.json('painting_heart', 'assets/paintings/heart_mural.json');
     this.load.json('painting_star', 'assets/paintings/star_mural.json');
     this.load.json('painting_mural_big', 'assets/paintings/pikachu_mural.json');
+    this.load.json('painting_Nowy', 'assets/paintings/Nowy_mural.json');
 
     // === Generate other textures procedurally ===
     this.generateOtherTextures();
@@ -477,6 +482,9 @@ export default class BootScene extends Phaser.Scene {
     // === Generate paint can textures from can.png base (all colors) ===
     this._generateAllPaintCanTextures();
 
+    // === Generate 5x HUD shell/fill textures ===
+    this._generateHudShellAndFill();
+
     // === Register palette colors from painting JSONs ===
     this.registerPaintingPalettes();
 
@@ -495,27 +503,57 @@ export default class BootScene extends Phaser.Scene {
     const srcImg = srcTex.getSourceImage();
     const sw = srcImg.width, sh = srcImg.height;
 
+    // Generate at 5x resolution for crisp HUD display
+    const scale = 5;
     const canvas = document.createElement('canvas');
-    canvas.width = sw;
-    canvas.height = sh;
+    canvas.width = sw * scale;
+    canvas.height = sh * scale;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(srcImg, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(srcImg, 0, 0, sw * scale, sh * scale);
 
-    const imgData = ctx.getImageData(0, 0, sw, sh);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
 
-    // Convert to dark semi-transparent silhouette
+    // Convert to visible semi-transparent silhouette
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 10) continue;
-      // Dark blue-gray tint, reduced opacity
-      d[i]     = 30;   // R
-      d[i + 1] = 30;   // G
-      d[i + 2] = 50;   // B
-      d[i + 3] = Math.min(d[i + 3], 100); // semi-transparent
+      d[i]     = 80;   // R
+      d[i + 1] = 90;   // G
+      d[i + 2] = 110;  // B
+      d[i + 3] = Math.min(d[i + 3], 160);
     }
 
     ctx.putImageData(imgData, 0, 0);
     this.textures.addCanvas('hud_can_empty', canvas);
+  }
+
+  /**
+   * Generate 5x HUD versions of can_shell and can_fill for crisp display.
+   * Called from create() after assets are loaded.
+   */
+  _generateHudShellAndFill() {
+    const hudScale = 5;
+
+    // 5x can_shell
+    const shellSrc = this.textures.get('can_shell').getSourceImage();
+    const shellC = document.createElement('canvas');
+    shellC.width = shellSrc.width * hudScale;
+    shellC.height = shellSrc.height * hudScale;
+    const shellCtx = shellC.getContext('2d');
+    shellCtx.imageSmoothingEnabled = true;
+    shellCtx.drawImage(shellSrc, 0, 0, shellC.width, shellC.height);
+    this.textures.addCanvas('hud_can_shell', shellC);
+
+    // 5x can_fill
+    const fillSrc = this.textures.get('can_fill').getSourceImage();
+    const fillC = document.createElement('canvas');
+    fillC.width = fillSrc.width * hudScale;
+    fillC.height = fillSrc.height * hudScale;
+    const fillCtx = fillC.getContext('2d');
+    fillCtx.imageSmoothingEnabled = true;
+    fillCtx.drawImage(fillSrc, 0, 0, fillC.width, fillC.height);
+    this.textures.addCanvas('hud_can_fill', fillC);
   }
 
   /**
@@ -533,7 +571,7 @@ export default class BootScene extends Phaser.Scene {
    * Auto-register new colors in PAINT.COLORS and generate textures.
    */
   registerPaintingPalettes() {
-    const paintingKeys = ['painting_heart', 'painting_star', 'painting_mural_big'];
+    const paintingKeys = ['painting_heart', 'painting_star', 'painting_mural_big', 'painting_Nowy'];
 
     for (const key of paintingKeys) {
       const data = this.cache.json.get(key);
@@ -600,16 +638,47 @@ export default class BootScene extends Phaser.Scene {
     // World sprite — full resolution (PaintCan.js uses setScale)
     this.textures.addCanvas(`paint_can_sprite_${colorKey}`, canvas);
 
-    // Mini icon & HUD icon — share the same full-res canvas
-    // (Phaser scales via setScale/displaySize, no need for separate small textures)
-    const cloneCanvas = (key) => {
+    // Mini icon — same resolution as source
+    const cloneCanvas = (key, src) => {
       const c = document.createElement('canvas');
-      c.width = sw; c.height = sh;
-      c.getContext('2d').drawImage(canvas, 0, 0);
+      c.width = src.width; c.height = src.height;
+      c.getContext('2d').drawImage(src, 0, 0);
       this.textures.addCanvas(key, c);
     };
-    cloneCanvas(`paint_can_${colorKey}`);
-    cloneCanvas(`hud_can_${colorKey}`);
+    cloneCanvas(`paint_can_${colorKey}`, canvas);
+    // HUD icon — 5x resolution for crisp display at large HUD sizes
+    const hudScale = 5;
+    const hudC = document.createElement('canvas');
+    hudC.width = sw * hudScale; hudC.height = sh * hudScale;
+    const hudCtx = hudC.getContext('2d');
+    hudCtx.imageSmoothingEnabled = true;
+    hudCtx.drawImage(canvas, 0, 0, sw * hudScale, sh * hudScale);
+    this.textures.addCanvas(`hud_can_${colorKey}`, hudC);
+
+    // HUD fill body — recolor can_fill.png with same color for level gauge (5x resolution)
+    const fillTex = this.textures.get('can_fill');
+    if (fillTex && fillTex.getSourceImage().width > 1) {
+      const fillSrc = fillTex.getSourceImage();
+      const fillScale = 5;
+      const fc = document.createElement('canvas');
+      fc.width = fillSrc.width * fillScale; fc.height = fillSrc.height * fillScale;
+      const fctx = fc.getContext('2d');
+      fctx.imageSmoothingEnabled = true;
+      fctx.drawImage(fillSrc, 0, 0, fc.width, fc.height);
+
+      const fData = fctx.getImageData(0, 0, fc.width, fc.height);
+      const fd = fData.data;
+      for (let i = 0; i < fd.length; i += 4) {
+        if (fd[i + 3] < 10) continue;
+        const lum = (fd[i] + fd[i + 1] + fd[i + 2]) / 3;
+        const f = lum / 200;
+        fd[i]     = Math.min(255, tR * f + 0.5 | 0);
+        fd[i + 1] = Math.min(255, tG * f + 0.5 | 0);
+        fd[i + 2] = Math.min(255, tB * f + 0.5 | 0);
+      }
+      fctx.putImageData(fData, 0, 0);
+      this.textures.addCanvas(`hud_fill_${colorKey}`, fc);
+    }
   }
 
 }

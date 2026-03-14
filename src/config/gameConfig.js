@@ -83,7 +83,10 @@ export const PAINT = {
   // Paint-by-numbers system
   PBN_ENABLED: true,
   PBN_WRONG_FLASH_MS: 300,
-  PBN_COMPLETION_THRESHOLD: 0.95
+  PBN_COMPLETION_THRESHOLD: 0.95,
+  // Paint consumption system
+  PAINT_PER_CAN: 100,          // units of paint each collected can gives
+  PAINT_SURPLUS: 1.15           // 1 can holds 15% more than needed for its mural share
 };
 
 export const CONTROLS = {

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PAINT } from '../config/gameConfig.js';
 
 /**
  * Virtual touch controls for mobile devices.
@@ -313,8 +314,10 @@ export default class TouchControls {
     // Hide joystick + action buttons while selecting paint color (mobile only)
     if (this.enabled) this._setMainButtonsVisible(false);
 
-    const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88, 0xff88ff, 0x88ffff];
     const numColors = colorNames ? colorNames.length : 4;
+    const colorHexes = colorNames
+      ? colorNames.map(name => PAINT.COLORS[name] || 0xffffff)
+      : [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88, 0xff88ff, 0x88ffff];
     const cam = scene.cameras.main;
     const isMobile = this.enabled;
 
@@ -333,7 +336,7 @@ export default class TouchControls {
 
     // Color buttons around the circle
     for (let i = 0; i < numColors; i++) {
-      const angle = -Math.PI / 2 + i * (2 * Math.PI / numColors);
+      const angle = -Math.PI / 2 - i * (2 * Math.PI / numColors);
       const x = cx + Math.cos(angle) * ORBIT_R;
       const y = cy + Math.sin(angle) * ORBIT_R;
       const color = colorHexes[i] || 0xffffff;
