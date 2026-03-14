@@ -9,17 +9,14 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.setCollideWorldBounds(true);
-    this.setDepth(4.5); // in front of shadows (2) and ladders (4)
+    this.setDepth(4.5);
 
     // Spritesheet is generated at 2x COP.HEIGHT — scale 0.5 for crisp rendering.
-    const F = COP.HEIGHT * 2;  // frame size in texture (2x display)
+    const F = COP.HEIGHT * 2;
     this.setScale(0.5);
-
-    // LINEAR filtering for smooth downscale
     this.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
-    // Physics body — proportional to character in the Walk_P frame.
-    // All values in texture coords (2x), Phaser applies scale automatically.
+    // Physics body in texture coords (2x), Phaser applies scale automatically.
     const FEET_Y = Math.round(F * 0.86);
     const bodyW = Math.round(F * 0.345);
     const bodyH = Math.round(F * 0.50);
@@ -27,10 +24,6 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     const bodyOffY = FEET_Y - bodyH;
     this.body.setSize(bodyW, bodyH);
     this.body.setOffset(bodyOffX, bodyOffY);
-
-    // Position sprite so body bottom (feet) sits on spawn y.
-    // body.bottom = sprite.y - F/2*scale + bodyOffY*scale + bodyH*scale
-    //             = sprite.y + (FEET_Y - F/2) * 0.5
     this.y = y - (FEET_Y - F / 2) * 0.5;
 
     // Start walk animation
@@ -39,26 +32,30 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     // Patrol bounds
     this.patrolLeft = patrolLeft;
     this.patrolRight = patrolRight;
-    this.direction = 1; // 1 = right, -1 = left
-
-    // Direction change cooldown — prevents flip-flopping at edges
+    this.direction = 1;
     this._dirCooldown = 0;
 
-    // AI State
-    this.state = 'PATROL'; // PATROL | DETECT | ALERT
-    this.alertTimer = 0;
-    this.alertDuration = 1500; // ms
+    // AI State: PATROL → SUSPICIOUS → CHASE → ALERT
+    //                          ↓ lost sight     ↓ lost sight
+    //                      PATROL          INVESTIGATE → PATROL
+    this.state = 'PATROL';
+    this.stateTimer = 0;
+    this.lastSeenX = 0;       // last known player X position
+    this.lastSeenY = 0;
+    this.chaseSeenTime = 0;   // accumulated time seeing player during chase
+    this._investigateDir = 1; // direction to look during investigate
+    this._investigateTurns = 0;
 
     // Detection zone (visual)
     this.detectionCone = scene.add.graphics();
     this.detectionCone.setDepth(4);
 
-    // Exclamation mark for alert
-    this.alertMark = scene.add.text(x, y - 30, '!', {
+    // Alert/status mark
+    this.alertMark = scene.add.text(x, y - 30, '?', {
       fontFamily: 'ChangaOne',
       fontSize: '24px',
       fontStyle: 'bold',
-      fill: '#ff3333',
+      fill: '#ffff00',
       stroke: '#330000', strokeThickness: 4
     }).setOrigin(0.5).setVisible(false).setDepth(10);
 
@@ -68,51 +65,89 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
   update(time, delta, player) {
     this.alertMark.setPosition(this.x, this.y - 40);
-
-    // Tick direction cooldown
     if (this._dirCooldown > 0) this._dirCooldown -= delta;
+
+    const canSee = this.canSeePlayer(player);
+
+    // Track last known position whenever we see the player
+    if (canSee && player) {
+      this.lastSeenX = player.x;
+      this.lastSeenY = player.y;
+    }
 
     switch (this.state) {
       case 'PATROL':
         this.patrol();
-        this.drawDetectionZone();
-        if (this.canSeePlayer(player)) {
-          this.enterDetect();
+        this.drawDetectionZone(0xffff00, 0.08);
+        if (canSee) {
+          this.enterSuspicious();
         }
         break;
 
-      case 'DETECT':
+      case 'SUSPICIOUS':
+        // Stop and watch — turn towards player
         this.setVelocityX(0);
-        if (this.anims.isPlaying && this.anims.currentAnim?.key === 'cop_walk') {
-          this.play('cop_idle');
-        }
-        this.alertTimer += delta;
-        if (this.alertTimer >= this.alertDuration) {
-          this.enterAlert(player);
-        }
-        if (!this.canSeePlayer(player)) {
+        if (this.anims.currentAnim?.key !== 'cop_idle') this.play('cop_idle');
+        this._facePoint(this.lastSeenX);
+        this.drawDetectionZone(0xff8800, 0.12);
+        this.stateTimer += delta;
+
+        if (canSee) {
+          if (this.stateTimer >= COP.SUSPICIOUS_TIME) {
+            this.enterChase();
+          }
+        } else {
+          // Lost sight — go back to patrol
           this.returnToPatrol();
         }
-        this.drawDetectionZone();
+        break;
+
+      case 'CHASE':
+        // Run towards player
+        this._facePoint(this.lastSeenX);
+        this._moveTowards(this.lastSeenX);
+        if (this.anims.currentAnim?.key !== 'cop_walk') this.play('cop_walk');
+        this.drawDetectionZone(0xff3300, 0.15);
+
+        if (canSee) {
+          this.chaseSeenTime += delta;
+          if (this.chaseSeenTime >= COP.CHASE_ALERT_TIME) {
+            this.enterAlert(player);
+          }
+        } else {
+          // Lost sight — investigate last known position
+          this.enterInvestigate();
+        }
+        break;
+
+      case 'INVESTIGATE':
+        this.stateTimer += delta;
+        this._investigate(delta);
+        this.drawDetectionZone(0xff8800, 0.10);
+
+        if (canSee) {
+          // Found again — resume chase
+          this.enterChase();
+        } else if (this.stateTimer >= COP.INVESTIGATE_TIME) {
+          this.returnToPatrol();
+        }
         break;
 
       case 'ALERT':
-        // Player caught — handled in GameScene
         break;
     }
   }
 
+  // --- PATROL ---
   patrol() {
     let wantFlip = false;
 
-    // --- Patrol bounds ---
     if (this.x <= this.patrolLeft && this.direction === -1) {
       wantFlip = true;
     } else if (this.x >= this.patrolRight && this.direction === 1) {
       wantFlip = true;
     }
 
-    // --- Edge detection: don't walk off platforms ---
     if (!wantFlip && this.body.blocked.down) {
       const probeX = this.x + this.direction * (this.body.halfWidth + 4);
       const probeY = this.body.bottom + 6;
@@ -121,19 +156,137 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
       }
     }
 
-    // Apply direction change with cooldown to prevent flip-flopping
     if (wantFlip && this._dirCooldown <= 0) {
       this.direction *= -1;
       this.setFlipX(this.direction === -1);
-      this._dirCooldown = 300; // ms — ignore further flips for 300ms
+      this._dirCooldown = 300;
     }
 
     this.setVelocityX(COP.SPEED * this.direction);
   }
 
-  /**
-   * Check if there is any solid platform/ground body at the given point.
-   */
+  // --- STATE TRANSITIONS ---
+  enterSuspicious() {
+    this.state = 'SUSPICIOUS';
+    this.stateTimer = 0;
+    this.alertMark.setVisible(true);
+    this.alertMark.setText('?');
+    this.alertMark.setStyle({ fill: '#ffff00' });
+    this.setTint(0xffaa00);
+  }
+
+  enterChase() {
+    this.state = 'CHASE';
+    this.stateTimer = 0;
+    this.chaseSeenTime = 0;
+    this.alertMark.setVisible(true);
+    this.alertMark.setText('!');
+    this.alertMark.setStyle({ fill: '#ff6600' });
+    this.setTint(COP.ALERT_COLOR);
+  }
+
+  enterInvestigate() {
+    this.state = 'INVESTIGATE';
+    this.stateTimer = 0;
+    this._investigateTurns = 0;
+    this.alertMark.setText('?');
+    this.alertMark.setStyle({ fill: '#ff8800' });
+  }
+
+  enterAlert(player) {
+    this.state = 'ALERT';
+    this.alertMark.setText('!');
+    this.alertMark.setStyle({ fill: '#ff3333' });
+    this.setVelocityX(0);
+    if (this.anims.currentAnim?.key !== 'cop_idle') this.play('cop_idle');
+    this.scene.events.emit('player-caught');
+  }
+
+  returnToPatrol() {
+    this.state = 'PATROL';
+    this.stateTimer = 0;
+    this.chaseSeenTime = 0;
+    this.alertMark.setVisible(false);
+    this.clearTint();
+    this.play('cop_walk');
+    this.setVelocityX(COP.SPEED * this.direction);
+  }
+
+  resetState() {
+    this.state = 'PATROL';
+    this.stateTimer = 0;
+    this.chaseSeenTime = 0;
+    this._dirCooldown = 0;
+    this.alertMark.setVisible(false);
+    this.clearTint();
+    this.play('cop_walk');
+    this.setVelocityX(COP.SPEED * this.direction);
+  }
+
+  // --- INVESTIGATE: walk to last known pos, look around ---
+  _investigate(delta) {
+    const dx = this.lastSeenX - this.x;
+    const dist = Math.abs(dx);
+
+    if (dist > 15) {
+      // Walk towards last seen position
+      this._facePoint(this.lastSeenX);
+      this._moveTowards(this.lastSeenX, COP.SPEED * 0.7);
+      if (this.anims.currentAnim?.key !== 'cop_walk') this.play('cop_walk');
+    } else {
+      // At position — look around (turn every 600ms)
+      this.setVelocityX(0);
+      if (this.anims.currentAnim?.key !== 'cop_idle') this.play('cop_idle');
+
+      const lookInterval = 600;
+      const turnIndex = Math.floor(this.stateTimer / lookInterval);
+      if (turnIndex > this._investigateTurns) {
+        this._investigateTurns = turnIndex;
+        this.direction *= -1;
+        this.setFlipX(this.direction === -1);
+      }
+    }
+  }
+
+  // --- HELPERS ---
+  _facePoint(px) {
+    const newDir = px > this.x ? 1 : -1;
+    if (newDir !== this.direction) {
+      this.direction = newDir;
+      this.setFlipX(this.direction === -1);
+    }
+  }
+
+  _moveTowards(px, speed) {
+    speed = speed || COP.CHASE_SPEED;
+    // Respect patrol bounds and edges
+    let wantFlip = false;
+    if (this.x <= this.patrolLeft && this.direction === -1) wantFlip = true;
+    if (this.x >= this.patrolRight && this.direction === 1) wantFlip = true;
+
+    if (!wantFlip && this.body.blocked.down) {
+      const probeX = this.x + this.direction * (this.body.halfWidth + 4);
+      const probeY = this.body.bottom + 6;
+      if (!this._hasGroundAt(probeX, probeY)) wantFlip = true;
+    }
+
+    if (wantFlip) {
+      this.setVelocityX(0);
+      return;
+    }
+
+    this.setVelocityX(speed * this.direction);
+  }
+
+  canSeePlayer(player) {
+    if (!player || player.isHidden) return false;
+    const dx = player.x - this.x;
+    const dy = Math.abs(player.y - this.y);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const inFront = (this.direction === 1 && dx > 0) || (this.direction === -1 && dx < 0);
+    return inFront && dist < COP.DETECTION_RANGE && dy < 80;
+  }
+
   _hasGroundAt(px, py) {
     const scene = this.scene;
     const groups = [scene.platforms, scene.ground];
@@ -150,79 +303,26 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     return false;
   }
 
-  canSeePlayer(player) {
-    if (!player || player.isHidden) return false;
-
-    const dx = player.x - this.x;
-    const dy = Math.abs(player.y - this.y);
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    // Must be in front and within range
-    const inFront = (this.direction === 1 && dx > 0) || (this.direction === -1 && dx < 0);
-    return inFront && dist < COP.DETECTION_RANGE && dy < 80;
-  }
-
-  drawDetectionZone() {
+  drawDetectionZone(color, alpha) {
     this.detectionCone.clear();
-
     const dir = this.direction;
     const startX = this.x;
     const startY = this.y;
     const range = COP.DETECTION_RANGE;
 
-    // Draw triangular detection zone
-    this.detectionCone.fillStyle(0xffff00, 0.08);
+    this.detectionCone.fillStyle(color, alpha);
     this.detectionCone.fillTriangle(
       startX, startY - 20,
       startX + range * dir, startY - 40,
       startX + range * dir, startY + 20
     );
 
-    // Border
-    this.detectionCone.lineStyle(1, 0xffff00, 0.2);
+    this.detectionCone.lineStyle(1, color, alpha * 2.5);
     this.detectionCone.strokeTriangle(
       startX, startY - 20,
       startX + range * dir, startY - 40,
       startX + range * dir, startY + 20
     );
-  }
-
-  enterDetect() {
-    this.state = 'DETECT';
-    this.alertTimer = 0;
-    this.alertMark.setVisible(true);
-    this.alertMark.setText('?');
-    this.alertMark.setStyle({ fill: '#ffff00' });
-    this.setTint(COP.ALERT_COLOR);
-  }
-
-  enterAlert(player) {
-    this.state = 'ALERT';
-    this.alertMark.setText('!');
-    this.alertMark.setStyle({ fill: '#ff3333' });
-    this.setVelocityX(0);
-
-    // Emit event for GameScene to handle
-    this.scene.events.emit('player-caught');
-  }
-
-  returnToPatrol() {
-    this.state = 'PATROL';
-    this.alertTimer = 0;
-    this.alertMark.setVisible(false);
-    this.clearTint();
-    this.play('cop_walk');
-    this.setVelocityX(COP.SPEED * this.direction);
-  }
-
-  resetState() {
-    this.state = 'PATROL';
-    this.alertTimer = 0;
-    this._dirCooldown = 0;
-    this.alertMark.setVisible(false);
-    this.clearTint();
-    this.play('cop_walk');
-    this.setVelocityX(COP.SPEED * this.direction);
   }
 
   destroy() {

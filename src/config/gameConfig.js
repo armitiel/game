@@ -52,12 +52,16 @@ export const PLAYER = {
 
 export const COP = {
   SPEED: 60,
+  CHASE_SPEED: 100,          // faster when chasing player
   DETECTION_RANGE: 180,
+  SUSPICIOUS_TIME: 800,      // ms — how long cop watches before chasing
+  CHASE_ALERT_TIME: 1200,    // ms — how long cop must see player while chasing to catch
+  INVESTIGATE_TIME: 3000,    // ms — how long cop searches at last known position
   WIDTH: 24,
-  HEIGHT: 151,         // 168 * 0.9 — 10% smaller
-  COLOR: 0x3366ff,     // niebieski
+  HEIGHT: 151,
+  COLOR: 0x3366ff,
   ALERT_COLOR: 0xff3333,
-  FRAME_SIZE: 128      // Walk_P frame size after downscale
+  FRAME_SIZE: 128
 };
 
 export const SHADOW = {
