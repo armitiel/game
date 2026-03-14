@@ -2089,21 +2089,22 @@ export default class GameScene extends Phaser.Scene {
     const muteX = gw - Math.round(36 * uiScale);
     this.muteBtnHit = this.add.rectangle(muteX, centerY, Math.round(44 * uiScale), barH, 0x000000, 0)
       .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
-    this.muteBtn = this.add.text(muteX, centerY, '\u266B', {
-      font: `bold ${Math.round(18 * uiScale)}px ChangaOne, monospace`,
-      fill: '#00ff88',
-    }).setOrigin(0.5).setDepth(101).setScrollFactor(0);
+    this.muteBtn = this.add.image(muteX, centerY, 'icon_music')
+      .setDisplaySize(Math.round(30 * uiScale), Math.round(30 * uiScale))
+      .setOrigin(0.5).setDepth(101).setScrollFactor(0);
+    // Ensure the texture uses linear filtering so it doesn't look blocky when scaled.
+    this.muteBtn.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    // Use white (no tint) by default so the icon keeps its original colors.
+    this.muteBtn.setTint(0xffffff);
 
     this.muteBtnHit.on('pointerdown', () => {
       this.musicOn = !this.musicOn;
       if (this.musicOn) {
         this.bgm.resume();
-        this.muteBtn.setText('\u266B');
-        this.muteBtn.setStyle({ fill: '#00ff88' });
+        this.muteBtn.setTint(0xffffff);
       } else {
         this.bgm.pause();
-        this.muteBtn.setText('\u266C');
-        this.muteBtn.setStyle({ fill: '#ff6666' });
+        this.muteBtn.setTint(0x999999);
       }
     });
 

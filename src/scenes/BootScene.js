@@ -130,6 +130,8 @@ export default class BootScene extends Phaser.Scene {
 
     // UI pictograms (SVG)
     this.load.svg('icon_hand', 'assets/sprites/elementy/hand.svg', { width: 64, height: 64 });
+    // Music icon
+    this.load.image('icon_music', 'assets/sprites/elementy/nutka.png');
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
 
     // === Load paint arm assets ===
