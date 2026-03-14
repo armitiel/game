@@ -80,7 +80,7 @@ export default class TouchControls {
 
     let originX = hintX, originY = hintY;
     const DEAD_ZONE = 12;
-    const DEAD_ZONE_PAINT = 30;
+    const DEAD_ZONE_PAINT = 14;
 
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
@@ -222,6 +222,8 @@ export default class TouchControls {
     e.bg.on('pointerdown', () => { this._eJustPressed = true; });
 
     this.buttons.push(jump.bg, jump.el, act.bg, act.el, e.bg, e.el);
+    // Separate list of action buttons (hidden during paint mode, joystick stays active)
+    this.actionButtons = [jump.bg, jump.el, act.bg, act.el, e.bg, e.el];
 
     // Save refs for highlightButton
     this._actBg   = act.bg;
@@ -287,8 +289,10 @@ export default class TouchControls {
    * Called when entering/exiting paint mode.
    */
   _setMainButtonsVisible(visible) {
-    if (!this.buttons) return;
-    this.buttons.forEach(b => {
+    // Only hide/show action buttons (JUMP, ACT, E) — joystick stays active for paint mode
+    const list = this.actionButtons || this.buttons;
+    if (!list) return;
+    list.forEach(b => {
       if (!b || !b.setVisible) return;
       b.setVisible(visible);
       if (b.input) {
