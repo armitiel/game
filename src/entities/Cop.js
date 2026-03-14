@@ -3,7 +3,7 @@ import { COP } from '../config/gameConfig.js';
 
 export default class Cop extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, patrolLeft, patrolRight) {
-    super(scene, x, y, 'cop_sheet', 0);
+    super(scene, x, y, 'cop_sheet', 1);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -11,16 +11,17 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.setCollideWorldBounds(true);
     this.setDepth(4.5); // in front of shadows (2) and ladders (4)
 
-    // Scale 128px frame to match game world (similar height to player ~60px body)
-    const targetH = COP.HEIGHT;
-    const copScale = targetH / 128;
+    // Scale 128px frame down to game-world size
+    // Character occupies ~60% of the 128px frame vertically
+    const copScale = COP.HEIGHT / 128;
     this.setScale(copScale);
 
-    // Physics body — centered on character within the 128px frame
-    const bodyW = Math.round(24 / copScale);
-    const bodyH = Math.round((targetH - 4) / copScale);
-    const bodyOffX = Math.round((128 - bodyW) / 2);
-    const bodyOffY = Math.round(128 - bodyH - 4 / copScale);
+    // Physics body — the character sits in the lower ~70% of the frame, centered horizontally
+    // In 128px frame coords: character is ~40px wide, ~76px tall, starting at ~y=40
+    const bodyW = 40;
+    const bodyH = 76;
+    const bodyOffX = (128 - bodyW) / 2;  // center horizontally
+    const bodyOffY = 128 - bodyH - 6;    // feet near bottom with small margin
     this.body.setSize(bodyW, bodyH);
     this.body.setOffset(bodyOffX, bodyOffY);
 

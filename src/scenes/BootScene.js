@@ -173,16 +173,20 @@ export default class BootScene extends Phaser.Scene {
       copCtx.drawImage(src, 0, 0, src.width, src.height, i * copFrameW, 0, copFrameW, copFrameH);
       this.textures.remove(`cop_walk_raw_${i + 1}`);
     }
-    // Add as canvas texture, then manually define spritesheet frames
+    // Add as canvas texture, then manually define spritesheet frames (1-based to avoid __BASE conflict)
     const copTex = this.textures.addCanvas('cop_sheet', copSheetCanvas);
     for (let i = 0; i < copFrameCount; i++) {
-      copTex.add(i, 0, i * copFrameW, 0, copFrameW, copFrameH);
+      copTex.add(i + 1, 0, i * copFrameW, 0, copFrameW, copFrameH);
     }
 
-    // Cop walk animation
+    // Cop walk animation (frames 1..24)
+    const copWalkFrames = [];
+    for (let i = 1; i <= copFrameCount; i++) {
+      copWalkFrames.push({ key: 'cop_sheet', frame: i });
+    }
     this.anims.create({
       key: 'cop_walk',
-      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 0, end: copFrameCount - 1 }),
+      frames: copWalkFrames,
       frameRate: 18,
       repeat: -1
     });
@@ -190,7 +194,7 @@ export default class BootScene extends Phaser.Scene {
     // Cop idle — first frame held
     this.anims.create({
       key: 'cop_idle',
-      frames: [{ key: 'cop_sheet', frame: 0 }],
+      frames: [{ key: 'cop_sheet', frame: 1 }],
       frameRate: 1,
       repeat: 0
     });
