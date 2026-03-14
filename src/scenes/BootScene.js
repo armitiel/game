@@ -156,27 +156,37 @@ export default class BootScene extends Phaser.Scene {
     this.load.json('painting_mural_big', 'assets/paintings/pikachu_mural.json');
     this.load.json('painting_Nowy', 'assets/paintings/Nowy_mural.json');
 
-    // === Generate other textures procedurally ===
+    // === Generate non-cop textures procedurally (cop needs loaded assets → done in create()) ===
     this.generateOtherTextures();
   }
 
-  generateOtherTextures() {
-    // Cop walk spritesheet — combine 24 raw Walk_P frames into a single sheet
-    const copFrameW = 128, copFrameH = 128, copFrameCount = 24;
+  /** Build cop spritesheet from loaded Walk_P frames — MUST run in create() after assets are ready.
+   *  Generates frames directly at COP.HEIGHT size (no scaling needed at runtime).
+   *  This gives much better quality than downscaling to 128 then upscaling. */
+  generateCopSheet() {
+    // Generate at DISPLAY size — 1080→COP.HEIGHT directly, scale=1 at runtime
+    const copFrameSize = COP.HEIGHT;
+    const copFrameCount = 24;
     const copSheetCanvas = document.createElement('canvas');
-    copSheetCanvas.width = copFrameW * copFrameCount;
-    copSheetCanvas.height = copFrameH;
+    copSheetCanvas.width = copFrameSize * copFrameCount;
+    copSheetCanvas.height = copFrameSize;
     const copCtx = copSheetCanvas.getContext('2d');
     copCtx.imageSmoothingEnabled = true;
+    copCtx.imageSmoothingQuality = 'high';
     for (let i = 0; i < copFrameCount; i++) {
-      const src = this.textures.get(`cop_walk_raw_${i + 1}`).getSourceImage();
-      copCtx.drawImage(src, 0, 0, src.width, src.height, i * copFrameW, 0, copFrameW, copFrameH);
-      this.textures.remove(`cop_walk_raw_${i + 1}`);
+      const rawKey = `cop_walk_raw_${i + 1}`;
+      if (!this.textures.exists(rawKey)) {
+        console.warn(`[COP] Missing texture: ${rawKey}`);
+        continue;
+      }
+      const src = this.textures.get(rawKey).getSourceImage();
+      copCtx.drawImage(src, 0, 0, src.width, src.height, i * copFrameSize, 0, copFrameSize, copFrameSize);
+      this.textures.remove(rawKey);
     }
     // Add as canvas texture, then manually define spritesheet frames (1-based to avoid __BASE conflict)
     const copTex = this.textures.addCanvas('cop_sheet', copSheetCanvas);
     for (let i = 0; i < copFrameCount; i++) {
-      copTex.add(i + 1, 0, i * copFrameW, 0, copFrameW, copFrameH);
+      copTex.add(i + 1, 0, i * copFrameSize, 0, copFrameSize, copFrameSize);
     }
 
     // Cop walk animation (frames 1..24)
@@ -187,7 +197,7 @@ export default class BootScene extends Phaser.Scene {
     this.anims.create({
       key: 'cop_walk',
       frames: copWalkFrames,
-      frameRate: 18,
+      frameRate: 22,
       repeat: -1
     });
 
@@ -199,6 +209,10 @@ export default class BootScene extends Phaser.Scene {
       repeat: 0
     });
 
+    console.log('[COP] Spritesheet generated:', copFrameCount, 'frames @', copFrameSize + 'px (native display size)');
+  }
+
+  generateOtherTextures() {
     // Legacy 'cop' texture fallback (for any code that references it)
     const copGfx = this.make.graphics({ add: false });
     copGfx.fillStyle(COP.COLOR, 1);
@@ -389,6 +403,9 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create() {
+    // === Build cop spritesheet from loaded Walk_P frames ===
+    this.generateCopSheet();
+
     // ==============================================
     // ANIMATION SETUP — all from unified player_sheet
     // idle: 0-17, walk: 18-41, jump: 42-61, push: 62-85,
