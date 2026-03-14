@@ -17,7 +17,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
     // Physics body — proportional to character in the Walk_P frame.
     // Feet at ~79% of frame height (measured from Walk_P PNGs).
-    const FEET_Y = Math.round(F * 0.79);
+    const FEET_Y = Math.round(F * 0.82);
     const bodyW = Math.round(F * 0.345);     // ~58 (proportional to 44/128)
     const bodyH = Math.round(F * 0.50);      // ~84 (proportional to 64/128)
     const bodyOffX = Math.round((F - bodyW) / 2);  // center horizontally
