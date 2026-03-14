@@ -174,7 +174,7 @@ export default class TouchControls {
     const jumpX = cam.width - 85;
     const jumpY = cam.height - 95;
     const actX  = cam.width - 85;
-    const actY  = cam.height - 200;
+    const actY  = cam.height - 225;
     const eX    = cam.width - 215;
     const eY    = cam.height - 90;
 
