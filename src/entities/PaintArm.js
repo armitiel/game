@@ -14,12 +14,12 @@ const ARM_SEGMENT_COUNT = 8;     // more segments = smoother curve
 const ARM_SEG_WIDTH = 16;        // display width (thickness) of each arm segment
 const HAND_DISPLAY_W = 18;       // display width of hand
 const HAND_DISPLAY_H = 18;       // display height of hand
-const HAND_SPEED = 80;           // pixels per second hand moves (keyboard)
-const HAND_SPEED_TOUCH = 45;     // slower on mobile for precision painting
+const HAND_SPEED = 200;          // pixels per second hand moves (keyboard)
+const HAND_SPEED_TOUCH = 140;    // mobile touch joystick speed
 const ROPE_STIFFNESS = 0.7;     // high = stiff, nearly straight
 const GRAVITY_SAG = 1.5;        // minimal curve even at full extension
-const MAX_ARM_LENGTH = 55;      // max distance from shoulder to hand in pixels
-const MAX_ARM_LEFT = 25;        // max pixels hand can reach past shoulder to the left (behind body)
+const MAX_ARM_LENGTH = 90;      // max distance from shoulder to hand in pixels
+const MAX_ARM_LEFT = 45;        // max pixels hand can reach past shoulder to the left (behind body)
 const MIN_SAG_DIST = 15;        // below this distance, sag is reduced to zero
 
 export default class PaintArm {
