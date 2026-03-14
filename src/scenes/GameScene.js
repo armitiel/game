@@ -2064,24 +2064,36 @@ export default class GameScene extends Phaser.Scene {
     // We approximate it based on the wall icon position/size and expected text width.
     const counterX = wallIconX + Math.round(wallIconSize * 1.1 + counterFontSize * 0.6);
 
-    this.hudHearts = [];
+    this.hudHeart = null;
     let heartsEndX = counterX + Math.round(30 * uiScale);
     if (this.mode === 'stealth') {
       this._addingHud = true;
-      const heartScale = uiScale * 24 / 40;
-      const heartSpacing = Math.round(28 * uiScale);
-      // Reduce gap between mural counter and hearts
-      const heartStartX = counterX + Math.round(8 * uiScale);
-      for (let i = 0; i < this.player.maxHp; i++) {
-        const hx = heartStartX + i * heartSpacing;
-        const full = this.add.image(hx, centerY, 'heart_icon')
-          .setDepth(101).setScrollFactor(0).setScale(heartScale);
-        const empty = this.add.image(hx, centerY, 'heart_icon')
-          .setDepth(100.5).setScrollFactor(0).setScale(heartScale)
-          .setTint(0x331111).setAlpha(0.5);
-        this.hudHearts.push({ full, empty });
-        heartsEndX = hx + Math.round(14 * uiScale);
-      }
+      const heartScale = uiScale * 41 / (40 * 5); // 5x texture, similar sizing to cans
+      const heartX = counterX + Math.round(16 * uiScale);
+
+      // Empty background heart (dark, always visible)
+      const heartEmpty = this.add.image(heartX, centerY, 'hud_heart_fill')
+        .setDepth(100.2).setScrollFactor(0).setScale(heartScale)
+        .setTint(0x222233).setAlpha(0.5);
+
+      // Filled red heart (cropped from top based on HP ratio)
+      const heartFill = this.add.image(heartX, centerY, 'hud_heart_fill')
+        .setDepth(100.5).setScrollFactor(0).setScale(heartScale);
+
+      // Outline shell (always visible so heart shape is clear at low HP)
+      const heartShell = this.add.image(heartX, centerY, 'hud_heart_shell')
+        .setDepth(101).setScrollFactor(0).setScale(heartScale).setAlpha(0.9);
+
+      // Smooth filtering
+      heartEmpty.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      heartFill.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      heartShell.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+
+      const fillTexH = heartFill.texture.getSourceImage().height;
+      const fillTexW = heartFill.texture.getSourceImage().width;
+
+      this.hudHeart = { fill: heartFill, empty: heartEmpty, shell: heartShell, fillTexW, fillTexH };
+      heartsEndX = heartX + Math.round(20 * uiScale);
       this._addingHud = false;
     }
 
@@ -2163,7 +2175,7 @@ export default class GameScene extends Phaser.Scene {
     const slotElements = [];
     this.hudSlots.forEach(s => slotElements.push(s.emptyFill, s.shell, s.fill));
     const heartElements = [];
-    this.hudHearts.forEach(h => heartElements.push(h.full, h.empty));
+    if (this.hudHeart) heartElements.push(this.hudHeart.fill, this.hudHeart.empty, this.hudHeart.shell);
 
     const hudElements = [
       this.hudBgBar, this.hudBgMute,
@@ -2190,8 +2202,15 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateHearts() {
-    for (let i = 0; i < this.hudHearts.length; i++) {
-      this.hudHearts[i].full.setVisible(i < this.player.hp);
+    if (!this.hudHeart) return;
+    const ratio = this.player.hp / this.player.maxHp;
+    const h = this.hudHeart;
+    if (ratio > 0.001) {
+      h.fill.setVisible(true);
+      const cropTop = Math.round(h.fillTexH * (1 - ratio));
+      h.fill.setCrop(0, cropTop, h.fillTexW, h.fillTexH - cropTop);
+    } else {
+      h.fill.setVisible(false);
     }
   }
 

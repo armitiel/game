@@ -494,6 +494,9 @@ export default class BootScene extends Phaser.Scene {
     // === Generate 5x HUD shell/fill textures ===
     this._generateHudShellAndFill();
 
+    // === Generate HUD heart fill + shell textures ===
+    this._generateHudHeartTextures();
+
     // === Register palette colors from painting JSONs ===
     this.registerPaintingPalettes();
 
@@ -535,6 +538,75 @@ export default class BootScene extends Phaser.Scene {
 
     ctx.putImageData(imgData, 0, 0);
     this.textures.addCanvas('hud_can_empty', canvas);
+  }
+
+  /**
+   * Generate HUD heart textures: a filled red heart and a dark outline-only shell.
+   * Uses the same crop-from-top technique as paint cans for health display.
+   */
+  _generateHudHeartTextures() {
+    const hudScale = 5;
+    const src = this.textures.get('heart_icon').getSourceImage();
+    const w = src.width * hudScale;
+    const h = src.height * hudScale;
+
+    // hud_heart_fill — full red heart (5x upscaled)
+    const fillC = document.createElement('canvas');
+    fillC.width = w; fillC.height = h;
+    const fillCtx = fillC.getContext('2d');
+    fillCtx.imageSmoothingEnabled = true;
+    fillCtx.drawImage(src, 0, 0, w, h);
+    this.textures.addCanvas('hud_heart_fill', fillC);
+
+    // hud_heart_shell — outline-only version for empty state
+    // Extract edge pixels from the heart to create a visible outline
+    const shellC = document.createElement('canvas');
+    shellC.width = w; shellC.height = h;
+    const shellCtx = shellC.getContext('2d');
+    shellCtx.imageSmoothingEnabled = true;
+    shellCtx.drawImage(src, 0, 0, w, h);
+
+    const imgData = shellCtx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+
+    // Build alpha map for edge detection
+    const alphaMap = new Uint8Array(w * h);
+    for (let i = 0; i < d.length; i += 4) {
+      alphaMap[i >> 2] = d[i + 3];
+    }
+
+    // Detect edge pixels (opaque pixels adjacent to transparent ones)
+    const edgeThickness = Math.max(2, Math.round(hudScale * 0.8));
+    const isEdge = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        if (alphaMap[idx] < 30) continue;
+        // Check if any pixel within edgeThickness is transparent
+        let nearEdge = false;
+        for (let dy = -edgeThickness; dy <= edgeThickness && !nearEdge; dy++) {
+          for (let dx = -edgeThickness; dx <= edgeThickness && !nearEdge; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || nx >= w || ny < 0 || ny >= h) { nearEdge = true; break; }
+            if (alphaMap[ny * w + nx] < 30) nearEdge = true;
+          }
+        }
+        if (nearEdge) isEdge[idx] = 1;
+      }
+    }
+
+    // Keep only edge pixels, tint them dark red
+    for (let i = 0; i < d.length; i += 4) {
+      const idx = i >> 2;
+      if (isEdge[idx]) {
+        d[i] = 120; d[i + 1] = 20; d[i + 2] = 20;
+        d[i + 3] = 200;
+      } else {
+        d[i + 3] = 0; // make interior transparent
+      }
+    }
+    shellCtx.putImageData(imgData, 0, 0);
+    this.textures.addCanvas('hud_heart_shell', shellC);
   }
 
   /**
