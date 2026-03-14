@@ -296,11 +296,10 @@ export default class TouchControls {
    * Main controls (joystick + action buttons) are hidden until exit.
    */
   createColorButtons(scene, onSelect, colorNames, onExit) {
-    if (!this.enabled) return;
     this.colorButtons = [];
 
-    // Hide joystick + action buttons while selecting paint color
-    this._setMainButtonsVisible(false);
+    // Hide joystick + action buttons while selecting paint color (mobile only)
+    if (this.enabled) this._setMainButtonsVisible(false);
 
     const colorHexes = [0xff3344, 0x3388ff, 0xffdd33, 0x33ff88, 0xff88ff, 0x88ffff];
     const numColors = colorNames ? colorNames.length : 4;

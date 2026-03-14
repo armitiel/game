@@ -1601,39 +1601,33 @@ export default class GameScene extends Phaser.Scene {
       this._addingHud = false;
     }
 
-    // Color selector HUD — touch buttons on mobile, world-space boxes on desktop
-    const isMobileDevice = this.touch && this.touch.enabled;
-    if (isMobileDevice) {
-      // Flag prevents addedtoscene handler from ignoring these on uiCam
-      this._addingHud = true;
-      this.touch.createColorButtons(this, (colorIdx) => {
-        if (this.pbn) {
-          this.pbn.setSelectedColor(colorIdx);
-          this.player.paintColor = this.pbn.getSelectedColorHex();
-          this.paintArm.setCanColor(this.pbn.getSelectedColorName());
-          this.updateTouchColorHighlight();
-        }
-      }, this.pbn.colorMap, () => {
-        if (this.player.isPainting) {
-          this.player.stopPainting();
-          this.cancelPainting();
+    // Color selector HUD — circular buttons (same UI on mobile and desktop)
+    this._addingHud = true;
+    this.touch.createColorButtons(this, (colorIdx) => {
+      if (this.pbn) {
+        this.pbn.setSelectedColor(colorIdx);
+        this.player.paintColor = this.pbn.getSelectedColorHex();
+        this.paintArm.setCanColor(this.pbn.getSelectedColorName());
+        this.updateTouchColorHighlight();
+      }
+    }, this.pbn.colorMap, () => {
+      if (this.player.isPainting) {
+        this.player.stopPainting();
+        this.cancelPainting();
+      }
+    });
+    this._addingHud = false;
+    // Hide from main cam (they render on uiCam only)
+    if (this.touch.colorButtons) {
+      const allColorEls = [];
+      this.touch.colorButtons.forEach(btn => {
+        allColorEls.push(btn.bg, btn.text);
+        if (this._hudElements) {
+          this._hudElements.add(btn.bg);
+          this._hudElements.add(btn.text);
         }
       });
-      this._addingHud = false;
-      // Hide from main cam (they render on uiCam only)
-      if (this.touch.colorButtons) {
-        const allColorEls = [];
-        this.touch.colorButtons.forEach(btn => {
-          allColorEls.push(btn.bg, btn.text);
-          if (this._hudElements) {
-            this._hudElements.add(btn.bg);
-            this._hudElements.add(btn.text);
-          }
-        });
-        this.cameras.main.ignore(allColorEls);
-      }
-    } else {
-      this.createColorSelector(bounds);
+      this.cameras.main.ignore(allColorEls);
     }
 
     // Color switch keys (1-3 or 1-4 depending on painting colors)
@@ -1686,97 +1680,7 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  createColorSelector(bounds) {
-    this.colorSelectorElements = [];
-    this._colorSelectorBounds = bounds;
-    const colorNames = this.pbn.colorMap;
-    const boxSize = 28;   // screen-space pixels (UI camera, zoom=1)
-    const gap = 6;
-    this._cselBoxSize = boxSize;
-    this._cselGap = gap;
-
-    // Create on UI camera so they're always visible regardless of world zoom
-    this._addingHud = true;
-    for (let i = 0; i < colorNames.length; i++) {
-      const hex = PAINT.COLORS[colorNames[i]] || 0xffffff;
-      const hasColor = this.player.hasPaint(colorNames[i].toLowerCase());
-      const alpha = hasColor ? 0.9 : 0.25;
-
-      const box = this.add.rectangle(0, 0, boxSize, boxSize, hex, alpha)
-        .setDepth(200).setStrokeStyle(1, 0xffffff, 0.5);
-      const num = this.add.text(0, 0, String(i + 1), {
-        font: 'bold 11px ChangaOne, monospace', fill: '#000000'
-      }).setOrigin(0.5).setDepth(200.1).setAlpha(hasColor ? 1 : 0.3);
-
-      this.colorSelectorElements.push(box, num);
-    }
-    this._addingHud = false;
-
-    // Hide from main camera — they live on uiCam only
-    this.cameras.main.ignore(this.colorSelectorElements);
-
-    this.updateColorSelectorPosition();
-    this.updateColorSelectorHighlight();
-  }
-
-  updateColorSelectorPosition() {
-    if (!this.colorSelectorElements || this.colorSelectorElements.length === 0) return;
-
-    const numColors = this.colorSelectorElements.length / 2;
-    const boxSize = this._cselBoxSize || 28;
-    const gap = this._cselGap || 6;
-    const totalH = numColors * (boxSize + gap) - gap;
-
-    // Elements live on uiCam (zoom=1, scroll=0) — use screen coordinates
-    const cam = this.cameras.main;
-    const gw = this.scale.width;
-    const gh = this.scale.height;
-    const margin = 14;
-
-    // Decide side based on player position relative to the MURAL center
-    // so the selector stays on one side consistently while painting
-    const wv = cam.worldView;
-    const playerScreenY = ((this.player.y - wv.y) / wv.height) * gh;
-
-    const b = this._colorSelectorBounds;
-    const muralCenterX = b ? (b.x + b.w / 2) : this.player.x;
-    const playerOnLeftOfMural = this.player.x < muralCenterX;
-    const baseX = playerOnLeftOfMural
-      ? margin + boxSize / 2                   // left edge
-      : gw - margin - boxSize / 2;             // right edge
-
-    // Vertically centred on player's screen Y, clamped to viewport
-    const clampedY = Phaser.Math.Clamp(
-      playerScreenY - totalH / 2,
-      margin,
-      gh - totalH - margin
-    );
-
-    for (let i = 0; i < numColors; i++) {
-      const box = this.colorSelectorElements[i * 2];
-      const num = this.colorSelectorElements[i * 2 + 1];
-      const cy = clampedY + i * (boxSize + gap) + boxSize / 2;
-      box.setPosition(baseX, cy);
-      num.setPosition(baseX, cy);
-    }
-  }
-
   updateColorSelectorHighlight() {
-    // Desktop world-space selector
-    if (this.colorSelectorElements && this.pbn) {
-      const sel = this.pbn.selectedColorIndex;
-      const numColors = this.pbn.colorMap.length;
-      for (let i = 0; i < numColors; i++) {
-        const box = this.colorSelectorElements[i * 2];
-        if (!box) continue;
-        if (i === sel) {
-          box.setStrokeStyle(2, 0xffffff, 1);
-        } else {
-          box.setStrokeStyle(1, 0xffffff, 0.3);
-        }
-      }
-    }
-    // Mobile touch color buttons
     this.updateTouchColorHighlight();
   }
 
@@ -2585,8 +2489,7 @@ export default class GameScene extends Phaser.Scene {
         }
       }
 
-      // Keep color selector following player
-      this.updateColorSelectorPosition();
+      // Color selector is fixed on screen (circular buttons via TouchControls)
 
       const cursors = this.player.cursors;
       const wasd = this.player.wasdKeys;
