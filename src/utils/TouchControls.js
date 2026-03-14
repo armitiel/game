@@ -306,12 +306,12 @@ export default class TouchControls {
     const numColors = colorNames ? colorNames.length : 4;
     const cam = scene.cameras.main;
 
-    // Circle layout — centered on screen
-    const cx = cam.width / 2;
+    // Circle layout — right side of screen so it doesn't cover the play field
+    const cx = cam.width - 180;
     const cy = cam.height / 2;
-    const ORBIT_R = 135; // radius of the ring of color buttons
-    const BTN_R   = 48;  // color button radius
-    const EXIT_R  = 46;  // center exit button radius
+    const ORBIT_R = 115; // radius of the ring of color buttons
+    const BTN_R   = 56;  // color button radius
+    const EXIT_R  = 52;  // center exit button radius
 
     // Color buttons around the circle
     for (let i = 0; i < numColors; i++) {
@@ -326,9 +326,9 @@ export default class TouchControls {
         .setInteractive();
 
       const text = scene.add.text(x, y, String(i + 1), {
-        font: 'bold 30px ChangaOne, monospace',
-        fill: '#ffffff', stroke: '#000000', strokeThickness: 4
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.9);
+        font: 'bold 52px ChangaOne, monospace',
+        fill: '#ffffff', stroke: '#000000', strokeThickness: 6
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.95);
 
       bg.on('pointerdown', () => {
         this.colorButtons.forEach((btn, idx) => {
@@ -348,8 +348,8 @@ export default class TouchControls {
       .setStrokeStyle(3, 0xff4444, 0.85)
       .setInteractive();
     const exitText = scene.add.text(cx, cy, '✕', {
-      font: 'bold 40px ChangaOne, monospace', fill: '#ff4444',
-      stroke: '#110000', strokeThickness: 5
+      font: 'bold 64px ChangaOne, monospace', fill: '#ff4444',
+      stroke: '#110000', strokeThickness: 7
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setAlpha(1);
 
     exitBg.on('pointerdown', () => { if (onExit) onExit(); });
