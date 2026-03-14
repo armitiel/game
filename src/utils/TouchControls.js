@@ -326,8 +326,9 @@ export default class TouchControls {
         .setInteractive();
 
       const text = scene.add.text(x, y, String(i + 1), {
-        font: 'bold 52px ChangaOne, monospace',
-        fill: '#ffffff', stroke: '#000000', strokeThickness: 6
+        fontFamily: 'ChangaOne, monospace', fontSize: '48px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 6,
+        padding: { x: 4, y: 4 }
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.95);
 
       bg.on('pointerdown', () => {
@@ -348,8 +349,9 @@ export default class TouchControls {
       .setStrokeStyle(3, 0xff4444, 0.85)
       .setInteractive();
     const exitText = scene.add.text(cx, cy, '✕', {
-      font: 'bold 64px ChangaOne, monospace', fill: '#ff4444',
-      stroke: '#110000', strokeThickness: 7
+      fontFamily: 'ChangaOne, monospace', fontSize: '56px', fontStyle: 'bold',
+      color: '#ff4444', stroke: '#110000', strokeThickness: 7,
+      padding: { x: 4, y: 4 }
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setAlpha(1);
 
     exitBg.on('pointerdown', () => { if (onExit) onExit(); });
