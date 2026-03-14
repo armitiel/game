@@ -2594,18 +2594,12 @@ export default class GameScene extends Phaser.Scene {
       };
       const isTouch = !!(t && t.enabled);
 
-      // Mouse painting on desktop: when mouse button is held, drive hand to mouse world pos
+      // Mouse painting on desktop: drive hand to mouse position (no click required)
       let mouseWorld = null;
       if (!isTouch) {
-        const pointer = this.input.manager.activePointer;
-        if (pointer.buttons & 1) { // left mouse button held (raw state, not consumed by UI)
-          const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-          const b = this.paintArm.bounds;
-          if (b) {
-            // Allow painting even slightly outside bounds — clamp happens in PaintArm
-            mouseWorld = { x: worldPoint.x, y: worldPoint.y };
-          }
-        }
+        const pointer = this.input.activePointer;
+        const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        mouseWorld = { x: worldPoint.x, y: worldPoint.y };
       }
 
       const handPos = this.paintArm.update(delta, input, this.player.x, this.player.y, isTouch, mouseWorld);
