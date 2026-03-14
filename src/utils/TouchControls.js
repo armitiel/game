@@ -196,8 +196,9 @@ export default class TouchControls {
       } else {
         const hex = '#' + color.toString(16).padStart(6, '0');
         el = scene.add.text(x, y, label, {
-          font: `bold ${Math.floor(r * 0.38)}px ChangaOne, monospace`,
-          fill: hex, stroke: '#000000', strokeThickness: 3
+          fontFamily: 'ChangaOne, monospace', fontSize: `${Math.floor(r * 0.7)}px`, fontStyle: 'bold',
+          color: hex, stroke: '#000000', strokeThickness: 4,
+          padding: { x: 4, y: 4 }
         }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.55);
       }
       const restAlpha  = iconKey ? 0.5  : 0.55;
