@@ -1291,7 +1291,7 @@ export default class GameScene extends Phaser.Scene {
       fontFamily: 'ChangaOne', fontSize: '36px', fontStyle: 'bold',
       color: '#00ff88',
       stroke: '#003322', strokeThickness: 6
-    }).setOrigin(0.5, 0).setDepth(300);
+    }).setOrigin(0.5, 0).setDepth(300).setScrollFactor(0);
     this._addingHud = false;
     this.cameras.main.ignore(this._towerTimerText);
 
@@ -1907,7 +1907,7 @@ export default class GameScene extends Phaser.Scene {
     const slotColors = this.levelColors;
     const bgPad = Math.round(6 * uiScale);
     const innerPad = Math.round(8 * uiScale);
-    const barH = Math.round(52 * uiScale);
+    const barH = Math.round(60 * uiScale);
     const barY = bgPad;
     const centerY = barY + Math.round(barH / 2);
 
@@ -1955,17 +1955,19 @@ export default class GameScene extends Phaser.Scene {
     // Painted spots counter — wall icon + badge text in a container
     const lastCanX = canStartX + (slotColors.length - 1) * canSpacing;
     const wallIconX = lastCanX + Math.round(46 * uiScale);
-    const wallIconSize = Math.round(36 * uiScale);
-    const counterFontSize = Math.round(barH * 0.52);
+    const wallIconSize = Math.round(33 * uiScale);
+    const counterFontSize = Math.round(barH * 0.45);
 
     this.hudWallIcon = this.add.image(0, 0, 'icon_wall')
       .setDisplaySize(wallIconSize, wallIconSize)
       .setOrigin(0.5);
-    this.hudCountText = this.add.text(Math.round(wallIconSize * 0.55), 0, '', {
-      font: `bold ${counterFontSize}px ChangaOne, monospace`,
+    this.hudCountText = this.add.text(Math.round(wallIconSize * 0.4), 0, '', {
+      fontFamily: 'ChangaOne',
+      fontSize: `${counterFontSize}px`,
+      fontStyle: 'bold',
       fill: '#ffffff',
       stroke: '#000000', strokeThickness: Math.round(uiScale * 3)
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0.5, 0.5).setResolution(2);
 
     this.hudCountContainer = this.add.container(wallIconX, centerY, [
       this.hudWallIcon, this.hudCountText
