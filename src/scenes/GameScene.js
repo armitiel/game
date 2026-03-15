@@ -2050,7 +2050,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Home button
     this.menuBtnHit = this.add.rectangle(homeX, homeY, homeBtnSize, homeBtnSize, 0x000000, 0)
-      .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
+      .setDepth(210).setScrollFactor(0).setInteractive({ useHandCursor: true });
     this.menuBtn = this.add.image(homeX, homeY, 'icon_home')
       .setDisplaySize(Math.round(68 * uiScale), Math.round(68 * uiScale))
       .setOrigin(0.5).setDepth(102).setScrollFactor(0);
@@ -2102,7 +2102,7 @@ export default class GameScene extends Phaser.Scene {
     // Mute button — right end of bar
     const muteX = gw - Math.round(36 * uiScale);
     this.muteBtnHit = this.add.rectangle(muteX, centerY, Math.round(44 * uiScale), barH, 0x000000, 0)
-      .setDepth(99).setScrollFactor(0).setInteractive({ useHandCursor: true });
+      .setDepth(210).setScrollFactor(0).setInteractive({ useHandCursor: true });
     this.muteBtn = this.add.image(muteX, centerY, 'icon_music')
       .setDisplaySize(Math.round(30 * uiScale), Math.round(30 * uiScale))
       .setOrigin(0.5).setDepth(101).setScrollFactor(0);
