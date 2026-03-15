@@ -45,24 +45,31 @@ export default class TouchControls {
     const zoneW = cam.width * 0.45;
     const zoneH = cam.height;
 
-    // Invisible touch zone covering left ~45% of screen
+    // Invisible touch zone covering left ~45% of screen (expands in paint mode)
     const zone = scene.add.rectangle(zoneW / 2, zoneH / 2, zoneW, zoneH, 0xffffff, 0)
       .setScrollFactor(0)
       .setDepth(199)
       .setInteractive();
+    this._moveZone = zone;
+    this._moveZoneNormalW = zoneW;
+    this._moveZoneFullW = cam.width;
 
     // --- Floating virtual joystick ---
-    const BASE_RADIUS = 52;   // outer ring radius
+    const BASE_RADIUS_NORMAL = 52;   // outer ring radius (normal mode)
+    const BASE_RADIUS_PAINT = 90;    // outer ring radius (paint mode — bigger for precision)
     const THUMB_RADIUS = 22;  // inner knob radius
     const HINT_RADIUS = 14;   // small direction hint circles
-    const MAX_DIST = BASE_RADIUS - 4; // max thumb travel from center
+
+    // Dynamic radius — grows in paint mode for more precise control
+    const getRadius = () => this._paintMode ? BASE_RADIUS_PAINT : BASE_RADIUS_NORMAL;
+    const getMaxDist = () => getRadius() - 4;
 
     // Orbit track — shows the path the thumb travels on
-    this._joyOrbit = scene.add.circle(0, 0, MAX_DIST, 0x000000, 0)
+    this._joyOrbit = scene.add.circle(0, 0, getMaxDist(), 0x000000, 0)
       .setScrollFactor(0).setDepth(199).setVisible(false)
       .setStrokeStyle(2, 0xffffff, 0.3);
     // Base ring — appears at touch origin
-    this._joyBase = scene.add.circle(0, 0, BASE_RADIUS, 0xffffff, 0.15)
+    this._joyBase = scene.add.circle(0, 0, getRadius(), 0xffffff, 0.15)
       .setScrollFactor(0).setDepth(199).setVisible(false)
       .setStrokeStyle(2.5, 0xffffff, 0.4);
     // Thumb knob — follows finger within the ring
@@ -70,6 +77,8 @@ export default class TouchControls {
       .setScrollFactor(0).setDepth(200).setVisible(false);
 
     this.buttons.push(this._joyOrbit, this._joyBase, this._joyThumb);
+    this._getRadius = getRadius;
+    this._getMaxDist = getMaxDist;
 
     // Initial position — bottom-left corner, will move to touch point on first use
     const hintX = 110;
@@ -81,11 +90,16 @@ export default class TouchControls {
 
     let originX = hintX, originY = hintY;
     const DEAD_ZONE = 12;
-    const DEAD_ZONE_PAINT = 14;
+    const DEAD_ZONE_PAINT = 16;
 
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
       originY = pointer.y;
+      // Resize joystick ring for current mode
+      const r = getRadius();
+      const md = getMaxDist();
+      this._joyOrbit.setRadius(md);
+      this._joyBase.setRadius(r);
       // Move joystick to touch point, active opacity
       this._joyOrbit.setPosition(originX, originY).setAlpha(0.45);
       this._joyBase.setPosition(originX, originY).setAlpha(0.2);
@@ -99,11 +113,12 @@ export default class TouchControls {
       let dx = pointer.x - originX;
       let dy = pointer.y - originY;
 
-      // Clamp thumb to circle radius
+      // Clamp thumb to circle radius (dynamic per mode)
+      const maxDist = getMaxDist();
       const dist = Math.sqrt(dx * dx + dy * dy);
       let clampedDx = dx, clampedDy = dy;
-      if (dist > MAX_DIST) {
-        const ratio = MAX_DIST / dist;
+      if (dist > maxDist) {
+        const ratio = maxDist / dist;
         clampedDx = dx * ratio;
         clampedDy = dy * ratio;
       }
@@ -237,6 +252,13 @@ export default class TouchControls {
 
   setPaintMode(on) {
     this._paintMode = on;
+    // Expand movement zone to full screen in paint mode (action buttons are hidden)
+    if (this._moveZone) {
+      const w = on ? this._moveZoneFullW : this._moveZoneNormalW;
+      this._moveZone.setSize(w, this._moveZone.height);
+      this._moveZone.setPosition(w / 2, this._moveZone.y);
+      this._moveZone.input.hitArea.setTo(0, 0, w, this._moveZone.height);
+    }
   }
 
   /**

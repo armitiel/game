@@ -15,7 +15,7 @@ const ARM_SEG_WIDTH = 16;        // display width (thickness) of each arm segmen
 const HAND_DISPLAY_W = 18;       // display width of hand
 const HAND_DISPLAY_H = 18;       // display height of hand
 const HAND_SPEED = 200;          // pixels per second hand moves (keyboard)
-const HAND_SPEED_TOUCH = 140;    // mobile touch joystick speed
+const HAND_SPEED_TOUCH = 190;    // mobile touch joystick speed
 const ROPE_STIFFNESS = 0.7;     // high = stiff, nearly straight
 const GRAVITY_SAG = 1.5;        // minimal curve even at full extension
 const MAX_ARM_LENGTH = 55;      // max distance from shoulder to hand in pixels
