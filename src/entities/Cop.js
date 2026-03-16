@@ -3,7 +3,7 @@ import { COP } from '../config/gameConfig.js';
 
 export default class Cop extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, patrolLeft, patrolRight) {
-    super(scene, x, y, 'cop_sheet', 1);
+    super(scene, x, y, 'cop_sheet', 0);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -11,20 +11,25 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.setCollideWorldBounds(true);
     this.setDepth(4.5);
 
-    // Spritesheet is generated at 2x COP.HEIGHT — scale 0.5 for crisp rendering.
-    const F = COP.HEIGHT * 2;
+    // Spritesheet is 2x resolution (302px frames) for Retina-quality rendering.
+    // Display at COP.HEIGHT (151px) via scale=0.5.
+    const F = COP.HEIGHT * 2;  // frame size in texture (302px)
     this.setScale(0.5);
-    this.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
-    // Physics body in texture coords (2x), Phaser applies scale automatically.
-    const FEET_Y = Math.round(F * 0.86);
-    const bodyW = Math.round(F * 0.345);
-    const bodyH = Math.round(F * 0.50);
+    // Feet at 87.4% of frame (measured from Walk_P PNGs: max_y=944/1080=0.874).
+    const FEET_Y = Math.round(F * 0.874);  // ~264 in 302px frame
+    const bodyW = Math.round(F * 0.345);   // ~104
+    const bodyH = Math.round(F * 0.50);    // ~151
     const bodyOffX = Math.round((F - bodyW) / 2);
-    const bodyOffY = FEET_Y - bodyH;
+    const bodyOffY = FEET_Y - bodyH;       // ~113
     this.body.setSize(bodyW, bodyH);
     this.body.setOffset(bodyOffX, bodyOffY);
-    this.y = y - (FEET_Y - F / 2) * 0.5;
+
+    // Position so body bottom (feet) = y.
+    // With scale=0.5: body.bottom = sprite.y + bodyOffY + bodyH*scale - F*scale/2
+    // = sprite.y + bodyOffY (because bodyH*scale = F*scale/2 when bodyH = F/2)
+    // Want body.bottom = y → sprite.y = y - bodyOffY
+    this.y = y - bodyOffY;
 
     // Start walk animation
     this.play('cop_walk');

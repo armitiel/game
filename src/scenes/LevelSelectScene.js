@@ -252,50 +252,35 @@ export default class LevelSelectScene extends Phaser.Scene {
           .setAlpha(0.95);
       }
 
-      // Stealth cards get an unobtrusive frame background, but keep UI text/size consistent with the previous screen
-      const card = this.add.rectangle(x, cardY, cardW, cardH, useFrame ? 0x000000 : 0x1a1a3a, useFrame ? 0 : 0.9)
-        .setStrokeStyle(2, 0x334466)
+      // Invisible hitbox for interaction (no visible rectangle)
+      const card = this.add.rectangle(x, cardY, cardW, cardH, 0x000000, 0)
         .setInteractive({ useHandCursor: true });
 
-      // Level name (larger for better visibility, auto-fit to card width)
+      // Level name
       const nameStyle = {
-        font: 'bold 64px ChangaOne, monospace',
-        fill: useFrame ? '#a6ffef' : '#00ff88',
+        fontFamily: 'ChangaOne',
+        fontSize: '36px',
+        fontStyle: 'bold',
+        color: useFrame ? '#a6ffef' : '#00ff88',
         stroke: '#003322',
-        strokeThickness: 6,
+        strokeThickness: 5,
         shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, stroke: true, fill: true }
       };
-      const nameText = this.add.text(x, cardY - 80, level.name, nameStyle).setOrigin(0.5);
-      const maxWidth = cardW - 24;
-      if (nameText.width > maxWidth) {
-        nameText.setScale(maxWidth / nameText.width);
-      }
+      this.add.text(x, cardY - 40, level.name, nameStyle).setOrigin(0.5);
 
-      // Level description (bigger and more readable)
+      // Level description — readable sans-serif font (same as mode select)
       const descStyle = {
-        font: '18px ChangaOne, monospace',
-        fill: useFrame ? '#cceeff' : '#d0e6ff',
-        stroke: useFrame ? '#001a10' : '#000000',
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontSize: '16px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        stroke: '#000000',
         strokeThickness: 3,
         wordWrap: { width: cardW - 20 },
-        align: 'center'
+        align: 'center',
+        lineSpacing: 6
       };
-      this.add.text(x, cardY + 0, level.description, descStyle).setOrigin(0.5);
-
-      const spots = level.paintSpots ? level.paintSpots.length : 0;
-      const cops = level.cops ? level.cops.length : 0;
-      let statsStr = `Murale: ${spots}`;
-      if (modeKey === 'stealth') statsStr += `   Cops: ${cops}`;
-      if (modeKey === 'tower' && level.timer) statsStr += `   Czas: ${level.timer.startSeconds}s`;
-
-      // Stats (murale / cops) slightly larger
-      const statsStyle = {
-        font: '12px ChangaOne, monospace',
-        fill: '#556677',
-        stroke: '#000000',
-        strokeThickness: 2
-      };
-      this.add.text(x, cardY + 70, statsStr, statsStyle).setOrigin(0.5);
+      this.add.text(x, cardY + 40, level.description, descStyle).setOrigin(0.5);
 
       card.on('pointerdown', () => {
         this.scene.start('IntroScene', { levelIndex: globalIdx });

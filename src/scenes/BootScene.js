@@ -134,11 +134,11 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('icon_music', 'assets/sprites/elementy/nutka.png');
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
 
-    // === Load cop walk frames (Walk_P directory, 24 frames) ===
-    for (let i = 1; i <= 24; i++) {
-      const num = String(i).padStart(4, '0');
-      this.load.image(`cop_walk_raw_${i}`, `assets/sprites/Walk_P/${num}.png`);
-    }
+    // === Load cop spritesheet (2x Lanczos, displayed at 0.5 scale for Retina-quality) ===
+    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet.png?v=2', {
+      frameWidth: COP.HEIGHT * 2,
+      frameHeight: COP.HEIGHT * 2
+    });
 
     // === Load paint arm assets ===
     this.load.image('paint_hand', 'assets/sprites/hand.png');
@@ -160,56 +160,25 @@ export default class BootScene extends Phaser.Scene {
     this.generateOtherTextures();
   }
 
-  /** Build cop spritesheet from loaded Walk_P frames — MUST run in create() after assets are ready.
-   *  Generates frames directly at COP.HEIGHT size (no scaling needed at runtime).
-   *  This gives much better quality than downscaling to 128 then upscaling. */
+  /** Set up cop animations from the pre-loaded cop_sheet spritesheet.
+   *  The sheet is pre-rendered offline with Lanczos resampling (same quality as player). */
   generateCopSheet() {
-    // Generate at 2x display size for crisp rendering (downscaled with LINEAR filtering)
-    const copFrameSize = COP.HEIGHT * 2;
-    const copFrameCount = 24;
-    const copSheetCanvas = document.createElement('canvas');
-    copSheetCanvas.width = copFrameSize * copFrameCount;
-    copSheetCanvas.height = copFrameSize;
-    const copCtx = copSheetCanvas.getContext('2d');
-    copCtx.imageSmoothingEnabled = true;
-    copCtx.imageSmoothingQuality = 'high';
-    for (let i = 0; i < copFrameCount; i++) {
-      const rawKey = `cop_walk_raw_${i + 1}`;
-      if (!this.textures.exists(rawKey)) {
-        console.warn(`[COP] Missing texture: ${rawKey}`);
-        continue;
-      }
-      const src = this.textures.get(rawKey).getSourceImage();
-      copCtx.drawImage(src, 0, 0, src.width, src.height, i * copFrameSize, 0, copFrameSize, copFrameSize);
-      this.textures.remove(rawKey);
-    }
-    // Add as canvas texture, then manually define spritesheet frames (1-based to avoid __BASE conflict)
-    const copTex = this.textures.addCanvas('cop_sheet', copSheetCanvas);
-    for (let i = 0; i < copFrameCount; i++) {
-      copTex.add(i + 1, 0, i * copFrameSize, 0, copFrameSize, copFrameSize);
-    }
-
-    // Cop walk animation (frames 1..24)
-    const copWalkFrames = [];
-    for (let i = 1; i <= copFrameCount; i++) {
-      copWalkFrames.push({ key: 'cop_sheet', frame: i });
-    }
+    // cop_sheet loaded in preload() as spritesheet — frames are 0-based (0..23)
     this.anims.create({
       key: 'cop_walk',
-      frames: copWalkFrames,
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 0, end: 23 }),
       frameRate: 22,
       repeat: -1
     });
 
-    // Cop idle — first frame held
     this.anims.create({
       key: 'cop_idle',
-      frames: [{ key: 'cop_sheet', frame: 1 }],
+      frames: [{ key: 'cop_sheet', frame: 0 }],
       frameRate: 1,
       repeat: 0
     });
 
-    console.log('[COP] Spritesheet generated:', copFrameCount, 'frames @', copFrameSize + 'px (native display size)');
+    console.log('[COP] Animations created from pre-rendered spritesheet @', COP.HEIGHT + 'px');
   }
 
   generateOtherTextures() {
