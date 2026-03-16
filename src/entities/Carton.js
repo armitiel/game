@@ -72,14 +72,37 @@ export default class Carton extends Phaser.GameObjects.Image {
           duration: 280,
           ease: 'Sine.easeOut',
           onComplete: () => {
-            // Stay where it landed
-            this.homeX = this.x;
-            this.homeY = groundY;
-            this.baseAngle = this.angle;
-            this._isRolling = false;
+            this._settleOrFall(scene, dir);
           }
         });
       }
     });
+  }
+
+  _settleOrFall(scene, dir) {
+    if (!scene.isOnSurface(this.x, this.homeY)) {
+      const landY = scene.findSurfaceBelow(this.x, this.homeY);
+      if (landY != null) {
+        scene.tweens.add({
+          targets: this,
+          x: this.x + dir * Phaser.Math.Between(3, 10),
+          y: landY,
+          angle: this.angle + dir * Phaser.Math.Between(10, 35),
+          duration: 350,
+          ease: 'Bounce.easeOut',
+          onComplete: () => {
+            this.homeX = this.x;
+            this.homeY = landY;
+            this.baseAngle = this.angle;
+            this._isRolling = false;
+          }
+        });
+        return;
+      }
+    }
+    this.homeX = this.x;
+    this.homeY = this.homeY;
+    this.baseAngle = this.angle;
+    this._isRolling = false;
   }
 }

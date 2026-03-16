@@ -75,14 +75,44 @@ export default class Bottle extends Phaser.GameObjects.Image {
           duration: 300,
           ease: 'Sine.easeOut',
           onComplete: () => {
-            // Update home position — bottle stays where it landed
-            this.homeX = this.x;
-            this.homeY = groundY;
-            this.baseAngle = this.angle;
-            this._isRolling = false;
+            // Check if still on a surface — if not, fall
+            this._settleOrFall(scene, dir);
           }
         });
       }
     });
+  }
+
+  /**
+   * After sliding, check if the bottle is still on a surface.
+   * If it overshot the edge, animate it falling to the next platform/ground below.
+   */
+  _settleOrFall(scene, dir) {
+    if (!scene.isOnSurface(this.x, this.homeY)) {
+      const landY = scene.findSurfaceBelow(this.x, this.homeY);
+      if (landY != null) {
+        // Fall with slight forward drift and tumble
+        scene.tweens.add({
+          targets: this,
+          x: this.x + dir * Phaser.Math.Between(5, 15),
+          y: landY,
+          angle: this.angle + dir * Phaser.Math.Between(20, 60),
+          duration: 350,
+          ease: 'Bounce.easeOut',
+          onComplete: () => {
+            this.homeX = this.x;
+            this.homeY = landY;
+            this.baseAngle = this.angle;
+            this._isRolling = false;
+          }
+        });
+        return;
+      }
+    }
+    // Still on surface — just settle
+    this.homeX = this.x;
+    this.homeY = this.homeY;
+    this.baseAngle = this.angle;
+    this._isRolling = false;
   }
 }

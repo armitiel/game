@@ -494,6 +494,46 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Find the Y of the nearest platform/ground surface directly below (x, fromY).
+   * Returns the top-Y of that surface, or null if nothing is below.
+   */
+  findSurfaceBelow(x, fromY) {
+    let bestY = null;
+    const check = (group) => {
+      group.getChildren().forEach(plat => {
+        const b = plat.body;
+        const left = b.x;
+        const right = b.x + b.width;
+        const top = b.y;
+        if (x >= left && x <= right && top > fromY + 2) {
+          if (bestY === null || top < bestY) bestY = top;
+        }
+      });
+    };
+    check(this.ground);
+    check(this.platforms);
+    return bestY;
+  }
+
+  /**
+   * Check if x is on any platform/ground surface at surfaceY.
+   * Returns true if the object is still supported.
+   */
+  isOnSurface(x, surfaceY) {
+    const check = (group) => {
+      for (const plat of group.getChildren()) {
+        const b = plat.body;
+        const left = b.x;
+        const right = b.x + b.width;
+        const top = b.y;
+        if (x >= left - 2 && x <= right + 2 && Math.abs(top - surfaceY) < 6) return true;
+      }
+      return false;
+    };
+    return check(this.ground) || check(this.platforms);
+  }
+
+  /**
    * Add a soft drop-shadow beneath a platform.
    * Uses a gradient that fades out vertically.
    */

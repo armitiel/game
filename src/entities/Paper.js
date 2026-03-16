@@ -112,12 +112,44 @@ export default class Paper extends Phaser.GameObjects.Image {
               duration: 600,
               ease: 'Sine.easeOut',
               onComplete: () => {
-                this._isBlowing = false;
+                this._settleOrFall(scene, dir, bsX, bsY);
               }
             });
           }
         });
       }
     });
+  }
+
+  _settleOrFall(scene, dir, bsX, bsY) {
+    if (!scene.isOnSurface(this.x, this.homeY)) {
+      const landY = scene.findSurfaceBelow(this.x, this.homeY);
+      if (landY != null) {
+        // Paper flutters down
+        scene.tweens.add({
+          targets: this,
+          x: this.x + dir * Phaser.Math.Between(8, 20),
+          y: landY,
+          angle: this.angle + dir * Phaser.Math.Between(15, 45),
+          scaleX: bsX * (0.85 + 0.15 * Math.random()),
+          scaleY: bsY,
+          duration: 500,
+          ease: 'Sine.easeIn',
+          onComplete: () => {
+            this.homeX = this.x;
+            this.homeY = landY;
+            this.baseAngle = this.angle;
+            this.scaleX = bsX;
+            this.scaleY = bsY;
+            this._isBlowing = false;
+          }
+        });
+        return;
+      }
+    }
+    this.homeX = this.x;
+    this.homeY = this.homeY;
+    this.baseAngle = this.angle;
+    this._isBlowing = false;
   }
 }
