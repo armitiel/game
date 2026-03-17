@@ -3437,6 +3437,8 @@ export default class GameScene extends Phaser.Scene {
         right: cursors.right.isDown || wasd.right.isDown || (t && t.right),
         up:    cursors.up.isDown    || wasd.up.isDown    || (t && t.up),
         down:  cursors.down.isDown  || wasd.down.isDown  || (t && t.down),
+        intensityX: t ? t.intensityX : 1,
+        intensityY: t ? t.intensityY : 1,
       };
       const isTouch = !!(t && t.enabled);
 

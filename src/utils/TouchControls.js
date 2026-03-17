@@ -19,6 +19,10 @@ export default class TouchControls {
     this.up = false;
     this.down = false;
 
+    // Proportional joystick intensity (0–1) for paint mode precision
+    this.intensityX = 0;
+    this.intensityY = 0;
+
     // "Just pressed" flags — consumed after read
     this._jumpJustPressed = false;
     this._actionJustPressed = false;
@@ -90,7 +94,7 @@ export default class TouchControls {
 
     let originX = hintX, originY = hintY;
     const DEAD_ZONE = 12;
-    const DEAD_ZONE_PAINT = 16;
+    const DEAD_ZONE_PAINT = 20;
 
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
@@ -105,7 +109,7 @@ export default class TouchControls {
       this._joyBase.setPosition(originX, originY).setAlpha(0.2);
       this._joyThumb.setPosition(originX, originY).setAlpha(0.6);
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
-      this._updateDirection(0, 0, dz);
+      this._updateDirection(0, 0, dz, getMaxDist());
     });
 
     zone.on('pointermove', (pointer) => {
@@ -125,7 +129,7 @@ export default class TouchControls {
       this._joyThumb.setPosition(originX + clampedDx, originY + clampedDy);
 
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
-      this._updateDirection(dx, dy, dz);
+      this._updateDirection(dx, dy, dz, maxDist);
     });
 
     zone.on('pointerup', () => {
@@ -150,7 +154,7 @@ export default class TouchControls {
     }
   }
 
-  _updateDirection(dx, dy, deadZone) {
+  _updateDirection(dx, dy, deadZone, maxDist) {
     // Reset all
     this.left = false;
     this.right = false;
@@ -162,6 +166,13 @@ export default class TouchControls {
     if (dx > deadZone) this.right = true;
     if (dy < -deadZone) this.up = true;
     if (dy > deadZone) this.down = true;
+
+    // Proportional intensity for paint mode (0 inside dead zone, ramps to 1 at maxDist)
+    const range = (maxDist || 60) - deadZone;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    this.intensityX = range > 0 ? Math.min(1, Math.max(0, absDx - deadZone) / range) : 0;
+    this.intensityY = range > 0 ? Math.min(1, Math.max(0, absDy - deadZone) / range) : 0;
 
     // Shadow bias: when near a shadow, diagonal-down → pure down
     // Makes it much easier to trigger hiding on a joystick
@@ -181,6 +192,8 @@ export default class TouchControls {
     this.right = false;
     this.up = false;
     this.down = false;
+    this.intensityX = 0;
+    this.intensityY = 0;
   }
 
   createActionButtons(scene) {

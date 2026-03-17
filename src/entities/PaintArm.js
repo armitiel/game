@@ -15,7 +15,7 @@ const ARM_SEG_WIDTH = 16;        // display width (thickness) of each arm segmen
 const HAND_DISPLAY_W = 18;       // display width of hand
 const HAND_DISPLAY_H = 18;       // display height of hand
 const HAND_SPEED = 200;          // pixels per second hand moves (keyboard)
-const HAND_SPEED_TOUCH = 190;    // mobile touch joystick speed
+const HAND_SPEED_TOUCH = 210;    // mobile touch joystick max speed (scaled by joystick intensity)
 const ROPE_STIFFNESS = 0.7;     // high = stiff, nearly straight
 const GRAVITY_SAG = 1.5;        // minimal curve even at full extension
 const MAX_ARM_LENGTH = 55;      // max distance from shoulder to hand in pixels
@@ -141,10 +141,13 @@ export default class PaintArm {
       hx = mouseWorld.x;
       hy = mouseWorld.y;
     } else {
-      if (input.left)  hx -= speed * dt;
-      if (input.right) hx += speed * dt;
-      if (input.up)    hy -= speed * dt;
-      if (input.down)  hy += speed * dt;
+      // Use proportional intensity from touch joystick (keyboard = full speed)
+      const ix = input.intensityX != null ? input.intensityX : 1;
+      const iy = input.intensityY != null ? input.intensityY : 1;
+      if (input.left)  hx -= speed * ix * dt;
+      if (input.right) hx += speed * ix * dt;
+      if (input.up)    hy -= speed * iy * dt;
+      if (input.down)  hy += speed * iy * dt;
     }
 
     // Clamp hand to paint bounds
