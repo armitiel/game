@@ -16,20 +16,21 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     const F = COP.HEIGHT * 2;  // frame size in texture (302px)
     this.setScale(0.5);
 
-    // Feet at 87.4% of frame (measured from Walk_P PNGs: max_y=944/1080=0.874).
-    const FEET_Y = Math.round(F * 0.874);  // ~264 in 302px frame
-    const bodyW = Math.round(F * 0.345);   // ~104
-    const bodyH = Math.round(F * 0.50);    // ~151
+    // Spritesheet has been re-rendered with feet at ~97% of frame (like player).
+    // Body offset follows same pattern as Player: body bottom near frame bottom.
+    const FEET_Y = Math.round(F * 0.97);   // ~293 in 302px frame
+    const bodyW = Math.round(F * 0.345);    // ~104
+    const bodyH = Math.round(F * 0.50);     // ~151
     const bodyOffX = Math.round((F - bodyW) / 2);
-    const bodyOffY = FEET_Y - bodyH;       // ~113
+    const bodyOffY = FEET_Y - bodyH;        // ~142
     this.body.setSize(bodyW, bodyH);
     this.body.setOffset(bodyOffX, bodyOffY);
 
-    // Position so body bottom (feet) = y.
-    // With scale=0.5: body.bottom = sprite.y + bodyOffY + bodyH*scale - F*scale/2
-    // = sprite.y + bodyOffY (because bodyH*scale = F*scale/2 when bodyH = F/2)
-    // Want body.bottom = y → sprite.y = y - bodyOffY
-    this.y = y - bodyOffY;
+    // Treat y from level data as the SURFACE the cop stands on.
+    // Calculate sprite.y so body.bottom = y, then nudge 2px above so gravity settles cop properly.
+    const displayOriginY = (F / 2) * 0.5;  // 75.5
+    const bodyBottomInSprite = (bodyOffY + bodyH) * 0.5;  // 146.5
+    this.y = y - bodyBottomInSprite + displayOriginY - 2;  // body.bottom ≈ y-2 → falls onto surface
 
     // Start walk animation
     this.play('cop_walk');
