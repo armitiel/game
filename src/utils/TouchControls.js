@@ -194,8 +194,8 @@ export default class TouchControls {
     let linX = range > 0 ? Math.min(1, Math.max(0, absDx - deadZone) / range) : 0;
     let linY = range > 0 ? Math.min(1, Math.max(0, absDy - deadZone) / range) : 0;
     if (this._paintMode) {
-      linX = linX * linX * linX * linX;  // quartic: 0.5 → 0.06, 0.7 → 0.24
-      linY = linY * linY * linY * linY;
+      linX = linX * linX;  // quadratic: 0.5 → 0.25, 0.7 → 0.49
+      linY = linY * linY;
     }
     this.intensityX = linX;
     this.intensityY = linY;
