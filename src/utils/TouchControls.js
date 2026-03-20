@@ -94,7 +94,7 @@ export default class TouchControls {
 
     let originX = hintX, originY = hintY;
     const DEAD_ZONE = 12;
-    const DEAD_ZONE_PAINT = 22;
+    const DEAD_ZONE_PAINT = 16;
 
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
