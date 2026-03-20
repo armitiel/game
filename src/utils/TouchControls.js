@@ -185,11 +185,20 @@ export default class TouchControls {
     if (dy > deadZone) this.down = true;
 
     // Proportional intensity for paint mode (0 inside dead zone, ramps to 1 at maxDist)
+    // In paint mode: cubic curve (t^3) — the first ~60% of joystick range only
+    // produces ~20% speed, giving much more precision in the middle area.
+    // Full speed requires near-full deflection.
     const range = (maxDist || 60) - deadZone;
     const absDx = Math.abs(dx);
     const absDy = Math.abs(dy);
-    this.intensityX = range > 0 ? Math.min(1, Math.max(0, absDx - deadZone) / range) : 0;
-    this.intensityY = range > 0 ? Math.min(1, Math.max(0, absDy - deadZone) / range) : 0;
+    let linX = range > 0 ? Math.min(1, Math.max(0, absDx - deadZone) / range) : 0;
+    let linY = range > 0 ? Math.min(1, Math.max(0, absDy - deadZone) / range) : 0;
+    if (this._paintMode) {
+      linX = linX * linX * linX;  // cubic: 0.5 → 0.125, 0.7 → 0.34
+      linY = linY * linY * linY;
+    }
+    this.intensityX = linX;
+    this.intensityY = linY;
 
     // Shadow bias: when near a shadow, diagonal-down → pure down
     // Makes it much easier to trigger hiding on a joystick
