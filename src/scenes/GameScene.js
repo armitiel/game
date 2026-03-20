@@ -2314,8 +2314,10 @@ export default class GameScene extends Phaser.Scene {
 
     }
 
-    // Painted spots counter
-    this.hudCountText.setText(`${this.paintedSpots}/${this.totalSpots}`);
+    // Painted spots counter — skip when paint mode uses it for progress %
+    if (this._savedMuralCountText == null) {
+      this.hudCountText.setText(`${this.paintedSpots}/${this.totalSpots}`);
+    }
 
     const isMob = !!(this.touch && this.touch.enabled);
 
