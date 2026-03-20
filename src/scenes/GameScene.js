@@ -2570,7 +2570,7 @@ export default class GameScene extends Phaser.Scene {
       this._preZoom = this._baseZoom || cam.zoom;
     }
 
-    const targetZoom = isMobile ? 6.5 : 4.5;
+    const targetZoom = isMobile ? 5.0 : 4.5;
 
     // Shift camera focus down toward the arm's reach area so the
     // paint zone is centered on screen, not the player's head.
