@@ -94,7 +94,7 @@ export default class TouchControls {
 
     let originX = hintX, originY = hintY;
     const DEAD_ZONE = 12;
-    const DEAD_ZONE_PAINT = 20;
+    const DEAD_ZONE_PAINT = 22;
 
     zone.on('pointerdown', (pointer) => {
       originX = pointer.x;
@@ -185,8 +185,8 @@ export default class TouchControls {
     if (dy > deadZone) this.down = true;
 
     // Proportional intensity for paint mode (0 inside dead zone, ramps to 1 at maxDist)
-    // In paint mode: cubic curve (t^3) — the first ~60% of joystick range only
-    // produces ~20% speed, giving much more precision in the middle area.
+    // In paint mode: quartic curve (t^4) — the first ~60% of joystick range only
+    // produces ~13% speed, giving much more precision in the middle area.
     // Full speed requires near-full deflection.
     const range = (maxDist || 60) - deadZone;
     const absDx = Math.abs(dx);
@@ -194,8 +194,8 @@ export default class TouchControls {
     let linX = range > 0 ? Math.min(1, Math.max(0, absDx - deadZone) / range) : 0;
     let linY = range > 0 ? Math.min(1, Math.max(0, absDy - deadZone) / range) : 0;
     if (this._paintMode) {
-      linX = linX * linX * linX;  // cubic: 0.5 → 0.125, 0.7 → 0.34
-      linY = linY * linY * linY;
+      linX = linX * linX * linX * linX;  // quartic: 0.5 → 0.06, 0.7 → 0.24
+      linY = linY * linY * linY * linY;
     }
     this.intensityX = linX;
     this.intensityY = linY;
