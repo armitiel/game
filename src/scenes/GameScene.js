@@ -2488,34 +2488,10 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // Paint progress HUD text
+    // Reuse mural counter for paint progress — swap text to show %
     const progress = this.pbn.getProgress();
-    const isMob = !!(this.touch && this.touch.enabled);
-    if (isMob) {
-      // On mobile: fixed to screen on HUD line (same Y as paint cans / hearts)
-      const gw = this.scale.width;
-      const hudY = Math.round(26 * 1.8); // matches slotY on mobile
-      this._addingHud = true;
-      this.paintProgressText = this.add.text(
-        gw / 2, hudY,
-        `${Math.round(progress * 100)}%`,
-        { fontFamily: 'ChangaOne, monospace', fontSize: '48px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 6, padding: { x: 4, y: 2 } }
-      ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
-      this.cameras.main.ignore(this.paintProgressText);
-      this._addingHud = false;
-    } else {
-      // Desktop: fixed to top-center of screen on UI camera
-      const gw = this.scale.width;
-      const progressY = (this.levelData && this.levelData.mode === 'tower') ? 95 : 60;
-      this._addingHud = true;
-      this.paintProgressText = this.add.text(
-        gw / 2, progressY,
-        `${Math.round(progress * 100)}%`,
-        { fontFamily: 'ChangaOne, monospace', fontSize: '48px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 6, padding: { x: 4, y: 2 } }
-      ).setOrigin(0.5).setDepth(200).setScrollFactor(0);
-      this.cameras.main.ignore(this.paintProgressText);
-      this._addingHud = false;
-    }
+    this._savedMuralCountText = this.hudCountText.text;
+    this.hudCountText.setText(`${Math.round(progress * 100)}%`);
 
     // Color selector HUD — circular buttons (same UI on mobile and desktop)
     const hasColorArr = this.pbn.colorMap.map(c => this.player.hasPaint(c.toLowerCase()));
@@ -2631,10 +2607,10 @@ export default class GameScene extends Phaser.Scene {
       this.updateHUD();
     }
 
-    // Update progress
+    // Update progress on mural counter
     const progress = this.pbn.getProgress();
-    if (this.paintProgressText) {
-      this.paintProgressText.setText(`${Math.round(progress * 100)}%`);
+    if (this.hudCountText && this._savedMuralCountText != null) {
+      this.hudCountText.setText(`${Math.round(progress * 100)}%`);
     }
 
     // Check if threshold reached
@@ -2736,9 +2712,10 @@ export default class GameScene extends Phaser.Scene {
     this.paintArm.stop();
     if (this.touch) this.touch.setPaintMode(false);
 
-    if (this.paintProgressText) {
-      this.paintProgressText.destroy();
-      this.paintProgressText = null;
+    // Restore mural counter text
+    if (this._savedMuralCountText != null && this.hudCountText) {
+      this.hudCountText.setText(this._savedMuralCountText);
+      this._savedMuralCountText = null;
     }
     if (this.colorSelectorElements) {
       this.colorSelectorElements.forEach(e => e.destroy());
