@@ -50,15 +50,8 @@ export default class Carton extends Phaser.GameObjects.Image {
     const scene  = this.scene;
     const groundY = this.homeY;
 
-    // Get surface bounds — only fall when actually pushed past the edge
-    const bounds = scene.getSurfaceBounds(this.x, groundY);
-    const clampX = (xVal) => {
-      if (!bounds) return xVal;
-      return Phaser.Math.Clamp(xVal, bounds.left + 2, bounds.right - 2);
-    };
-
     // Phase 1 — quick nudge with slight tilt
-    const targetX = clampX(this.x + nudge);
+    const targetX = this.x + nudge;
     const midAngle = Phaser.Math.Clamp(this.angle + roll, -20, 20);
     scene.tweens.add({
       targets: this,
@@ -69,7 +62,7 @@ export default class Carton extends Phaser.GameObjects.Image {
       ease: 'Sine.easeOut',
       onComplete: () => {
         // Phase 2 — tiny extra slide + settle
-        const restX = clampX(targetX + dir * Phaser.Math.Between(2, 6));
+        const restX = targetX + dir * Phaser.Math.Between(2, 6);
         const restAngle = midAngle * 0.3 + Phaser.Math.Between(-2, 2);
         scene.tweens.add({
           targets: this,
@@ -79,17 +72,15 @@ export default class Carton extends Phaser.GameObjects.Image {
           duration: 280,
           ease: 'Sine.easeOut',
           onComplete: () => {
-            this._settleOrFall(scene, dir, bounds);
+            this._settleOrFall(scene, dir);
           }
         });
       }
     });
   }
 
-  _settleOrFall(scene, dir, bounds) {
-    // Only fall if actually past the edge of the platform
-    const pastEdge = bounds && (this.x < bounds.left || this.x > bounds.right);
-    if (pastEdge) {
+  _settleOrFall(scene, dir) {
+    if (!scene.isOnSurface(this.x, this.homeY)) {
       const landY = scene.findSurfaceBelow(this.x, this.homeY);
       if (landY != null) {
         scene.tweens.add({

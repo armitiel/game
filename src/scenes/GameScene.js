@@ -560,7 +560,9 @@ export default class GameScene extends Phaser.Scene {
         const left = b.x;
         const right = b.x + b.width;
         const top = b.y;
-        if (x >= left - 2 && x <= right + 2 && Math.abs(top - surfaceY) < 12) return true;
+        // Object is on surface if X is within platform bounds
+        // and Y is within 24px of platform top (generous tolerance for varied prop placement)
+        if (x >= left - 4 && x <= right + 4 && Math.abs(top - surfaceY) < 24) return true;
       }
       return false;
     };
