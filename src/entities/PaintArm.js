@@ -73,9 +73,16 @@ export default class PaintArm {
    * @param {number} cellW
    * @param {number} cellH
    */
-  setGridCells(cellW, cellH) {
+  /**
+   * Set grid cell dimensions and filled-check callback for cell-snapping.
+   * @param {number} cellW
+   * @param {number} cellH
+   * @param {function} [isCellFilled] - (col, row) => boolean
+   */
+  setGridCells(cellW, cellH, isCellFilled) {
     this._cellW = cellW;
     this._cellH = cellH;
+    this._isCellFilled = isCellFilled || null;
   }
 
   start(playerX, playerY, flipX, bounds, colorName) {
@@ -194,10 +201,16 @@ export default class PaintArm {
       // Snap strength: full snap at 0 intensity, fades out by 0.35
       const snap = Math.max(0, 1 - intensity / 0.35);
       if (snap > 0) {
-        const cellCX = b.x + (Math.floor((hx - b.x) / this._cellW) + 0.5) * this._cellW;
-        const cellCY = b.y + (Math.floor((hy - b.y) / this._cellH) + 0.5) * this._cellH;
-        hx += (cellCX - hx) * snap * 0.4;
-        hy += (cellCY - hy) * snap * 0.4;
+        const col = Math.floor((hx - b.x) / this._cellW);
+        const row = Math.floor((hy - b.y) / this._cellH);
+        // Skip snap on already-painted cells — let hand slide through easily
+        const filled = this._isCellFilled && this._isCellFilled(col, row);
+        if (!filled) {
+          const cellCX = b.x + (col + 0.5) * this._cellW;
+          const cellCY = b.y + (row + 0.5) * this._cellH;
+          hx += (cellCX - hx) * snap * 0.4;
+          hy += (cellCY - hy) * snap * 0.4;
+        }
       }
     }
 
