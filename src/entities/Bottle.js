@@ -53,8 +53,15 @@ export default class Bottle extends Phaser.GameObjects.Image {
     const scene  = this.scene;
     const groundY = this.homeY;
 
+    // Get surface bounds — only fall when actually pushed past the edge
+    const bounds = scene.getSurfaceBounds(this.x, groundY);
+    const clampX = (xVal) => {
+      if (!bounds) return xVal;
+      return Phaser.Math.Clamp(xVal, bounds.left + 2, bounds.right - 2);
+    };
+
     // Phase 1 — quick nudge with slight roll
-    const targetX = this.x + nudge;
+    const targetX = clampX(this.x + nudge);
     const midAngle = Phaser.Math.Clamp(this.angle + roll, -25, 25);
     scene.tweens.add({
       targets: this,
@@ -65,7 +72,7 @@ export default class Bottle extends Phaser.GameObjects.Image {
       ease: 'Sine.easeOut',
       onComplete: () => {
         // Phase 2 — settle: tiny extra slide + angle dampens
-        const restX = targetX + dir * Phaser.Math.Between(2, 8);
+        const restX = clampX(targetX + dir * Phaser.Math.Between(2, 8));
         const restAngle = midAngle * 0.4 + Phaser.Math.Between(-3, 3);
         scene.tweens.add({
           targets: this,
@@ -75,8 +82,8 @@ export default class Bottle extends Phaser.GameObjects.Image {
           duration: 300,
           ease: 'Sine.easeOut',
           onComplete: () => {
-            // Check if still on a surface — if not, fall
-            this._settleOrFall(scene, dir);
+            // Check if actually past edge — if so, fall
+            this._settleOrFall(scene, dir, bounds);
           }
         });
       }
@@ -87,11 +94,12 @@ export default class Bottle extends Phaser.GameObjects.Image {
    * After sliding, check if the bottle is still on a surface.
    * If it overshot the edge, animate it falling to the next platform/ground below.
    */
-  _settleOrFall(scene, dir) {
-    if (!scene.isOnSurface(this.x, this.homeY)) {
+  _settleOrFall(scene, dir, bounds) {
+    // Only fall if actually past the edge of the platform
+    const pastEdge = bounds && (this.x < bounds.left || this.x > bounds.right);
+    if (pastEdge) {
       const landY = scene.findSurfaceBelow(this.x, this.homeY);
       if (landY != null) {
-        // Fall with slight forward drift and tumble
         scene.tweens.add({
           targets: this,
           x: this.x + dir * Phaser.Math.Between(5, 15),
@@ -109,7 +117,6 @@ export default class Bottle extends Phaser.GameObjects.Image {
         return;
       }
     }
-    // Still on surface — just settle
     this.homeX = this.x;
     this.homeY = this.homeY;
     this.baseAngle = this.angle;

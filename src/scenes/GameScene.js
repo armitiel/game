@@ -560,11 +560,35 @@ export default class GameScene extends Phaser.Scene {
         const left = b.x;
         const right = b.x + b.width;
         const top = b.y;
-        if (x >= left - 2 && x <= right + 2 && Math.abs(top - surfaceY) < 6) return true;
+        if (x >= left - 2 && x <= right + 2 && Math.abs(top - surfaceY) < 12) return true;
       }
       return false;
     };
     return check(this.ground) || check(this.platforms);
+  }
+
+  /**
+   * Return the left/right edges of the surface supporting the object at (x, surfaceY).
+   * Returns { left, right } or null if no surface found.
+   */
+  getSurfaceBounds(x, surfaceY) {
+    let result = null;
+    const check = (group) => {
+      for (const plat of group.getChildren()) {
+        const b = plat.body;
+        const left = b.x;
+        const right = b.x + b.width;
+        const top = b.y;
+        if (x >= left - 2 && x <= right + 2 && Math.abs(top - surfaceY) < 12) {
+          if (!result || (right - left) > (result.right - result.left)) {
+            result = { left, right };
+          }
+        }
+      }
+    };
+    check(this.ground);
+    check(this.platforms);
+    return result;
   }
 
   /**

@@ -71,11 +71,20 @@ export default class Paper extends Phaser.GameObjects.Image {
     const bsY = this._bsY;
     const groundY = this.homeY;
 
+    // Get surface bounds — only fall when actually pushed past the edge
+    const bounds = scene.getSurfaceBounds(this.x, groundY);
+    // No bounds = no surface found, don't restrict movement but also don't fall
+    const clampX = (xVal) => {
+      if (!bounds) return xVal;
+      // Allow moving to edges but not past them
+      return Phaser.Math.Clamp(xVal, bounds.left + 2, bounds.right - 2);
+    };
+
     // Helper: clamp angle so paper image stays above ground
     const clampAngle = (a) => Phaser.Math.Clamp(a, -35, 35);
 
     // Phase 1 — quick lift + sideways slide with crumple deformation
-    const p1x = this.x + driftX * 0.6;
+    const p1x = clampX(this.x + driftX * 0.6);
     const p1y = Math.min(this.y + liftY, groundY);
     scene.tweens.add({
       targets: this,
@@ -88,7 +97,7 @@ export default class Paper extends Phaser.GameObjects.Image {
       ease: 'Sine.easeOut',
       onComplete: () => {
         // Phase 2 — tumble along ground, more deformation
-        const p2x = this.x + driftX * 0.4 + dir * Phaser.Math.Between(5, 15);
+        const p2x = clampX(this.x + driftX * 0.4 + dir * Phaser.Math.Between(5, 15));
         scene.tweens.add({
           targets: this,
           x: p2x,
@@ -99,8 +108,8 @@ export default class Paper extends Phaser.GameObjects.Image {
           duration: 300,
           ease: 'Sine.easeInOut',
           onComplete: () => {
-            // Phase 3 — settle back near home
-            const settleX = this.homeX + dir * Phaser.Math.Between(3, 14);
+            // Phase 3 — settle near current position
+            const settleX = clampX(this.x + dir * Phaser.Math.Between(3, 14));
             const settleAngle = this.baseAngle + Phaser.Math.Between(-6, 6);
             scene.tweens.add({
               targets: this,
@@ -112,7 +121,7 @@ export default class Paper extends Phaser.GameObjects.Image {
               duration: 600,
               ease: 'Sine.easeOut',
               onComplete: () => {
-                this._settleOrFall(scene, dir, bsX, bsY);
+                this._settleOrFall(scene, dir, bsX, bsY, bounds);
               }
             });
           }
@@ -121,8 +130,11 @@ export default class Paper extends Phaser.GameObjects.Image {
     });
   }
 
-  _settleOrFall(scene, dir, bsX, bsY) {
-    if (!scene.isOnSurface(this.x, this.homeY)) {
+  _settleOrFall(scene, dir, bsX, bsY, bounds) {
+    // Only fall if the object is actually past the edge of its platform.
+    // Use the same bounds that were used to clamp during the slide.
+    const pastEdge = bounds && (this.x < bounds.left || this.x > bounds.right);
+    if (pastEdge) {
       const landY = scene.findSurfaceBelow(this.x, this.homeY);
       if (landY != null) {
         // Paper flutters down
