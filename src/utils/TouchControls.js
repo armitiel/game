@@ -114,11 +114,31 @@ export default class TouchControls {
 
     zone.on('pointermove', (pointer) => {
       if (!pointer.isDown) return;
+      const maxDist = getMaxDist();
+      const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
+
+      // --- Dynamic origin recentering (paint mode only) ---
+      // When finger is inside dead zone, drift origin toward finger so
+      // direction changes don't require crossing the full joystick diameter.
+      if (this._paintMode) {
+        const rawDx = pointer.x - originX;
+        const rawDy = pointer.y - originY;
+        const rawDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy);
+        if (rawDist < dz) {
+          // Snap origin most of the way to finger — fast recentering
+          const drift = 0.6;
+          originX += rawDx * drift;
+          originY += rawDy * drift;
+          // Move base ring to new origin
+          this._joyBase.setPosition(originX, originY);
+          this._joyOrbit.setPosition(originX, originY);
+        }
+      }
+
       let dx = pointer.x - originX;
       let dy = pointer.y - originY;
 
       // Clamp thumb to circle radius (dynamic per mode)
-      const maxDist = getMaxDist();
       const dist = Math.sqrt(dx * dx + dy * dy);
       let clampedDx = dx, clampedDy = dy;
       if (dist > maxDist) {
@@ -128,7 +148,6 @@ export default class TouchControls {
       }
       this._joyThumb.setPosition(originX + clampedDx, originY + clampedDy);
 
-      const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
       this._updateDirection(dx, dy, dz, maxDist);
     });
 
