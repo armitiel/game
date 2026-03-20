@@ -11,26 +11,21 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.setCollideWorldBounds(true);
     this.setDepth(4.5);
 
-    // Spritesheet is 2x resolution (302px frames) for Retina-quality rendering.
-    // Display at COP.HEIGHT (151px) via scale=0.5.
-    const F = COP.HEIGHT * 2;  // frame size in texture (302px)
-    this.setScale(0.5);
+    // 1x spritesheet at COP.HEIGHT (151px), scale=1 — same approach as Player.
+    // No setScale needed (default 1).
+    const F = COP.HEIGHT;  // 151px frame
 
-    // Spritesheet has been re-rendered with feet at ~97% of frame (like player).
-    // Body offset follows same pattern as Player: body bottom near frame bottom.
-    const FEET_Y = Math.round(F * 0.97);   // ~293 in 302px frame
-    const bodyW = Math.round(F * 0.345);    // ~104
-    const bodyH = Math.round(F * 0.50);     // ~151
-    const bodyOffX = Math.round((F - bodyW) / 2);
-    const bodyOffY = FEET_Y - bodyH;        // ~142
+    // Feet at ~97% of frame (measured: pixel 146 in 151px frame).
+    // Body: small hitbox in lower portion, matching Player pattern.
+    // Player: frame 96x144, body 20x60, offset (38, 81), body bottom=141 (97.9%)
+    // Cop:    frame 151x151, body ~52x76, offset (~50, 70), body bottom=146 (96.7%)
+    const bodyW = 52;
+    const bodyH = 76;
+    const bodyOffX = Math.round((F - bodyW) / 2);  // ~50, centered
+    const bodyOffY = 146 - bodyH;                   // 70 — body bottom at pixel 146 (feet)
     this.body.setSize(bodyW, bodyH);
     this.body.setOffset(bodyOffX, bodyOffY);
-
-    // Treat y from level data as the SURFACE the cop stands on.
-    // Calculate sprite.y so body.bottom = y, then nudge 2px above so gravity settles cop properly.
-    const displayOriginY = (F / 2) * 0.5;  // 75.5
-    const bodyBottomInSprite = (bodyOffY + bodyH) * 0.5;  // 146.5
-    this.y = y - bodyBottomInSprite + displayOriginY - 2;  // body.bottom ≈ y-2 → falls onto surface
+    // No manual this.y — let gravity + collider position the cop (same as Player).
 
     // Start walk animation
     this.play('cop_walk');

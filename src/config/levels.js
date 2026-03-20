@@ -132,7 +132,7 @@ export const LEVEL_1 = {
     { x: 902, y: H - 56 },
   ],
   cops: [
-    { x: 400, y: H - 60, minX: 300, maxX: W - 40 },
+    { x: 430, y: H - 80, minX: 330, maxX: 1270 },
   ],
   lamps: [
     { x: 1120, y: H - 23, radius: 120, intensity: 0.65 },
@@ -207,9 +207,9 @@ export const LEVEL_2 = {
     { x: 248, y: L2_H - 524 },
   ],
   cops: [
-    { x: 510, y: L2_H - 32, minX: 110, maxX: 770 },
-    { x: 300, y: L2_H - 500, minX: 100, maxX: 500 },
-    { x: 450, y: L2_H - 750, minX: 250, maxX: 650 },
+    { x: 500, y: L2_H - 90, minX: 100, maxX: L2_W - 40 },
+    { x: 300, y: L2_H - 527, minX: 100, maxX: 500 },
+    { x: 460, y: L2_H - 800, minX: 260, maxX: 660 },
   ],
   lamps: [
     { x: 100, y: L2_H - 990, radius: 120, intensity: 0.7 },

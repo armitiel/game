@@ -134,10 +134,10 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('icon_music', 'assets/sprites/elementy/nutka.png');
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
 
-    // === Load cop spritesheet (2x Lanczos, displayed at 0.5 scale for Retina-quality) ===
-    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet.png?v=2', {
-      frameWidth: COP.HEIGHT * 2,
-      frameHeight: COP.HEIGHT * 2
+    // === Load cop spritesheet (1x at COP.HEIGHT, same approach as player) ===
+    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=3', {
+      frameWidth: COP.HEIGHT,
+      frameHeight: COP.HEIGHT
     });
 
     // === Load paint arm assets ===
