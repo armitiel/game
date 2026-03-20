@@ -118,21 +118,19 @@ export default class TouchControls {
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
 
       // --- Dynamic origin recentering (paint mode only) ---
-      // When finger is inside dead zone, drift origin toward finger so
-      // direction changes don't require crossing the full joystick diameter.
+      // Origin continuously drifts toward finger so direction changes
+      // don't require crossing the full joystick diameter.
+      // Gentle drift (4% per frame) — unnoticeable while painting in one
+      // direction, but after ~0.5s the origin catches up enough that
+      // reversing needs ~30px instead of ~100px.
       if (this._paintMode) {
         const rawDx = pointer.x - originX;
         const rawDy = pointer.y - originY;
-        const rawDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy);
-        if (rawDist < dz) {
-          // Snap origin most of the way to finger — fast recentering
-          const drift = 0.6;
-          originX += rawDx * drift;
-          originY += rawDy * drift;
-          // Move base ring to new origin
-          this._joyBase.setPosition(originX, originY);
-          this._joyOrbit.setPosition(originX, originY);
-        }
+        const drift = 0.04;
+        originX += rawDx * drift;
+        originY += rawDy * drift;
+        this._joyBase.setPosition(originX, originY);
+        this._joyOrbit.setPosition(originX, originY);
       }
 
       let dx = pointer.x - originX;
