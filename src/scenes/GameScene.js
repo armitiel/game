@@ -156,10 +156,15 @@ export default class GameScene extends Phaser.Scene {
     // Cops vs trash — pass through (no collision)
 
     // Ladder overlap — sets flag per frame, resolved in update()
+    // Grace timestamp for flicker tolerance at high fps
     this.playerOnLadderThisFrame = false;
     this.ladderCenterX = 0;
     this.ladderTopY = 0;
     this.currentLadderInfo = null; // reference to ladderInfo for pushing
+    this._ladderOverlapTs = 0;
+    this._lastLadderCenterX = 0;
+    this._lastLadderTopY = 0;
+    this._lastLadderInfo = null;
     this.physics.add.overlap(this.player, this.ladderZones, (player, ladder) => {
       const info = ladder.getData('ladderInfo');
       // Skip fallen/destroyed ladders — can't climb a bridge
@@ -168,10 +173,15 @@ export default class GameScene extends Phaser.Scene {
       this.ladderCenterX = ladder.x + ladder.width / 2;
       this.ladderTopY = ladder.getData('ladderTopY');
       this.currentLadderInfo = info;
+      this._ladderOverlapTs = this.time.now;
+      this._lastLadderCenterX = this.ladderCenterX;
+      this._lastLadderTopY = this.ladderTopY;
+      this._lastLadderInfo = info;
     });
 
-    // Shadow overlap
+    // Shadow overlap — set timestamp so we can add grace period for flicker tolerance
     this.physics.add.overlap(this.player, this.shadowZones, () => {
+      this._shadowOverlapTs = this.time.now;
       this.playerInShadow = true;
     });
 
@@ -181,11 +191,15 @@ export default class GameScene extends Phaser.Scene {
       this.sfx.collectPaint();
     });
 
-    // Paint spot interaction
+    // Paint spot interaction — with grace timestamp for flicker tolerance at high fps
     this.interactablePaintSpot = null;
+    this._paintSpotOverlapTs = 0;
+    this._lastPaintSpot = null;
     this.physics.add.overlap(this.player, this.paintSpotZones, (player, spot) => {
       if (!spot.getData('painted')) {
         this.interactablePaintSpot = spot;
+        this._paintSpotOverlapTs = this.time.now;
+        this._lastPaintSpot = spot;
       }
     });
 
@@ -522,8 +536,10 @@ export default class GameScene extends Phaser.Scene {
     ld.ground.forEach(g => addPlatform(this.ground, g.x, g.y, g.w, g.depth));
     ld.platforms.forEach(p => {
       addPlatform(this.platforms, p.x, p.y, p.w, p.depth);
-      // Cast shadow below platform
-      this._addPlatformShadow(p.x, p.y + BLOCK_H, p.w);
+      // Cast shadow below platform only if there's a surface beneath it
+      if (this._hasSurfaceBelow(p.x, p.y + BLOCK_H, p.w, ld)) {
+        this._addPlatformShadow(p.x, p.y + BLOCK_H, p.w);
+      }
     });
   }
 
@@ -591,6 +607,23 @@ export default class GameScene extends Phaser.Scene {
     check(this.ground);
     check(this.platforms);
     return result;
+  }
+
+  /**
+   * Check if any ground or platform surface exists below a platform within shadow range.
+   * Uses raw level data so it works at build time before physics bodies are ready.
+   */
+  _hasSurfaceBelow(px, bottomY, pw, ld) {
+    const maxDist = 200; // max vertical distance to look for a surface
+    const surfaces = [...ld.ground, ...ld.platforms];
+    for (const s of surfaces) {
+      const top = s.y;
+      // Surface must be below the platform bottom and within range
+      if (top < bottomY || top > bottomY + maxDist) continue;
+      // Check horizontal overlap
+      if (px + pw > s.x && px < s.x + s.w) return true;
+    }
+    return false;
   }
 
   /**
@@ -2073,13 +2106,17 @@ export default class GameScene extends Phaser.Scene {
       this.hudWallIcon, this.hudCountText
     ]).setDepth(101).setScrollFactor(0);
 
-    // Status text (desktop only)
+    // Status text (desktop only) — readable sans-serif (same as level select descriptions)
     if (!isMobile) {
       this.statusText = this.add.text(gw / 2, 10, '', {
-        font: `${Math.round(12 * uiScale)}px ChangaOne, monospace`,
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontSize: `${Math.round(14 * uiScale)}px`,
+        fontStyle: 'bold',
         fill: '#00ff88',
-        padding: { x: Math.round(6 * uiScale), y: Math.round(4 * uiScale) }
-      }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0).setVisible(false);
+        stroke: '#000000',
+        strokeThickness: Math.round(2 * uiScale),
+        padding: { x: Math.round(8 * uiScale), y: Math.round(5 * uiScale) }
+      }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0).setResolution(2).setVisible(false);
     }
 
     // Music toggle button (speaker icon)
@@ -2382,6 +2419,29 @@ export default class GameScene extends Phaser.Scene {
           }
         }
 
+        // Ladder hints — show when player is near a ladder
+        if (this.playerOnLadderThisFrame && !this.player.isClimbing && !this.player.isPushingLadder) {
+          const onGnd = this.player.body.blocked.down;
+          if (onGnd) {
+            hints.push('\u2191/W: wejdź na drabinę');
+          }
+          // Show grab hint if near ladder bottom
+          if (onGnd && this.currentLadderInfo) {
+            const playerFeetY = this.player.body.y + this.player.body.height;
+            if (playerFeetY >= this.currentLadderInfo.bottomY - 40) {
+              hints.push('E: chwyć drabinę');
+            }
+          }
+        }
+
+        // Shadow hint
+        if (this.playerInShadow && !this.player.isHiding && !this.player.isClimbing) {
+          const onGnd = this.player.body.blocked.down;
+          if (onGnd) {
+            hints.push('\u2193/S: ukryj się w cieniu');
+          }
+        }
+
         if (hints.length > 0) {
           msg = `[ ${hints.join('  |  ')} ]`;
           color = paintHint ? '#ffdd33' : '#00ff88';
@@ -2574,7 +2634,7 @@ export default class GameScene extends Phaser.Scene {
       this._preZoom = this._baseZoom || cam.zoom;
     }
 
-    const targetZoom = isMobile ? 5.0 : 4.5;
+    const targetZoom = isMobile ? 5.0 : 3.5;
 
     // Shift camera focus down toward the arm's reach area so the
     // paint zone is centered on screen, not the player's head.
@@ -3454,7 +3514,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // 3. Player movement & input (uses ladder/shadow state)
-    this.player.update();
+    this.player.update(delta);
 
     // 3a. Ladder-to-platform landing: when climbing down, detect platform under feet
     // NOTE: This is now handled entirely by Player.update() platform-edge detection
@@ -3603,10 +3663,40 @@ export default class GameScene extends Phaser.Scene {
 
 
     // 6. Reset flags AFTER use — next frame's physics step will set them again
-    this.playerInShadow = false;
-    this.playerOnLadderThisFrame = false;
-    this.interactablePaintSpot = null;
-    this.currentLadderInfo = null;
+    // Grace period (100ms) to prevent flickering at high frame rates.
+    // Phaser overlap callbacks can miss 1-2 frames at 114+ fps.
+    const overlapGrace = 100; // ms
+    const now = this.time.now;
+
+    // Shadow
+    if (this._shadowOverlapTs && now - this._shadowOverlapTs > overlapGrace) {
+      this.playerInShadow = false;
+    }
+
+    // Paint spot
+    if (this._paintSpotOverlapTs && now - this._paintSpotOverlapTs < overlapGrace) {
+      // Keep last paint spot alive during grace period
+      if (!this.interactablePaintSpot && this._lastPaintSpot && !this._lastPaintSpot.getData('painted')) {
+        this.interactablePaintSpot = this._lastPaintSpot;
+      }
+    } else {
+      this.interactablePaintSpot = null;
+    }
+
+    // Ladder
+    if (this._ladderOverlapTs && now - this._ladderOverlapTs < overlapGrace) {
+      // Keep ladder data alive during grace period
+      if (!this.playerOnLadderThisFrame) {
+        this.playerOnLadderThisFrame = true;
+        this.ladderCenterX = this._lastLadderCenterX;
+        this.ladderTopY = this._lastLadderTopY;
+        this.currentLadderInfo = this._lastLadderInfo;
+      }
+    } else {
+      this.playerOnLadderThisFrame = false;
+      this.currentLadderInfo = null;
+    }
+
     this.nearbyTrash = null;
     this.collidingTrash = null;
   }

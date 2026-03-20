@@ -15,29 +15,29 @@ export const PLAYER = {
   FRAME_W: 96,
   FRAME_H: 144,
   // Frame ranges in combined sheet:
-  // idle: 0-17, walk: 18-41, jump: 42-61, push: 62-85, climb: 86-104, climb2: 105-124, paint: 125-149, twist: 150-177, side: 178-205, hide: 206-222
+  // idle: 0-17, walk: 18-53, jump: 54-73, push: 74-97, climb: 98-116, climb2: 117-136, paint: 137-161, twist: 162-189, side: 190-217, hide: 218-234
   TOTAL_IDLE_FRAMES: 18,
   IDLE_FRAME_START: 0,
-  TOTAL_WALK_FRAMES: 24,
+  TOTAL_WALK_FRAMES: 36,
   WALK_FRAME_START: 18,
   TOTAL_JUMP_FRAMES: 20,
-  JUMP_FRAME_START: 42,
+  JUMP_FRAME_START: 54,
   TOTAL_PUSH_FRAMES: 24,
-  PUSH_FRAME_START: 62,
+  PUSH_FRAME_START: 74,
   TOTAL_CLIMB_FRAMES: 19,
-  CLIMB_FRAME_START: 86,
+  CLIMB_FRAME_START: 98,
   CLIMB_ANIM_SPEED: 0.6,
   TOTAL_CLIMB2_FRAMES: 20,
-  CLIMB2_FRAME_START: 105,
+  CLIMB2_FRAME_START: 117,
   TOTAL_TURN_FRAMES: 25,
-  TURN_FRAME_START: 125,
+  TURN_FRAME_START: 137,
   TOTAL_TWIST_FRAMES: 28,
-  TWIST_FRAME_START: 150,
+  TWIST_FRAME_START: 162,
   IDLE_TWIST_DELAY: 5000, // ms of idle before twist plays
   TOTAL_SIDE_FRAMES: 28,
-  SIDE_FRAME_START: 178,
+  SIDE_FRAME_START: 190,
   TOTAL_HIDE_FRAMES: 17,
-  HIDE_FRAME_START: 206,
+  HIDE_FRAME_START: 218,
   // Health
   MAX_HP: 5,             // max hearts
   INVINCIBLE_MS: 1500,   // invincibility after taking damage (ms)

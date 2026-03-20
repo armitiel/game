@@ -7,12 +7,17 @@ import GameScene from './scenes/GameScene.js';
 import WinScene from './scenes/WinScene.js';
 import IntroScene from './scenes/IntroScene.js';
 
+const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
 const config = {
   type: Phaser.AUTO,
   width: GAME.WIDTH,
   height: GAME.HEIGHT,
   parent: 'game-container',
   backgroundColor: GAME.BACKGROUND_COLOR,
+  fps: {
+    limit: 114
+  },
   physics: {
     default: 'arcade',
     arcade: {
@@ -23,7 +28,7 @@ const config = {
   scene: [BootScene, MenuScene, LevelSelectScene, IntroScene, GameScene, WinScene],
   pixelArt: true,
   scale: {
-    mode: Phaser.Scale.EXPAND,
+    mode: isMobile ? Phaser.Scale.EXPAND : Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     expandParent: true
   },

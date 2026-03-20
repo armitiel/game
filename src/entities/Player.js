@@ -166,14 +166,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  update() {
-    // Climb2 cooldown tick
-    if (this._climb2Cooldown > 0) this._climb2Cooldown--;
+  update(dt) {
+    // dt = delta time in ms; normalize to 60fps equivalent (16.67ms per frame)
+    const dtScale = (dt || 16.67) / 16.67;
+
+    // Climb2 cooldown tick (frame-rate independent)
+    if (this._climb2Cooldown > 0) this._climb2Cooldown -= dtScale;
 
     // === Climb2 animation playing — body disabled, only sprite moves ===
     if (this.isClimbing2) {
-      // Smoothly interpolate Y from start to end over animation duration
-      this._climb2Progress += 0.05;  // ~20 frames at 60fps = full animation
+      // Smoothly interpolate Y from start to end over ~1 second
+      this._climb2Progress += 0.05 * dtScale;
       if (this._climb2Progress > 1) this._climb2Progress = 1;
       // Ease-in-out for smooth motion
       const t = this._climb2Progress;
@@ -219,7 +222,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // Tick ladder cooldown
-    if (this.ladderCooldown > 0) this.ladderCooldown--;
+    if (this.ladderCooldown > 0) this.ladderCooldown -= dtScale;
 
     const t = this.touch;
     // Tutorial control lock — scene may restrict certain inputs
@@ -505,13 +508,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       // Joystick has horizontal component — only treat as hide intent if vertical dominates
       if (t.intensityX >= t.intensityY) hideIntent = false;
     }
-    // Require player to be nearly stopped for several frames to prevent accidental entry
+    // Require player to be nearly stopped for ~100ms to prevent accidental entry
+    // Use real time (ms) instead of frame counting for FPS independence
+    // Grace period: tolerate 1-2 frame flickers of ground/shadow (common at high fps)
     if (onGround && this.inShadowZone && Math.abs(this.body.velocity.x) < 10) {
-      this._shadowStoppedFrames++;
+      if (!this._shadowStoppedSince) this._shadowStoppedSince = this.scene.time.now;
+      this._shadowLastGoodTs = this.scene.time.now; // last frame where all conditions held
     } else {
-      this._shadowStoppedFrames = 0;
+      // Only reset if conditions have been bad for >50ms (grace period for flickering)
+      const badMs = this._shadowLastGoodTs ? this.scene.time.now - this._shadowLastGoodTs : 999;
+      if (badMs > 50) this._shadowStoppedSince = 0;
     }
-    if (hideIntent && !jump && onGround && this.inShadowZone && !this.onLadder && this._shadowStoppedFrames >= 6) {
+    const stoppedMs = this._shadowStoppedSince ? this.scene.time.now - this._shadowStoppedSince : 0;
+    if (hideIntent && !jump && onGround && this.inShadowZone && !this.isClimbing && stoppedMs >= 80) {
       this.startHiding();
       this.updateHiddenIcon();
       return;

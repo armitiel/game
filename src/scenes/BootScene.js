@@ -402,11 +402,11 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
-    // --- WALK: 24-frame cycle ---
+    // --- WALK: 36-frame cycle at 57fps → 0.63s/cycle (divides evenly into 114fps limit)
     this.anims.create({
       key: 'player_walk',
       frames: this.anims.generateFrameNumbers('player_sheet', { start: W, end: W + WN - 1 }),
-      frameRate: 38,
+      frameRate: 57,
       repeat: -1
     });
 
