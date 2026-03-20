@@ -1072,11 +1072,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.playAnim('player_hide_reverse', false);
     this.once('animationcomplete-player_hide_reverse', () => {
       this.isUnhiding = false;
-      this._unhideExitDir = 0;
       // Prevent immediate re-entry into shadow (joystick still has vertical component)
       this._hideLockedUntil = this.scene.time.now + 400;
       this.currentAnim = '';
-      this.playAnim('player_idle');
+      // If exited with a direction, immediately start walking that way
+      if (this._unhideExitDir !== 0) {
+        const maxSpd = this.isPushingTrash ? PLAYER.SPEED * 0.4 : PLAYER.SPEED;
+        this.setVelocityX(this._unhideExitDir * maxSpd * 0.5);
+        this.body.setAccelerationX(this._unhideExitDir * 1200);
+        this.body.setMaxVelocityX(maxSpd);
+        this.playAnim('player_walk');
+      } else {
+        this.playAnim('player_idle');
+      }
+      this._unhideExitDir = 0;
     });
   }
 
