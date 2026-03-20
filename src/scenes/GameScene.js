@@ -2572,9 +2572,10 @@ export default class GameScene extends Phaser.Scene {
 
     const targetZoom = isMobile ? 6.5 : 4.5;
 
-    // Keep following the player — just zoom in smoothly.
-    // Camera stays centered on player so we always see what's happening,
-    // even on large murals where the center is far from the player.
+    // Shift camera focus down toward the arm's reach area so the
+    // paint zone is centered on screen, not the player's head.
+    const armOffsetY = isMobile ? 25 : 18;
+    cam.setFollowOffset(0, -armOffsetY);
     cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
 
     // Start paint arm (hand + rope + spray can)
@@ -2719,6 +2720,7 @@ export default class GameScene extends Phaser.Scene {
       // Always restore to the reliable base zoom, not a possibly mid-animation value
       const restoreZoom = this._baseZoom || this._preZoom;
       this.cameras.main.zoomTo(restoreZoom, 350, 'Sine.easeInOut');
+      this.cameras.main.setFollowOffset(0, 0);
       this._preZoom = null;
     }
 
