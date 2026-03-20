@@ -21,7 +21,7 @@ const config = {
     }
   },
   scene: [BootScene, MenuScene, LevelSelectScene, IntroScene, GameScene, WinScene],
-  pixelArt: false,
+  pixelArt: true,
   scale: {
     mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
