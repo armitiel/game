@@ -34,6 +34,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.isHiding = false;            // true when actively crouching in shadow zone
     this.isUnhiding = false;          // true during stand-up reverse animation
     this.inShadowZone = false;        // set by GameScene — player overlaps shadow zone this frame
+    this._shadowStoppedFrames = 0;   // frames player has been nearly stopped — prevents accidental hide while running
     // Health
     this.hp = PLAYER.MAX_HP;
     this.maxHp = PLAYER.MAX_HP;
@@ -496,8 +497,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // === Normal movement ===
     this.body.allowGravity = true;
 
-    // === Hide in shadow: DOWN/UP/diagonal-up while stopped on ground in shadow zone (not on ladder) ===
-    if ((down || up) && !jump && onGround && this.inShadowZone && !this.onLadder && Math.abs(this.body.velocity.x) < 10) {
+    // === Hide in shadow: DOWN/UP while stopped on ground in shadow zone (not on ladder) ===
+    // Require player to be nearly stopped for several frames to prevent accidental entry while running
+    if (onGround && this.inShadowZone && Math.abs(this.body.velocity.x) < 10) {
+      this._shadowStoppedFrames++;
+    } else {
+      this._shadowStoppedFrames = 0;
+    }
+    if ((down || up) && !jump && onGround && this.inShadowZone && !this.onLadder && this._shadowStoppedFrames >= 6) {
       this.startHiding();
       this.updateHiddenIcon();
       return;
