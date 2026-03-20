@@ -3244,8 +3244,11 @@ export default class GameScene extends Phaser.Scene {
     // isHidden is now managed by Player — only true when actively hiding (DOWN + stopped + in shadow)
     this.player.inShadowZone = this.playerInShadow;
     // Tell touch controls to bias down-diagonals as pure down near shadows
+    // Only activate bias when player is nearly stopped — prevents stripping
+    // horizontal input while running, which caused unwanted slide-into-shadow
     if (this.touch && this.touch.enabled) {
-      this.touch.shadowBias = this.playerInShadow;
+      const playerStopped = Math.abs(this.player.body.velocity.x) < 15;
+      this.touch.shadowBias = this.playerInShadow && playerStopped;
     }
     // Update shadow down-arrow indicators
     this._updateShadowArrows();
