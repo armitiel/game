@@ -68,6 +68,16 @@ export default class PaintArm {
    * @param {boolean} flipX - player facing direction
    * @param {object} bounds - paint area {x, y, w, h} (top-left + size)
    */
+  /**
+   * Set grid cell dimensions for cell-snapping at low joystick intensity.
+   * @param {number} cellW
+   * @param {number} cellH
+   */
+  setGridCells(cellW, cellH) {
+    this._cellW = cellW;
+    this._cellH = cellH;
+  }
+
   start(playerX, playerY, flipX, bounds, colorName) {
     this.active = true;
     this.bounds = bounds;
@@ -173,6 +183,22 @@ export default class PaintArm {
       const ratio = MAX_ARM_LENGTH / armDist;
       hx = sx + adx * ratio;
       hy = sy + ady * ratio;
+    }
+
+    // Grid cell snapping — at low joystick intensity, pull hand toward
+    // the nearest cell center so the player can step cell-by-cell precisely.
+    if (isTouch && this._cellW && this._cellH) {
+      const ix = input.intensityX != null ? input.intensityX : 1;
+      const iy = input.intensityY != null ? input.intensityY : 1;
+      const intensity = Math.max(ix, iy);
+      // Snap strength: full snap at 0 intensity, fades out by 0.35
+      const snap = Math.max(0, 1 - intensity / 0.35);
+      if (snap > 0) {
+        const cellCX = b.x + (Math.floor((hx - b.x) / this._cellW) + 0.5) * this._cellW;
+        const cellCY = b.y + (Math.floor((hy - b.y) / this._cellH) + 0.5) * this._cellH;
+        hx += (cellCX - hx) * snap * 0.4;
+        hy += (cellCY - hy) * snap * 0.4;
+      }
     }
 
     this.points[last].x = hx;

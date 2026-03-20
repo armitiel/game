@@ -2426,6 +2426,11 @@ export default class GameScene extends Phaser.Scene {
       this.pbn = new PaintByNumbers(this, bounds, gridData);
     }
 
+    // Tell paint arm about cell dimensions for grid snapping
+    if (this.paintArm && this.pbn) {
+      this.paintArm.setGridCells(this.pbn.cellW, this.pbn.cellH);
+    }
+
     // Restore last selected color if player still has it, otherwise pick first available
     const paintingColors = gridData.colors || ['RED', 'BLUE', 'YELLOW'];
     let restored = false;
