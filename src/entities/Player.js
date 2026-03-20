@@ -983,6 +983,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocity(0, 0);
     this.body.setAccelerationX(0);
 
+    // Move behind cops (depth 4.5) so hidden player appears behind them
+    this.setDepth(3);
+
     // Gently nudge player to the center of the shadow zone
     if (this.scene._shadowArrows) {
       let best = null;
@@ -1059,6 +1062,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._unhideExitDir = exitDir;  // remember direction to move after standing up
     this.off('animationcomplete-player_hide');  // remove pending callback
 
+    // Restore depth back in front of cops
+    this.setDepth(5);
+
     // Set flip based on exit direction:
     // right (exitDir=1) → normal (flipX=false), left (exitDir=-1) → flipped
     if (exitDir === -1) this.setFlipX(true);
@@ -1108,6 +1114,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (this._hideTween) { this._hideTween.destroy(); this._hideTween = null; }
     this.clearTint();
     this.setAlpha(1);
+    this.setDepth(5);  // restore default depth on reset
     this._pushYShift = 0;
     this.body.allowGravity = true;
     this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
