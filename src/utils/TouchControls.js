@@ -118,15 +118,15 @@ export default class TouchControls {
       const dz = this._paintMode ? DEAD_ZONE_PAINT : DEAD_ZONE;
 
       // --- Dynamic origin recentering (paint mode only) ---
-      // Origin continuously drifts toward finger so direction changes
-      // don't require crossing the full joystick diameter.
-      // Gentle drift (4% per frame) — unnoticeable while painting in one
-      // direction, but after ~0.5s the origin catches up enough that
-      // reversing needs ~30px instead of ~100px.
+      // Origin drifts toward finger proportionally to distance — strong
+      // when far away (fast sweeps), near-zero close to dead zone so
+      // slow precise movements aren't eaten by the drift.
       if (this._paintMode) {
         const rawDx = pointer.x - originX;
         const rawDy = pointer.y - originY;
-        const drift = 0.04;
+        const rawDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy);
+        const driftScale = Math.max(0, rawDist - dz) / (maxDist - dz);
+        const drift = 0.05 * driftScale;
         originX += rawDx * drift;
         originY += rawDy * drift;
         this._joyBase.setPosition(originX, originY);
