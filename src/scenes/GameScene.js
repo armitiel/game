@@ -396,16 +396,55 @@ export default class GameScene extends Phaser.Scene {
         [0x0e1024, 0x161a32],
       ],
     });
-    // Apply blur to far layer (more blur = further away)
-    const farBlur = document.createElement('canvas');
-    farBlur.width = farCanvas.width; farBlur.height = farCanvas.height;
-    const farBlurCtx = farBlur.getContext('2d');
-    farBlurCtx.filter = 'blur(4px)';
-    farBlurCtx.drawImage(farCanvas, 0, 0);
+    // Portable canvas blur: works even when ctx.filter is unsupported.
+    // Uses multiple scaled drawImage passes (box blur approximation).
+    const _blurCanvas = (src, radius) => {
+      const w = src.width, h = src.height;
+      const out = document.createElement('canvas');
+      out.width = w; out.height = h;
+      const ctx = out.getContext('2d');
 
+      // Check if native filter is supported
+      if (typeof ctx.filter === 'string' || ctx.filter !== undefined) {
+        try {
+          ctx.filter = `blur(${radius}px)`;
+          ctx.drawImage(src, 0, 0);
+          // Verify it actually worked (some browsers silently ignore filter)
+          ctx.filter = 'none';
+          return out;
+        } catch (e) { /* fallback below */ }
+      }
+
+      // Fallback: iterative downscale/upscale blur (3 passes)
+      const passes = Math.max(1, Math.round(radius));
+      const tmp = document.createElement('canvas');
+      const scale = Math.max(0.05, 1 / (1 + radius * 0.5));
+      tmp.width = Math.max(1, Math.round(w * scale));
+      tmp.height = Math.max(1, Math.round(h * scale));
+      const tCtx = tmp.getContext('2d');
+      tCtx.imageSmoothingEnabled = true;
+      tCtx.imageSmoothingQuality = 'high';
+      // Downscale
+      tCtx.drawImage(src, 0, 0, tmp.width, tmp.height);
+      // Upscale back
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(tmp, 0, 0, w, h);
+      // Extra passes for smoother result
+      for (let i = 1; i < passes; i++) {
+        tCtx.clearRect(0, 0, tmp.width, tmp.height);
+        tCtx.drawImage(out, 0, 0, tmp.width, tmp.height);
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(tmp, 0, 0, w, h);
+      }
+      return out;
+    };
+
+    // Apply blur to far layer (more blur = further away)
+    const farBlurred = _blurCanvas(farCanvas, 4);
     const farKey = '__parallax_far';
     if (this.textures.exists(farKey)) this.textures.remove(farKey);
-    this.textures.addCanvas(farKey, farBlur);
+    this.textures.addCanvas(farKey, farBlurred);
     this.add.image(0, wh - farH - 60, farKey)
       .setOrigin(0, 0).setDepth(0.1).setScrollFactor(0.15, 0.3);
 
@@ -426,15 +465,10 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // Apply subtle blur to near layer
-    const nearBlur = document.createElement('canvas');
-    nearBlur.width = nearCanvas.width; nearBlur.height = nearCanvas.height;
-    const nearBlurCtx = nearBlur.getContext('2d');
-    nearBlurCtx.filter = 'blur(1.5px)';
-    nearBlurCtx.drawImage(nearCanvas, 0, 0);
-
+    const nearBlurred = _blurCanvas(nearCanvas, 1.5);
     const nearKey = '__parallax_near';
     if (this.textures.exists(nearKey)) this.textures.remove(nearKey);
-    this.textures.addCanvas(nearKey, nearBlur);
+    this.textures.addCanvas(nearKey, nearBlurred);
     this.add.image(0, wh - nearH - 30, nearKey)
       .setOrigin(0, 0).setDepth(0.2).setScrollFactor(0.4, 0.6);
   }
