@@ -498,13 +498,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.body.allowGravity = true;
 
     // === Hide in shadow: DOWN/UP while stopped on ground in shadow zone (not on ladder) ===
-    // Require player to be nearly stopped for several frames to prevent accidental entry while running
+    // On mobile joystick, require vertical to be the dominant axis — a slight diagonal
+    // while running should NOT trigger hide. On keyboard, down/up is always intentional.
+    let hideIntent = down || up;
+    if (hideIntent && t && (t.left || t.right)) {
+      // Joystick has horizontal component — only treat as hide intent if vertical dominates
+      if (t.intensityX >= t.intensityY) hideIntent = false;
+    }
+    // Require player to be nearly stopped for several frames to prevent accidental entry
     if (onGround && this.inShadowZone && Math.abs(this.body.velocity.x) < 10) {
       this._shadowStoppedFrames++;
     } else {
       this._shadowStoppedFrames = 0;
     }
-    if ((down || up) && !jump && onGround && this.inShadowZone && !this.onLadder && this._shadowStoppedFrames >= 6) {
+    if (hideIntent && !jump && onGround && this.inShadowZone && !this.onLadder && this._shadowStoppedFrames >= 6) {
       this.startHiding();
       this.updateHiddenIcon();
       return;
