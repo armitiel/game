@@ -60,7 +60,7 @@ export default class TouchControls {
 
     // --- Floating virtual joystick ---
     const BASE_RADIUS_NORMAL = 52;   // outer ring radius (normal mode)
-    const BASE_RADIUS_PAINT = 90;    // outer ring radius (paint mode — bigger for precision)
+    const BASE_RADIUS_PAINT = 120;   // outer ring radius (paint mode — bigger for precision)
     const THUMB_RADIUS = 22;  // inner knob radius
     const HINT_RADIUS = 14;   // small direction hint circles
 
