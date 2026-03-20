@@ -1073,6 +1073,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.once('animationcomplete-player_hide_reverse', () => {
       this.isUnhiding = false;
       this._unhideExitDir = 0;
+      // Prevent immediate re-entry into shadow (joystick still has vertical component)
+      this._hideLockedUntil = this.scene.time.now + 400;
       this.currentAnim = '';
       this.playAnim('player_idle');
     });
