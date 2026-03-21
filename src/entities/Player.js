@@ -432,29 +432,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.setFlipX(false);
       }
 
-      // Auto-dismount at top: when feet climb just above platform, snap onto it.
-      // Small clearance (8px) so the character barely rises above the platform edge.
-      const playerFeetY = this.body.y + this.body.height;
-      if (up && this.ladderTopY && playerFeetY <= this.ladderTopY - 8) {
-        // Find the actual platform at ladderTopY and place body on top of it
-        const platforms = [
-          ...(this.scene.platforms ? this.scene.platforms.getChildren() : []),
-          ...(this.scene.ground ? this.scene.ground.getChildren() : [])
-        ];
-        let platTop = this.ladderTopY;
-        for (const plat of platforms) {
-          if (Math.abs(plat.body.y - this.ladderTopY) < 5) {
-            const px = this.body.x + this.body.width / 2;
-            if (px >= plat.body.x && px <= plat.body.x + plat.body.width) {
-              platTop = plat.body.y;
-              break;
-            }
-          }
-        }
-        // Snap: body bottom exactly at platform top
+      // Auto-dismount at top: when player's feet are well above the ladder top
+      // ladderTopY is where the platform sits, so feet must clear the platform (32px thick)
+      const playerFeetY = this.y + PLAYER.BODY_H / 2;
+      const clearanceAbovePlatform = 36; // platform thickness + margin
+      if (up && this.ladderTopY && playerFeetY <= this.ladderTopY - clearanceAbovePlatform) {
+        // Position player precisely on the platform surface
+        this.y = this.ladderTopY - PLAYER.BODY_H / 2 - PLAYER.BODY_OFFSET_Y;
         this.exitLadder('top-clearance');
-        this.y = platTop - PLAYER.BODY_OFFSET_Y - PLAYER.BODY_H + PLAYER.FRAME_H / 2;
-        this.body.reset(this.x, this.y);
         this.setVelocityY(0);
         this.setVelocityX(0);
         this.playAnim('player_idle');
