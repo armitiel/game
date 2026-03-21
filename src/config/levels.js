@@ -114,14 +114,14 @@ export const LEVEL_1 = {
   ],
   fillWalls: [
     { x: 0, y: H - 124, w: 256, h: 92 },
-    { x: 300, y: H - 256, w: 570, h: 225, depth: 1 },
+    { x: 300, y: H - 257, w: 570, h: 225, depth: 1 },
     { x: 620, y: H - 388, w: 170, h: 102 },
     { x: 1090, y: H - 620, w: 100, h: 120 },
   ],
   paintCans: [
   ],
   paintSpots: [
-    { x: 510, y: H - 140, w: 400, h: 210, paintingKey: 'painting_star' },
+    { x: 505, y: H - 141, w: 400, h: 210, paintingKey: 'painting_star' },
     { x: 1140, y: H - 560, w: 95, h: 110, paintingKey: 'painting_Nowy' },
   ],
   trashCans: [
