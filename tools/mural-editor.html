@@ -111,7 +111,7 @@
   <div class="section">
     <label>Generator wzorów:</label>
     <div class="row" style="margin-top:4px">
-      <label>Kolory: <input type="number" id="gen-colors" min="1" max="8" value="3"></label>
+      <label>Kolory: <input type="number" id="gen-colors" min="1" max="8" value="3" onchange="onColorsChange()"></label>
     </div>
     <label style="margin-top:6px">Wzór:</label>
     <select id="gen-pattern">
@@ -998,9 +998,13 @@ function handleImageUpload(event) {
   img.src = URL.createObjectURL(file);
 }
 
+/** Color count changed — re-convert image if one is loaded */
+function onColorsChange() {
+  if (uploadedImage) convertImage();
+}
+
 /** Image scale slider changed — re-convert keeping grid fixed */
 function onImageScaleChange() {
-  // Label is updated after conversion shows actual percentage
   if (uploadedImage) convertImage();
 }
 
