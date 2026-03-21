@@ -121,8 +121,8 @@ export const LEVEL_1 = {
   paintCans: [
   ],
   paintSpots: [
-    { x: 504, y: H - 142, w: 400, h: 210, paintingKey: 'painting_star' },
-    { x: 1140, y: H - 560, w: 80, h: 100, paintingKey: 'painting_Nowy' },
+    { x: 510, y: H - 140, w: 400, h: 210, paintingKey: 'painting_star' },
+    { x: 1140, y: H - 560, w: 95, h: 110, paintingKey: 'painting_Nowy' },
   ],
   trashCans: [
     { x: 310, y: H - 56 },

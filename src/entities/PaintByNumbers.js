@@ -185,11 +185,7 @@ export default class PaintByNumbers {
     this.paintGfx.fillStyle(variedHex, 1);
     this.paintGfx.fillRect(cx - pad, cy - pad, this.cellW + pad * 2, this.cellH + pad * 2);
 
-    // Random paint streaks
-    if (Math.random() > 0.5) {
-      this.paintGfx.fillStyle(0xffffff, 0.12);
-      this.paintGfx.fillRect(cx + 1, cy + this.cellH * 0.3, this.cellW - 2, 1);
-    }
+    // No paint streaks — they create visible bright lines on dark colors
 
     // Clear number from canvas for this cell
     this._clearNumberCell(col, row);
