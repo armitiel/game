@@ -980,64 +980,27 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // === AUTO-GENERATE paint cans based on mural requirements ===
-    const paintPerCan = PAINT.PAINT_PER_CAN || 100;
-    const surplus = PAINT.PAINT_SURPLUS || 1.15;
+    // Only count colors from paintings that have an actual paintSpot in this level.
+    // Generate exactly 1 can per unique color — the PBN cost formula already ensures
+    // 1 can covers its color's share of a mural, and surplus gives enough margin.
 
-    // 1. Calculate paint demand per color across ALL murals
-    const demand = {};  // { 'red': totalCells, 'blue': totalCells }
-    const paintings = ld.paintings || [];
-    paintings.forEach(key => {
-      const data = this.cache.json.get(key);
-      if (!data || !data.grid || !data.colors) return;
-      for (let r = 0; r < data.grid.length; r++) {
-        for (let c = 0; c < data.grid[r].length; c++) {
-          const ci = data.grid[r][c];
-          if (ci >= 0) {
-            const colorName = (data.colors[ci] || 'red').toLowerCase();
-            demand[colorName] = (demand[colorName] || 0) + 1;
-          }
-        }
-      }
+    const paintSpots = ld.paintSpots || [];
+    // Collect unique painting keys referenced by paint spots
+    const neededPaintings = new Set();
+    paintSpots.forEach(ps => {
+      if (ps.paintingKey && !ps.painted) neededPaintings.add(ps.paintingKey);
     });
 
-    // 2. Calculate how many cans per color are needed
-    // Cost per cell for color = paintPerCan / (cells_of_color * surplus)
-    // Total paint needed = cells * costPerCell = paintPerCan / surplus
-    // So cans needed = ceil(1 / surplus) = 1 per mural's color share
-    // But with multiple murals we need more — calculate precisely:
-    const cansNeeded = {};  // { 'red': 2, 'blue': 1 }
-    for (const [color, cells] of Object.entries(demand)) {
-      // Each can gives paintPerCan units. Each cell costs paintPerCan/(cellsInOneMural*surplus)
-      // But cells here is TOTAL across all murals. We need totalPaint / paintPerCan cans.
-      // totalPaint = cells * (paintPerCan / (cellsInThisMural * surplus))
-      // Since cells from multiple murals have different costs, simplify:
-      // Total paint needed = paintPerCan / surplus (one can's worth per mural per color)
-      // Actually, the cost formula in PBN is per-mural. Here we just need enough paint:
-      // total paint consumed = sum over each mural of (cellsOfColorInMural * costPerCell)
-      // costPerCell = paintPerCan / (cellsOfColorInMural * surplus)
-      // So total = sum of (paintPerCan / surplus) per mural that uses this color = numMuralsWithColor * paintPerCan / surplus
-      // cans needed = total / paintPerCan = numMuralsWithColor / surplus
+    // Collect unique colors across all needed paintings
+    const uniqueColors = new Set();
+    neededPaintings.forEach(key => {
+      const data = this.cache.json.get(key);
+      if (!data || !data.colors) return;
+      data.colors.forEach(c => uniqueColors.add(c.toLowerCase()));
+    });
 
-      // Count how many murals use this color
-      let muralsWithColor = 0;
-      paintings.forEach(key => {
-        const data = this.cache.json.get(key);
-        if (data && data.colors) {
-          if (data.colors.some(c => c.toLowerCase() === color)) muralsWithColor++;
-        }
-      });
-      cansNeeded[color] = Math.ceil(muralsWithColor / surplus);
-      // Minimum 1 can per color
-      if (cansNeeded[color] < 1) cansNeeded[color] = 1;
-    }
-
-    // 3. Build flat list of cans to spawn: [{ color }, { color }, ...]
-    const canList = [];
-    for (const [color, count] of Object.entries(cansNeeded)) {
-      for (let i = 0; i < count; i++) {
-        canList.push(color);
-      }
-    }
+    // 1 can per unique color
+    const canList = [...uniqueColors];
 
     // Shuffle to mix colors
     for (let i = canList.length - 1; i > 0; i--) {

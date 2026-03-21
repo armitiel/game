@@ -223,26 +223,30 @@ if (_spotW && _spotH) {
 
 /**
  * Auto-fit grid to match paintSpot proportions from level editor.
- * Keeps the current density (total cells ≈ cols*rows) but adjusts
- * cols/rows ratio to match spotW/spotH.
+ * PRESERVES the existing pattern — does NOT rescale.
+ * Pads the grid (adds empty cells) to match target aspect ratio.
+ * Pattern is placed top-left; user can shift it as needed.
  */
 function fitToSpot() {
   if (!_spotW || !_spotH) return;
-  const aspect = _spotW / _spotH;
-  const totalCells = cols * rows;
-  // Solve: newCols/newRows = aspect, newCols*newRows ≈ totalCells
-  // newCols = aspect * newRows → aspect * newRows^2 = totalCells
-  let newRows = Math.max(2, Math.round(Math.sqrt(totalCells / aspect)));
-  let newCols = Math.max(2, Math.round(newRows * aspect));
+  const targetAspect = _spotW / _spotH; // target cols/rows ratio
+  const currentAspect = cols / rows;
 
-  // Rescale existing grid content using nearest-neighbor
-  const oldGrid = grid;
-  const oldCols = cols, oldRows = rows;
+  let newCols = cols, newRows = rows;
+
+  if (targetAspect > currentAspect) {
+    // Target is wider — add columns to the right
+    newCols = Math.max(cols, Math.round(rows * targetAspect));
+  } else {
+    // Target is taller — add rows at the bottom
+    newRows = Math.max(rows, Math.round(cols / targetAspect));
+  }
+
+  // Build new grid: copy existing pattern, pad with -1 (empty)
   const newGrid = Array.from({length: newRows}, (_, r) =>
     Array.from({length: newCols}, (_, c) => {
-      const srcR = Math.min(oldRows - 1, Math.floor(r * oldRows / newRows));
-      const srcC = Math.min(oldCols - 1, Math.floor(c * oldCols / newCols));
-      return oldGrid[srcR] ? (oldGrid[srcR][srcC] ?? -1) : -1;
+      if (r < rows && c < cols) return grid[r] ? (grid[r][c] ?? -1) : -1;
+      return -1; // empty padding
     })
   );
 
@@ -258,7 +262,7 @@ function fitToSpot() {
   lockedAspect = cols / rows;
   const lockCb = document.getElementById('lockRatio');
   if (!lockCb.checked) { lockCb.checked = true; lockCb.dispatchEvent(new Event('change')); }
-  status(`Dopasowano: ${cols}x${rows} (proporcje ${aspect.toFixed(2)})`);
+  status(`Dopasowano: ${cols}x${rows} (proporcje ${targetAspect.toFixed(2)}) — wzór zachowany`);
   updateRatioLabel();
 }
 
@@ -957,7 +961,7 @@ function handleImageUpload(event) {
   const img = new Image();
   img.onload = () => {
     uploadedImage = img;
-    // Draw preview
+    // Draw preview with transparency checkerboard
     const preview = document.getElementById('img-preview');
     const wrap = document.getElementById('img-preview-wrap');
     wrap.style.display = 'block';
@@ -966,6 +970,14 @@ function handleImageUpload(event) {
     preview.width = maxW;
     preview.height = img.height * scale;
     const pctx = preview.getContext('2d');
+    // Checkerboard background for transparency
+    const checkSize = 6;
+    for (let y = 0; y < preview.height; y += checkSize) {
+      for (let x = 0; x < preview.width; x += checkSize) {
+        pctx.fillStyle = ((x / checkSize + y / checkSize) & 1) ? '#ccc' : '#fff';
+        pctx.fillRect(x, y, checkSize, checkSize);
+      }
+    }
     pctx.drawImage(img, 0, 0, preview.width, preview.height);
     status('Zdjęcie załadowane: ' + img.width + 'x' + img.height);
   };
@@ -975,44 +987,36 @@ function handleImageUpload(event) {
 function convertImage() {
   if (!uploadedImage) { status('Najpierw wybierz zdjęcie!'); return; }
 
-  const density = parseInt(document.getElementById('gen-density').value) || 3;
-  const gridSize = DENSITY_SIZES[density - 1];
   const numColors = parseInt(document.getElementById('gen-colors').value) || 3;
 
-  // Calculate grid dimensions preserving image aspect ratio
-  const aspect = uploadedImage.width / uploadedImage.height;
-  let newCols, newRows;
-  if (aspect >= 1) {
-    newCols = gridSize;
-    newRows = Math.max(2, Math.round(gridSize / aspect));
-  } else {
-    newRows = gridSize;
-    newCols = Math.max(2, Math.round(gridSize * aspect));
-  }
+  // Keep current grid dimensions — image adapts to existing layout
+  const newCols = cols;
+  const newRows = rows;
 
-  // Render image at grid resolution to sample colors
+  // Render image stretched to fit current grid dimensions (transparent background)
   const sampleCanvas = document.createElement('canvas');
   sampleCanvas.width = newCols;
   sampleCanvas.height = newRows;
   const sctx = sampleCanvas.getContext('2d');
+  sctx.clearRect(0, 0, newCols, newRows); // ensure transparent background
   sctx.drawImage(uploadedImage, 0, 0, newCols, newRows);
   const imageData = sctx.getImageData(0, 0, newCols, newRows).data;
 
-  // Collect all pixel colors
+  // Collect pixel colors + alpha; transparent pixels (alpha < 128) become empty
+  const alphaThreshold = 128;
   const pixels = [];
+  const isTransparent = [];
   for (let i = 0; i < newCols * newRows; i++) {
     const r = imageData[i * 4], g = imageData[i * 4 + 1], b = imageData[i * 4 + 2];
+    const a = imageData[i * 4 + 3];
     pixels.push([r, g, b]);
+    isTransparent.push(a < alphaThreshold);
   }
 
-  // K-means color quantization
-  const quantizedPalette = kMeansQuantize(pixels, numColors);
-
-  // Set up state
-  cols = newCols;
-  rows = newRows;
-  document.getElementById('cols').value = cols;
-  document.getElementById('rows').value = rows;
+  // K-means only on opaque pixels (skip transparent)
+  const opaquePixels = pixels.filter((_, i) => !isTransparent[i]);
+  if (opaquePixels.length === 0) { status('Obraz jest całkowicie przezroczysty!'); return; }
+  const quantizedPalette = kMeansQuantize(opaquePixels, numColors);
 
   // Build color names and palette
   colors = [];
@@ -1025,13 +1029,17 @@ function convertImage() {
     palette[name] = hex;
   }
 
-  // Map each pixel to closest palette color
+  // Map each pixel to closest palette color; transparent → -1 (empty)
   grid = [];
   for (let row = 0; row < newRows; row++) {
     const gridRow = [];
     for (let col = 0; col < newCols; col++) {
-      const px = pixels[row * newCols + col];
-      gridRow.push(closestColor(px, quantizedPalette));
+      const idx = row * newCols + col;
+      if (isTransparent[idx]) {
+        gridRow.push(-1); // empty cell
+      } else {
+        gridRow.push(closestColor(pixels[idx], quantizedPalette));
+      }
     }
     grid.push(gridRow);
   }
@@ -1040,7 +1048,7 @@ function convertImage() {
   renderPalette();
   renderColorEditor();
   draw();
-  status(`Zdjęcie skonwertowane: ${cols}x${rows}, ${numColors} kolorów`);
+  status(`Zdjęcie skonwertowane na siatkę ${cols}x${rows}, ${numColors} kolorów`);
 }
 
 function kMeansQuantize(pixels, k, iterations = 15) {

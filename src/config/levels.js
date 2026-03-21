@@ -92,8 +92,8 @@ export const LEVEL_1 = {
 
   platforms: [
     { x: 0, y: H - 156, w: 256 },
-    { x: 620, y: H - 286, w: 250 },
-    { x: 300, y: H - 286, w: 300 },
+    { x: 620, y: H - 290, w: 250 },
+    { x: 300, y: H - 290, w: 300 },
     { x: 50, y: H - 416, w: 300 },
     { x: 620, y: H - 420, w: 170 },
     { x: 940, y: H - 160, w: 100 },
@@ -105,26 +105,24 @@ export const LEVEL_1 = {
   ],
   ladders: [
     { x: 224, topY: H - 142, bottomY: H - 32, minX: 54, maxX: 264 },
-    { x: 820, topY: H - 270, bottomY: H - 32, minX: 630, maxX: 870 },
     { x: 340, topY: H - 415, bottomY: H - 285, minX: 310, maxX: 590 },
-    { x: 500, topY: H - 270, bottomY: H - 32, minX: 310, maxX: 590 },
+    { x: 830, topY: H - 270, bottomY: H - 32, minX: 640, maxX: 920 },
     { x: 1140, topY: H - 500, bottomY: H - 262, minX: 950, maxX: 1190 },
   ],
   shadows: [
     { x: 80, y: H - 130, w: 75, h: 100 },
-    { x: 568, y: H - 135, w: 75, h: 100 },
+    { x: 710, y: H - 135, w: 75, h: 100 },
   ],
   fillWalls: [
     { x: 0, y: H - 124, w: 256, h: 92 },
-    { x: 300, y: H - 254, w: 570, h: 222 },
+    { x: 300, y: H - 256, w: 570, h: 225, depth: 1 },
     { x: 620, y: H - 388, w: 170, h: 102 },
     { x: 1090, y: H - 620, w: 100, h: 120 },
   ],
   paintCans: [
   ],
   paintSpots: [
-    { x: 400, y: H - 150, w: 140, h: 200, paintingKey: 'painting_heart' },
-    { x: 720, y: H - 140, w: 140, h: 222, paintingKey: 'painting_star' },
+    { x: 504, y: H - 147, w: 400, h: 210, paintingKey: 'painting_star' },
     { x: 1140, y: H - 560, w: 80, h: 100, paintingKey: 'painting_Nowy' },
   ],
   trashCans: [
@@ -132,7 +130,7 @@ export const LEVEL_1 = {
     { x: 902, y: H - 56 },
   ],
   cops: [
-    { x: 430, y: H - 200, minX: 330, maxX: 1270 },
+    { x: 430, y: H - 120, minX: 330, maxX: 1270 },
   ],
   lamps: [
     { x: 1120, y: H - 23, radius: 120, intensity: 0.65 },

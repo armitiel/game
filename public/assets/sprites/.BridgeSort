@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<dirinfo>
+<files>
+	<item key='murals20260308195523' />
+	<item key='jump20260314000939' />
+	<item key='paint20260314000942' />
+	<item key='push20260314000946' />
+	<item key='walk_paint20260314000956' />
+	<item key='walk20260314000952' />
+	<item key='Hide20260314000911' />
+	<item key='Side20260314000915' />
+	<item key='Twist20260314000921' />
+	<item key='Walk_P20260314224748' />
+	<item key='climb20260314000927' />
+	<item key='climb220260314000931' />
+	<item key='elementy20260307215902' />
+	<item key='idle20260314000935' />
+	<item key='player_turn_sheet.png20260306234449' />
+	<item key='logo.png20260307225716' />
+	<item key='player_push_sheet.png20260308105634' />
+	<item key='player_climb_sheet.png20260306230251' />
+	<item key='player_jump_sheet.png20260308123737' />
+	<item key='player_climb2_sheet.png20260308124722' />
+	<item key='outro.mp420260314170947' />
+	<item key='player_combined_sheet.png20260306223337' />
+	<item key='arm.png20260308163951' />
+	<item key='bgm.m4a20260309091301' />
+	<item key='bgm.mp320260307223909' />
+	<item key='bgm.ogg20260309091328' />
+	<item key='cop_walk_sheet.png20260315132354' />
+	<item key='cop_walk_sheet_1x.png20260320161535' />
+	<item key='frame.png20260314192046' />
+	<item key='frames.png20260312165408' />
+	<item key='hand.png20260308163300' />
+	<item key='icon.png20260309193847' />
+	<item key='intro.mp420260314002727' />
+	<item key='bckg.png20260312160852' />
+</files>
+</dirinfo>
