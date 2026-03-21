@@ -763,10 +763,16 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.paintOnCancel = onCancel;
     this.paintParticleTimer = 0;
 
-    // Freeze player: stop movement, disable gravity, play paint loop
+    // Freeze player: stop movement, disable gravity, play hi-res paint loop
     this.setVelocity(0, 0);
     this.body.setAccelerationX(0);
     this.body.allowGravity = false;
+    // Switch to hi-res paint texture (3x) — scale sprite down to match normal size
+    this._prePaintScaleX = this.scaleX;
+    this._prePaintScaleY = this.scaleY;
+    this._prePaintY = this.y;
+    this.setScale(this.scaleX / 3, this.scaleY / 3);
+    this.y += 1; // nudge paint animation 1px down
     this.currentAnim = 'player_paint_loop';
     this.anims.play('player_paint_loop', true);
   }
@@ -821,6 +827,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.paintBounds = null;
     this.paintOnComplete = null;
     this.paintOnCancel = null;
+    // Restore scale and Y position from hi-res paint back to normal
+    if (this._prePaintScaleX !== undefined) {
+      this.setScale(this._prePaintScaleX, this._prePaintScaleY);
+      this._prePaintScaleX = undefined;
+    }
+    if (this._prePaintY !== undefined) {
+      this.y = this._prePaintY;
+      this._prePaintY = undefined;
+    }
     // Restore physics
     this.body.allowGravity = true;
     this.currentAnim = '';

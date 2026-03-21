@@ -11,7 +11,7 @@ import Phaser from 'phaser';
  */
 
 const ARM_SEGMENT_COUNT = 8;     // more segments = smoother curve
-const ARM_SEG_WIDTH = 16;        // display width (thickness) of each arm segment
+const ARM_SEG_WIDTH = 11;        // display width (thickness) of each arm segment
 const HAND_DISPLAY_W = 18;       // display width of hand
 const HAND_DISPLAY_H = 18;       // display height of hand
 const HAND_SPEED = 200;          // pixels per second hand moves (keyboard)
@@ -39,15 +39,10 @@ export default class PaintArm {
       .setDepth(3.7)        // behind hand
       .setVisible(false);
 
-    // Arm segments — behind player, IN FRONT of hand
-    // Height is set dynamically each frame to span the full gap (no holes)
+    // Smooth arm graphic — drawn as a tapered curve each frame
+    this.armGfx = scene.add.graphics().setDepth(4).setVisible(false);
+    // Keep legacy segments array empty for compatibility
     this.segments = [];
-    for (let i = 0; i < ARM_SEGMENT_COUNT; i++) {
-      const seg = scene.add.image(0, 0, 'paint_arm')
-        .setDepth(4)
-        .setVisible(false);
-      this.segments.push(seg);
-    }
 
     // Positions for physics simulation (shoulder → ... → hand)
     // points[0] = shoulder (anchor), points[last] = hand
@@ -57,8 +52,8 @@ export default class PaintArm {
     }
 
     this.bounds = null;        // paint area bounds {x, y, w, h}
-    this.shoulderOffsetX = 14; // offset from player center to right shoulder (wider)
-    this.shoulderOffsetY = 18; // offset from player center downward (lower torso)
+    this.shoulderOffsetX = 10; // offset from player center to right shoulder
+    this.shoulderOffsetY = 22; // offset from player center downward (lower torso)
   }
 
   /**
@@ -112,7 +107,7 @@ export default class PaintArm {
     // Show everything
     this.hand.setVisible(true).setPosition(handX, handY);
     this.canSprite.setVisible(true).setPosition(handX, handY);
-    this.segments.forEach(s => s.setVisible(true));
+    this.armGfx.setVisible(true);
     this.updateSegmentVisuals();
   }
 
@@ -123,7 +118,8 @@ export default class PaintArm {
     this.active = false;
     this.hand.setVisible(false);
     this.canSprite.setVisible(false);
-    this.segments.forEach(s => s.setVisible(false));
+    this.armGfx.setVisible(false);
+    this.armGfx.clear();
   }
 
   /**
@@ -261,22 +257,131 @@ export default class PaintArm {
    * between consecutive points with no gaps.
    */
   updateSegmentVisuals() {
-    for (let i = 0; i < this.segments.length; i++) {
-      const a = this.points[i];
-      const b = this.points[i + 1];
-      const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx);
+    const g = this.armGfx;
+    g.clear();
 
-      // Height = distance + generous overlap so segments always cover each other
-      const segH = Math.max(dist + 6, 6);
-      this.segments[i].setDisplaySize(ARM_SEG_WIDTH, segH);
-      this.segments[i].setPosition(mx, my);
-      this.segments[i].setRotation(angle - Math.PI / 2); // arm.png is vertical
+    const pts = this.points;
+    const n = pts.length;
+    if (n < 2) return;
+
+    // Nudge the hand end (last point) slightly toward the player (left in world)
+    const handNudgeX = this.flipX ? 3 : -3;
+    const lastPt = pts[n - 1];
+    const savedLastX = lastPt.x;
+    lastPt.x += handNudgeX;
+
+    // Draw smooth tapered arm as a filled polygon along the curve
+    // Sample many points along a Catmull-Rom spline through the rope points
+    const SAMPLES = 32;
+    const spline = [];
+    for (let s = 0; s <= SAMPLES; s++) {
+      const ft = s / SAMPLES; // 0..1 along arm
+      const fi = ft * (n - 1);
+      const idx = Math.min(Math.floor(fi), n - 2);
+      const lt = fi - idx;
+      // Catmull-Rom with clamped endpoints
+      const p0 = pts[Math.max(0, idx - 1)];
+      const p1 = pts[idx];
+      const p2 = pts[Math.min(n - 1, idx + 1)];
+      const p3 = pts[Math.min(n - 1, idx + 2)];
+      const t2 = lt * lt;
+      const t3 = t2 * lt;
+      const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * lt +
+        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+      const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * lt +
+        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+      spline.push({ x, y, t: ft });
     }
+
+    // Build left and right edges with taper
+    const ARM_COLOR = 0x703dcb; // purple arm color
+    const leftEdge = [];
+    const rightEdge = [];
+
+    for (let i = 0; i < spline.length; i++) {
+      const p = spline[i];
+      // Taper: thinner at shoulder (t=0), full at hand (t=1)
+      const taper = 0.85 + 0.15 * p.t;
+      const halfW = (ARM_SEG_WIDTH * taper) / 2;
+
+      // Normal direction (perpendicular to curve)
+      let nx, ny;
+      if (i < spline.length - 1) {
+        const dx = spline[i + 1].x - p.x;
+        const dy = spline[i + 1].y - p.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        nx = -dy / len;
+        ny = dx / len;
+      } else {
+        const dx = p.x - spline[i - 1].x;
+        const dy = p.y - spline[i - 1].y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        nx = -dy / len;
+        ny = dx / len;
+      }
+
+      leftEdge.push({ x: p.x + nx * halfW, y: p.y + ny * halfW });
+      rightEdge.push({ x: p.x - nx * halfW, y: p.y - ny * halfW });
+    }
+
+    // Helper: draw arm body (polygon) + round circle caps at ends
+    // yOffset shifts the layer vertically (positive = down)
+    const drawArmLayer = (color, alpha, widthScale, yOffset = 0) => {
+      // Compute scaled edges
+      const sLeftEdge = [];
+      const sRightEdge = [];
+      for (let i = 0; i < spline.length; i++) {
+        const cx = spline[i].x, cy = spline[i].y + yOffset;
+        sLeftEdge.push({
+          x: cx + (leftEdge[i].x - spline[i].x) * widthScale,
+          y: cy + (leftEdge[i].y - spline[i].y) * widthScale
+        });
+        sRightEdge.push({
+          x: cx + (rightEdge[i].x - spline[i].x) * widthScale,
+          y: cy + (rightEdge[i].y - spline[i].y) * widthScale
+        });
+      }
+
+      g.fillStyle(color, alpha);
+
+      // Round cap at shoulder
+      const sTaper = 0.85;
+      const sR = (ARM_SEG_WIDTH * sTaper * widthScale) / 2;
+      g.fillCircle(spline[0].x, spline[0].y + yOffset, sR);
+
+      // Round cap at hand
+      const hR = (ARM_SEG_WIDTH * widthScale) / 2;
+      g.fillCircle(spline[spline.length - 1].x, spline[spline.length - 1].y + yOffset, hR);
+
+      // Body polygon
+      g.beginPath();
+      g.moveTo(sLeftEdge[0].x, sLeftEdge[0].y);
+      for (let i = 1; i < sLeftEdge.length; i++) {
+        g.lineTo(sLeftEdge[i].x, sLeftEdge[i].y);
+      }
+      for (let i = sRightEdge.length - 1; i >= 0; i--) {
+        g.lineTo(sRightEdge[i].x, sRightEdge[i].y);
+      }
+      g.closePath();
+      g.fillPath();
+    };
+
+    // Layer 1: bottom shadow — darker, shifted down
+    drawArmLayer(0x402a9b, 1, 1.15, 1.5);
+
+    // Layer 2: base arm color
+    drawArmLayer(0x703dcb, 1, 1.0, 0);
+
+    // Layer 3: subtle inner shadow overlay — semi-transparent, shifted slightly down
+    drawArmLayer(0x402a9b, 0.3, 0.8, 0.8);
+
+    // Layer 4: top highlight — shifted up, narrower
+    drawArmLayer(0x703dcb, 0.6, 0.5, -1.2);
+
+    // Restore last point after rendering
+    lastPt.x = savedLastX;
   }
 
   /**
@@ -297,6 +402,6 @@ export default class PaintArm {
   destroy() {
     this.hand.destroy();
     this.canSprite.destroy();
-    this.segments.forEach(s => s.destroy());
+    this.armGfx.destroy();
   }
 }

@@ -150,6 +150,12 @@ export default class BootScene extends Phaser.Scene {
       frameHeight: PLAYER.FRAME_H
     });
 
+    // === Hi-res paint sheet (3x resolution for crisp paint animation at camera zoom) ===
+    this.load.spritesheet('player_paint_hires', 'assets/sprites/player_paint_hires.png?v=1', {
+      frameWidth: PLAYER.FRAME_W * 3,
+      frameHeight: PLAYER.FRAME_H * 3
+    });
+
     // === Load paint-by-numbers painting data ===
     this.load.json('painting_heart', 'assets/paintings/heart_mural.json');
     this.load.json('painting_star', 'assets/paintings/star_mural.json');
@@ -454,9 +460,10 @@ export default class BootScene extends Phaser.Scene {
     });
 
     // --- PAINT LOOP: looping version for active painting mode ---
+    // Use hi-res sheet (3x) for crisp rendering at camera zoom
     this.anims.create({
       key: 'player_paint_loop',
-      frames: this.anims.generateFrameNumbers('player_sheet', { start: T, end: T + TN - 1 }),
+      frames: this.anims.generateFrameNumbers('player_paint_hires', { start: 0, end: TN - 1 }),
       frameRate: 12,
       repeat: -1
     });

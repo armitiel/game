@@ -296,23 +296,63 @@ export default class GameScene extends Phaser.Scene {
     const gradientSteps = 64;
     for (let i = 0; i < gradientSteps; i++) {
       const t = i / (gradientSteps - 1);
-      const r = Math.round(8 + t * 18);
-      const g = Math.round(8 + t * 18);
-      const b = Math.round(32 + t * 48);
+      const r = Math.round(8 + t * 12);
+      const g = Math.round(8 + t * 28);
+      const b = Math.round(32 + t * 88);
       sky.fillStyle((r << 16) | (g << 8) | b, 1);
       const sy = Math.floor(gh * i / gradientSteps);
       const sh = Math.ceil(gh / gradientSteps) + 1;
       sky.fillRect(0, sy, gw, sh);
     }
 
-    // Stars on sky
-    const starCount = Math.floor(50 * (gh / GAME.HEIGHT));
+    // Horizon glow — soft radial light near the bottom center
+    {
+      const glowW = gw;
+      const glowH = Math.round(gh * 0.6);
+      const canvas = document.createElement('canvas');
+      canvas.width = glowW;
+      canvas.height = glowH;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(
+        glowW / 2, glowH, 0,
+        glowW / 2, glowH, glowW * 0.55
+      );
+      grad.addColorStop(0, 'rgba(80,130,210,0.45)');
+      grad.addColorStop(0.5, 'rgba(30,55,130,0.12)');
+      grad.addColorStop(1, 'rgba(10,15,50,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, glowW, glowH);
+      const texKey = '__horizon_glow__';
+      if (this.textures.exists(texKey)) this.textures.remove(texKey);
+      this.textures.addCanvas(texKey, canvas);
+      this.add.image(gw / 2, gh, texKey)
+        .setOrigin(0.5, 1)
+        .setDepth(0)
+        .setScrollFactor(0)
+        .setBlendMode(Phaser.BlendModes.ADD);
+    }
+
+    // Stars on sky — scattered with twinkling
+    this._skyStars = [];
+    const starCount = Math.floor(80 * (gh / GAME.HEIGHT));
     for (let i = 0; i < starCount; i++) {
       const sx = Phaser.Math.Between(0, gw);
-      const sy = Phaser.Math.Between(0, gh / 3);
-      const size = Math.random() > 0.8 ? 2 : 1;
-      sky.fillStyle(0xffffff, Math.random() * 0.5 + 0.2);
-      sky.fillRect(sx, sy, size, size);
+      const sy = Phaser.Math.Between(0, Math.floor(gh * 0.55));
+      const size = Math.random() > 0.85 ? 2 : 1;
+      const baseAlpha = Math.random() * 0.5 + 0.25;
+      const star = this.add.rectangle(sx, sy, size, size, 0xffffff, baseAlpha)
+        .setDepth(0).setScrollFactor(0);
+      this._skyStars.push(star);
+      // Twinkling — random delay, slow alpha oscillation
+      this.tweens.add({
+        targets: star,
+        alpha: { from: baseAlpha, to: baseAlpha * 0.2 },
+        duration: Phaser.Math.Between(1500, 4000),
+        yoyo: true,
+        repeat: -1,
+        delay: Phaser.Math.Between(0, 3000),
+        ease: 'Sine.easeInOut'
+      });
     }
 
     // Moon on sky
@@ -320,6 +360,43 @@ export default class GameScene extends Phaser.Scene {
     sky.fillCircle(gw - 80, 50, 25);
     sky.fillStyle(0x0a0a1a, 1);
     sky.fillCircle(gw - 70, 45, 22);
+
+    // Drifting clouds — canvas-based wispy shapes, spawn periodically
+    this._clouds = [];
+    this._cloudTimer = 0;
+    this._cloudInterval = Phaser.Math.Between(3000, 7000); // ms between spawns
+    // Create a few cloud textures
+    if (!this.textures.exists('__cloud_0__')) {
+      for (let ci = 0; ci < 3; ci++) {
+        const cw = Phaser.Math.Between(120, 200);
+        const ch = Phaser.Math.Between(30, 50);
+        const cc = document.createElement('canvas');
+        cc.width = cw; cc.height = ch;
+        const cctx = cc.getContext('2d');
+        // Draw wispy cloud from overlapping ellipses
+        const blobs = Phaser.Math.Between(3, 5);
+        for (let bi = 0; bi < blobs; bi++) {
+          const bx = (cw * 0.15) + Math.random() * (cw * 0.7);
+          const by = ch * 0.3 + Math.random() * (ch * 0.4);
+          const bw = Phaser.Math.Between(30, 70);
+          const bh = Phaser.Math.Between(15, 30);
+          const grd = cctx.createRadialGradient(bx, by, 0, bx, by, bw * 0.5);
+          grd.addColorStop(0, 'rgba(180,200,230,0.12)');
+          grd.addColorStop(0.6, 'rgba(140,165,200,0.06)');
+          grd.addColorStop(1, 'rgba(100,130,180,0)');
+          cctx.fillStyle = grd;
+          cctx.beginPath();
+          cctx.ellipse(bx, by, bw * 0.5, bh * 0.5, 0, 0, Math.PI * 2);
+          cctx.fill();
+        }
+        const key = `__cloud_${ci}__`;
+        this.textures.addCanvas(key, cc);
+      }
+    }
+    // Spawn initial clouds already on screen
+    for (let i = 0; i < 5; i++) {
+      this._spawnCloud(gw, gh, true);
+    }
 
     // === Helper: draw buildings onto a canvas ===
     const drawBuildings = (canvasW, canvasH, params) => {
@@ -3338,6 +3415,23 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  // === CLOUDS ===
+
+  _spawnCloud(screenW, screenH, onScreen = false) {
+    const ci = Phaser.Math.Between(0, 2);
+    const key = `__cloud_${ci}__`;
+    if (!this.textures.exists(key)) return;
+    const x = onScreen ? Phaser.Math.Between(0, screenW) : screenW + 100;
+    const y = Phaser.Math.Between(Math.floor(screenH * 0.1), Math.floor(screenH * 0.5));
+    const speed = Phaser.Math.FloatBetween(6, 18); // px per second
+    const scale = Phaser.Math.FloatBetween(0.8, 1.6);
+    const img = this.add.image(x, y, key)
+      .setDepth(0).setScrollFactor(0).setScale(scale).setAlpha(0);
+    // Fade in
+    this.tweens.add({ targets: img, alpha: Phaser.Math.FloatBetween(0.3, 0.7), duration: 2000 });
+    this._clouds.push({ img, speed });
+  }
+
   // === UPDATE ===
 
   update(time, delta) {
@@ -3351,6 +3445,26 @@ export default class GameScene extends Phaser.Scene {
       this.nearbyTrash = null;
       this.collidingTrash = null;
       return;
+    }
+
+    // --- Drift clouds ---
+    if (this._clouds && this._clouds.length > 0) {
+      const dt = delta / 1000;
+      const screenW = this.cameras.main.width;
+      for (let i = this._clouds.length - 1; i >= 0; i--) {
+        const c = this._clouds[i];
+        c.img.x -= c.speed * dt;
+        if (c.img.x < -250) {
+          c.img.destroy();
+          this._clouds.splice(i, 1);
+        }
+      }
+      this._cloudTimer += delta;
+      if (this._cloudTimer >= this._cloudInterval) {
+        this._cloudTimer = 0;
+        this._cloudInterval = Phaser.Math.Between(3000, 7000);
+        this._spawnCloud(screenW, this.cameras.main.height);
+      }
     }
 
     // Overlap callbacks fired BEFORE this update() call (during physics step).
