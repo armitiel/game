@@ -144,7 +144,7 @@ export default class GameScene extends Phaser.Scene {
       });
       // Overlap — detect proximity for HUD hint and push activation
       // Use a wider invisible zone so player can enter push mode earlier
-      const proximityZone = this.add.zone(trash.x, trash.y, 80, 60);
+      const proximityZone = this.add.zone(trash.x, trash.y, 120, 60);
       this.physics.add.existing(proximityZone, false);
       proximityZone.body.setAllowGravity(false);
       proximityZone.body.setImmovable(true);
@@ -3622,10 +3622,42 @@ export default class GameScene extends Phaser.Scene {
             grabbedLadder = true;
           }
         }
-        if (!grabbedLadder && this.nearbyTrash) {
-          // Enter trash push mode
-          this.player.isPushingTrash = true;
+        if (!grabbedLadder && this.nearbyTrash && !this._trashApproachTween) {
+          const trash = this.nearbyTrash;
+          const dx = trash.x - this.player.x;
+          const pushGap = 28;
+          const targetX = trash.x - Math.sign(dx) * pushGap;
+          const dist = Math.abs(this.player.x - targetX);
+          if (dist > 4) {
+            // Smooth walk toward trash, then enter push mode
+            this.player.setFlipX(dx < 0);
+            this.player.playAnim('player_walk');
+            this.player.setVelocityX(0);
+            this.player.body.setAccelerationX(0);
+            this._trashApproachTween = this.tweens.add({
+              targets: this.player,
+              x: targetX,
+              duration: Math.min(400, dist * 4),
+              ease: 'Power2',
+              onComplete: () => {
+                this._trashApproachTween = null;
+                this.player.isPushingTrash = true;
+              }
+            });
+          } else {
+            // Already close enough
+            this.player.isPushingTrash = true;
+          }
         }
+      }
+    }
+    // Cancel approach tween if player jumps or moves away
+    if (this._trashApproachTween && !this.player.isPushingTrash) {
+      const jumpPressed = Phaser.Input.Keyboard.JustDown(this.player.cursors.up) ||
+        Phaser.Input.Keyboard.JustDown(this.player.wasdKeys.up);
+      if (jumpPressed) {
+        this._trashApproachTween.stop();
+        this._trashApproachTween = null;
       }
     }
     // Auto-exit push mode only when player walks AWAY from the trash

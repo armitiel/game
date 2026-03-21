@@ -85,11 +85,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   // All animations now live on a single unified spritesheet — no texture switching needed
   playAnim(key, ignoreIfPlaying = true) {
     if (this.currentAnim === key && ignoreIfPlaying) return;
-    // Remove push Y shift if returning from push animation
+    // Remove push Y shift and restore flipX if returning from push animation
     if (this._pushYShift) {
       this.y -= this._pushYShift;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
       this._pushYShift = 0;
+    }
+    if (this._pushFlipApplied) {
+      this.setFlipX(this._prePushFlipX);
+      this._pushFlipApplied = undefined;
+      this._prePushFlipX = undefined;
+      if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
     }
     // Remove walk adjustments if leaving walk animation
     if (this._walkYShift && key !== 'player_walk') {
@@ -123,6 +129,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.y += 2;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 2);
     }
+    // Push anim is authored facing LEFT; other anims face RIGHT.
+    // Phaser flipX=true mirrors the sprite. So:
+    // - facing right (flipX=false): push anim shows left → need to flip → setFlipX(true)  NO — that flips everything
+    // Instead: temporarily invert flipX so push anim matches movement direction
+    if (this._pushFlipApplied === undefined) {
+      this._prePushFlipX = this.flipX;
+      this.setFlipX(!this.flipX);
+      this._pushFlipApplied = true;
+      // Pull character back slightly from the object
+      const pushDir = this._prePushFlipX ? -1 : 1; // direction character is facing
+      this._pushXShift = -pushDir * 14; // 14px back
+      this.x += this._pushXShift;
+    }
     this.currentAnim = 'player_push';
     this.anims.play('player_push', true);
   }
@@ -145,6 +164,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.y -= this._pushYShift;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
       this._pushYShift = 0;
+    }
+    if (this._pushFlipApplied) {
+      this.setFlipX(this._prePushFlipX);
+      this._pushFlipApplied = undefined;
+      this._prePushFlipX = undefined;
+      if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
     }
     // Save start X for smooth X slide onto platform
     this._climb2StartX = this.x;
@@ -340,6 +365,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.y -= this._pushYShift;
         this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
         this._pushYShift = 0;
+      }
+      if (this._pushFlipApplied) {
+        this.setFlipX(this._prePushFlipX);
+        this._pushFlipApplied = undefined;
+        this._prePushFlipX = undefined;
       }
 
       // Clear drop-through flag once player has passed below the platform
@@ -619,7 +649,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (left) {
       this.body.setAccelerationX(-accel);
       this.body.setMaxVelocityX(maxSpd);
-      this.setFlipX(true);
+      if (!this.isPushingTrash) this.setFlipX(true);
       if (onGround) {
         if (this.isPushingTrash) {
           this.playPushAnim();
@@ -632,7 +662,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     } else if (right) {
       this.body.setAccelerationX(accel);
       this.body.setMaxVelocityX(maxSpd);
-      this.setFlipX(false);
+      if (!this.isPushingTrash) this.setFlipX(false);
       if (onGround) {
         if (this.isPushingTrash) {
           this.playPushAnim();
@@ -1217,6 +1247,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.setAlpha(1);
     this.setDepth(5);  // restore default depth on reset
     this._pushYShift = 0;
+    if (this._pushFlipApplied) {
+      this.setFlipX(this._prePushFlipX);
+      this._pushFlipApplied = undefined;
+      this._prePushFlipX = undefined;
+      if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
+    }
     this.body.allowGravity = true;
     this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
     this.playAnim('player_idle');

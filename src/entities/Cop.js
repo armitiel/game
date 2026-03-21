@@ -306,24 +306,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
   drawDetectionZone(color, alpha) {
     this.detectionCone.clear();
-    const dir = this.direction;
-    const startX = this.x;
-    const startY = this.y;
-    const range = COP.DETECTION_RANGE;
-
-    this.detectionCone.fillStyle(color, alpha);
-    this.detectionCone.fillTriangle(
-      startX, startY - 20,
-      startX + range * dir, startY - 40,
-      startX + range * dir, startY + 20
-    );
-
-    this.detectionCone.lineStyle(1, color, alpha * 2.5);
-    this.detectionCone.strokeTriangle(
-      startX, startY - 20,
-      startX + range * dir, startY - 40,
-      startX + range * dir, startY + 20
-    );
+    // Detection cone hidden — cop still detects player, just no visual triangle
   }
 
   destroy() {
