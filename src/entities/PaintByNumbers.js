@@ -83,14 +83,10 @@ export default class PaintByNumbers {
         const cy = b.y + r * this.cellH;
 
         if (ci >= 0) {
-          // Light tint of the target color (hint)
+          // Very subtle tint of the target color (hint) — numbers do the real guiding
           const hex = PAINT.COLORS[this.colorMap[ci]] || 0xffffff;
-          g.fillStyle(hex, 0.12);
+          g.fillStyle(hex, 0.06);
           g.fillRect(cx, cy, this.cellW, this.cellH);
-
-          // Cell border
-          g.lineStyle(0.5, 0xffffff, 0.2);
-          g.strokeRect(cx, cy, this.cellW, this.cellH);
         }
       }
     }
