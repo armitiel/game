@@ -2419,16 +2419,17 @@ export default class GameScene extends Phaser.Scene {
           }
         }
 
-        // Ladder hints — show when player is near a ladder
-        if (this.playerOnLadderThisFrame && !this.player.isClimbing && !this.player.isPushingLadder) {
+        // Ladder hints — use grace timestamp for flicker-free display
+        const nearLadder = this._ladderOverlapTs && (this.time.now - this._ladderOverlapTs < 100);
+        if (nearLadder && !this.player.isClimbing && !this.player.isPushingLadder) {
           const onGnd = this.player.body.blocked.down;
           if (onGnd) {
             hints.push('\u2191/W: wejdź na drabinę');
           }
           // Show grab hint if near ladder bottom
-          if (onGnd && this.currentLadderInfo) {
+          if (onGnd && this._lastLadderInfo) {
             const playerFeetY = this.player.body.y + this.player.body.height;
-            if (playerFeetY >= this.currentLadderInfo.bottomY - 40) {
+            if (playerFeetY >= this._lastLadderInfo.bottomY - 40) {
               hints.push('E: chwyć drabinę');
             }
           }
@@ -3683,19 +3684,10 @@ export default class GameScene extends Phaser.Scene {
       this.interactablePaintSpot = null;
     }
 
-    // Ladder
-    if (this._ladderOverlapTs && now - this._ladderOverlapTs < overlapGrace) {
-      // Keep ladder data alive during grace period
-      if (!this.playerOnLadderThisFrame) {
-        this.playerOnLadderThisFrame = true;
-        this.ladderCenterX = this._lastLadderCenterX;
-        this.ladderTopY = this._lastLadderTopY;
-        this.currentLadderInfo = this._lastLadderInfo;
-      }
-    } else {
-      this.playerOnLadderThisFrame = false;
-      this.currentLadderInfo = null;
-    }
+    // Ladder — reset every frame (no grace period for gameplay logic;
+    // grace period only used for UI hints via _ladderOverlapTs check in updateHUD)
+    this.playerOnLadderThisFrame = false;
+    this.currentLadderInfo = null;
 
     this.nearbyTrash = null;
     this.collidingTrash = null;
