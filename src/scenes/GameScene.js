@@ -3308,9 +3308,12 @@ export default class GameScene extends Phaser.Scene {
           this.time.delayedCall(400, () => { player._droppingThroughBridge = false; });
           return;
         }
-        // Snap player directly onto the bridge line
-        player.y -= diff;
-        pb.y -= diff;
+        // Snap player directly onto the bridge line (round to whole pixel to prevent flicker)
+        const snap = Math.round(diff);
+        if (snap !== 0) {
+          player.y -= snap;
+          pb.y -= snap;
+        }
         pb.velocity.y = 0;
         pb.blocked.down = true;
         player.body.allowGravity = false;
