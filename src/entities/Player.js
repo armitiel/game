@@ -440,6 +440,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         // Position player precisely on the platform surface
         this.y = this.ladderTopY - PLAYER.BODY_H / 2 - PLAYER.BODY_OFFSET_Y;
         this.exitLadder('top-clearance');
+        // Sync physics body to snapped position — prevents brief "in air" frames
+        // that cause a jump animation flash at high fps
+        this.body.reset(this.x, this.y);
         this.setVelocityY(0);
         this.setVelocityX(0);
         this.playAnim('player_idle');
