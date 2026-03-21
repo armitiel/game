@@ -1006,54 +1006,52 @@ function convertImage() {
   const numColors = parseInt(document.getElementById('gen-colors').value) || 3;
   const imgScale = parseInt(document.getElementById('img-scale').value) || 1;
 
-  // Image proportions determine the grid aspect ratio
-  const imgW = uploadedImage.naturalWidth || uploadedImage.width;
-  const imgH = uploadedImage.naturalHeight || uploadedImage.height;
-  const imgAspect = imgW / imgH;
+  // Grid dimensions stay UNCHANGED — scale only affects sampling quality.
+  // Higher scale = sample image at higher resolution per cell → better color accuracy.
+  const sampleMult = imgScale; // 1x–6x supersampling per cell
 
-  // Base size: scale slider controls detail level
-  // Scale 1 = ~10 rows, scale 6 = ~60 rows
-  const baseRows = 6 + imgScale * 8; // 14, 22, 30, 38, 46, 54
-  let newRows = Math.max(2, baseRows);
-  let newCols = Math.max(2, Math.round(newRows * imgAspect));
-  // Cap at 60
-  if (newCols > 60) { newCols = 60; newRows = Math.max(2, Math.round(60 / imgAspect)); }
-  if (newRows > 60) { newRows = 60; newCols = Math.max(2, Math.round(60 * imgAspect)); }
+  // Sample image at (cols * mult) x (rows * mult) resolution
+  const sampleW = cols * sampleMult;
+  const sampleH = rows * sampleMult;
 
-  // Update grid dimensions
-  cols = newCols;
-  rows = newRows;
-  document.getElementById('cols').value = cols;
-  document.getElementById('rows').value = rows;
-
-  // Update locked ratio to match image proportions
-  calcBaseUnit();
-  const lockCb = document.getElementById('lockRatio');
-  if (!lockCb.checked) { lockCb.checked = true; }
-  // Sync density slider
-  const d = gridToDensity();
-  document.getElementById('density-slider').value = Math.max(1, Math.min(12, d));
-  updateDensityLabel();
-  updateRatioLabel();
-
-  // Render image to grid size preserving proportions (1:1 pixel-to-cell mapping)
   const sampleCanvas = document.createElement('canvas');
-  sampleCanvas.width = newCols;
-  sampleCanvas.height = newRows;
+  sampleCanvas.width = sampleW;
+  sampleCanvas.height = sampleH;
   const sctx = sampleCanvas.getContext('2d');
-  sctx.clearRect(0, 0, newCols, newRows);
-  sctx.drawImage(uploadedImage, 0, 0, newCols, newRows);
-  const imageData = sctx.getImageData(0, 0, newCols, newRows).data;
+  sctx.clearRect(0, 0, sampleW, sampleH);
+  sctx.drawImage(uploadedImage, 0, 0, sampleW, sampleH);
+  const imageData = sctx.getImageData(0, 0, sampleW, sampleH).data;
 
-  // Collect pixel colors + alpha; transparent pixels (alpha < 128) become empty
+  // For each grid cell, average the (mult x mult) block of sampled pixels
   const alphaThreshold = 128;
-  const pixels = [];
-  const isTransparent = [];
-  for (let i = 0; i < newCols * newRows; i++) {
-    const r = imageData[i * 4], g = imageData[i * 4 + 1], b = imageData[i * 4 + 2];
-    const a = imageData[i * 4 + 3];
-    pixels.push([r, g, b]);
-    isTransparent.push(a < alphaThreshold);
+  const pixels = [];       // one [r,g,b] per grid cell
+  const isTransparent = []; // one bool per grid cell
+
+  for (let gr = 0; gr < rows; gr++) {
+    for (let gc = 0; gc < cols; gc++) {
+      let rSum = 0, gSum = 0, bSum = 0, opaqueCount = 0, totalCount = 0;
+      for (let sy = gr * sampleMult; sy < (gr + 1) * sampleMult; sy++) {
+        for (let sx = gc * sampleMult; sx < (gc + 1) * sampleMult; sx++) {
+          const idx = (sy * sampleW + sx) * 4;
+          totalCount++;
+          if (imageData[idx + 3] >= alphaThreshold) {
+            rSum += imageData[idx];
+            gSum += imageData[idx + 1];
+            bSum += imageData[idx + 2];
+            opaqueCount++;
+          }
+        }
+      }
+      if (opaqueCount > totalCount * 0.5) {
+        // Majority opaque — use average color
+        pixels.push([rSum / opaqueCount, gSum / opaqueCount, bSum / opaqueCount]);
+        isTransparent.push(false);
+      } else {
+        // Majority transparent — empty cell
+        pixels.push([0, 0, 0]);
+        isTransparent.push(true);
+      }
+    }
   }
 
   // K-means only on opaque pixels (skip transparent)
@@ -1072,14 +1070,14 @@ function convertImage() {
     palette[name] = hex;
   }
 
-  // Map each pixel to closest palette color; transparent → -1 (empty)
+  // Map each cell to closest palette color; transparent → -1 (empty)
   grid = [];
-  for (let row = 0; row < newRows; row++) {
+  for (let r = 0; r < rows; r++) {
     const gridRow = [];
-    for (let col = 0; col < newCols; col++) {
-      const idx = row * newCols + col;
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
       if (isTransparent[idx]) {
-        gridRow.push(-1); // empty cell
+        gridRow.push(-1);
       } else {
         gridRow.push(closestColor(pixels[idx], quantizedPalette));
       }
@@ -1091,7 +1089,7 @@ function convertImage() {
   renderPalette();
   renderColorEditor();
   draw();
-  status(`Zdjęcie skonwertowane na siatkę ${cols}x${rows}, ${numColors} kolorów`);
+  status(`Zdjęcie skonwertowane: ${cols}x${rows}, ${numColors} kolorów, skala ${imgScale}x`);
 }
 
 function kMeansQuantize(pixels, k, iterations = 15) {
