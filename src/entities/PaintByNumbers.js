@@ -119,7 +119,7 @@ export default class PaintByNumbers {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = `bold ${fontSize}px ChangaOne, monospace`;
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = 0.45;
 
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {

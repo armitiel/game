@@ -107,7 +107,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setScale(1.015);
     }
     // Any non-idle/non-twist animation resets the idle twist timer
-    if (key !== 'player_idle' && key !== 'player_twist') {
+    if (key !== 'player_idle' && key !== 'player_twist' && key !== 'player_twist_rev') {
       this.idleTimer = 0;
       this.isTwisting = false;
     }
@@ -250,7 +250,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.isTwisting && anyInput) {
       this.isTwisting = false;
       this.idleTimer = 0;
-      this.off('animationcomplete-player_twist');  // remove pending callback
+      this.off('animationcomplete-player_twist');
+      this.off('animationcomplete-player_twist_rev');
+      if (this._preTwistFlipX !== undefined) {
+        this.setFlipX(this._preTwistFlipX);
+        this._preTwistFlipX = undefined;
+      }
       this.playAnim('player_idle', false);
     }
 
@@ -655,10 +660,16 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           const delayFrames = Math.round((PLAYER.IDLE_TWIST_DELAY || 5000) / 16.67);
           if (this.idleTimer >= delayFrames && this.currentAnim === 'player_idle') {
             this.isTwisting = true;
+            this._preTwistFlipX = this.flipX;
+            // Twist anim is authored facing LEFT, so:
+            // facing left (flipX=true) → play normal twist, temporarily set flipX=false (anim already faces left)
+            // facing right (flipX=false) → play normal twist with flipX=true (mirror it to face right)
+            this.setFlipX(!this.flipX);
             this.playAnim('player_twist', false);
             this.once('animationcomplete-player_twist', () => {
               this.isTwisting = false;
               this.idleTimer = 0;
+              this.setFlipX(this._preTwistFlipX);
               this.playAnim('player_idle', false);
             });
           } else if (this.currentAnim !== 'player_idle') {

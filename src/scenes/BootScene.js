@@ -477,6 +477,13 @@ export default class BootScene extends Phaser.Scene {
       frameRate: 11,
       repeat: 0  // play once, then return to idle
     });
+    // Reversed twist for when character faces left (flipX=true)
+    this.anims.create({
+      key: 'player_twist_rev',
+      frames: this.anims.generateFrameNumbers('player_sheet', { start: TW + TWN - 1, end: TW }),
+      frameRate: 11,
+      repeat: 0
+    });
 
     // --- SIDE: ladder push animation (frame 0 = idle hold, frames 1-27 = pushing) ---
     const SD = PLAYER.SIDE_FRAME_START;

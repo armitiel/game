@@ -290,47 +290,38 @@ export default class GameScene extends Phaser.Scene {
     const wh = ld.worldHeight;
 
     // === SKY (fixed behind everything, scrollFactor 0) ===
-    const sky = this.add.graphics().setDepth(0).setScrollFactor(0);
     const gh = this.cameras.main.height;
     const gw = this.cameras.main.width;
-    const gradientSteps = 64;
-    for (let i = 0; i < gradientSteps; i++) {
-      const t = i / (gradientSteps - 1);
-      const r = Math.round(8 + t * 12);
-      const g = Math.round(8 + t * 28);
-      const b = Math.round(32 + t * 88);
-      sky.fillStyle((r << 16) | (g << 8) | b, 1);
-      const sy = Math.floor(gh * i / gradientSteps);
-      const sh = Math.ceil(gh / gradientSteps) + 1;
-      sky.fillRect(0, sy, gw, sh);
-    }
-
-    // Horizon glow — soft radial light near the bottom center
-    {
-      const glowW = gw;
-      const glowH = Math.round(gh * 0.6);
-      const canvas = document.createElement('canvas');
-      canvas.width = glowW;
-      canvas.height = glowH;
-      const ctx = canvas.getContext('2d');
-      const grad = ctx.createRadialGradient(
-        glowW / 2, glowH, 0,
-        glowW / 2, glowH, glowW * 0.55
-      );
-      grad.addColorStop(0, 'rgba(80,130,210,0.45)');
-      grad.addColorStop(0.5, 'rgba(30,55,130,0.12)');
-      grad.addColorStop(1, 'rgba(10,15,50,0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, glowW, glowH);
-      const texKey = '__horizon_glow__';
-      if (this.textures.exists(texKey)) this.textures.remove(texKey);
-      this.textures.addCanvas(texKey, canvas);
-      this.add.image(gw / 2, gh, texKey)
-        .setOrigin(0.5, 1)
-        .setDepth(0)
-        .setScrollFactor(0)
-        .setBlendMode(Phaser.BlendModes.ADD);
-    }
+    // Use canvas gradient for band-free smooth sky with built-in horizon glow
+    const skyCanvas = document.createElement('canvas');
+    skyCanvas.width = gw;
+    skyCanvas.height = gh;
+    const skyCtx = skyCanvas.getContext('2d');
+    // Base vertical gradient
+    const skyGrad = skyCtx.createLinearGradient(0, 0, 0, gh);
+    skyGrad.addColorStop(0, 'rgb(8,8,32)');
+    skyGrad.addColorStop(0.55, 'rgb(14,18,70)');
+    skyGrad.addColorStop(0.8, 'rgb(18,30,100)');
+    skyGrad.addColorStop(1, 'rgb(22,40,125)');
+    skyCtx.fillStyle = skyGrad;
+    skyCtx.fillRect(0, 0, gw, gh);
+    // Horizon glow — radial, baked into the same canvas
+    const glowGrad = skyCtx.createRadialGradient(
+      gw / 2, gh, 0,
+      gw / 2, gh, gw * 0.55
+    );
+    glowGrad.addColorStop(0, 'rgba(55,100,185,0.4)');
+    glowGrad.addColorStop(0.5, 'rgba(30,60,140,0.12)');
+    glowGrad.addColorStop(1, 'rgba(10,15,50,0)');
+    skyCtx.fillStyle = glowGrad;
+    skyCtx.fillRect(0, 0, gw, gh);
+    const skyTexKey = '__sky_grad__';
+    if (this.textures.exists(skyTexKey)) this.textures.remove(skyTexKey);
+    this.textures.addCanvas(skyTexKey, skyCanvas);
+    this.add.image(gw / 2, gh / 2, skyTexKey)
+      .setDisplaySize(gw, gh).setDepth(0).setScrollFactor(0);
+    // Graphics layer for stars & moon drawn on top
+    const sky = this.add.graphics().setDepth(0).setScrollFactor(0);
 
     // Stars on sky — scattered with twinkling
     this._skyStars = [];
