@@ -320,6 +320,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.isClimbing) {
       this.body.allowGravity = false;
 
+      // Clean up walk/push Y shifts that may linger from pre-climb state
+      if (this._walkYShift) {
+        this.y -= this._walkYShift;
+        this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
+        this.setScale(1);
+        this._walkYShift = 0;
+      }
+      if (this._pushYShift) {
+        this.y -= this._pushYShift;
+        this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
+        this._pushYShift = 0;
+      }
+
       // Clear drop-through flag once player has passed below the platform
       if (this.isDroppingToLadder && this.y > this.dropPlatformY + 40) {
         this.isDroppingToLadder = false;
@@ -419,14 +432,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.setFlipX(false);
       }
 
-      // Auto-dismount at top: when player's feet are well above the ladder top
-      // ladderTopY is where the platform sits, so feet must clear the platform (32px thick)
-      const playerFeetY = this.y + PLAYER.BODY_H / 2;
-      const clearanceAbovePlatform = 36; // platform thickness + margin
-      if (up && this.ladderTopY && playerFeetY <= this.ladderTopY - clearanceAbovePlatform) {
-        // Position player precisely on the platform surface
-        this.y = this.ladderTopY - PLAYER.BODY_H / 2 - PLAYER.BODY_OFFSET_Y;
+      // Auto-dismount at top: when feet reach platform surface, place onto it
+      const playerFeetY = this.y - PLAYER.FRAME_H / 2 + PLAYER.BODY_OFFSET_Y + PLAYER.BODY_H;
+      if (up && this.ladderTopY && playerFeetY <= this.ladderTopY + 6) {
+        // Snap player so body bottom sits exactly on the platform surface
+        const snapY = this.ladderTopY - PLAYER.BODY_H + PLAYER.FRAME_H / 2 - PLAYER.BODY_OFFSET_Y;
+        this.y = snapY;
         this.exitLadder('top-clearance');
+        this.body.reset(this.x, this.y);
         this.setVelocityY(0);
         this.setVelocityX(0);
         this.playAnim('player_idle');
