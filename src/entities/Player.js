@@ -620,9 +620,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // === Enter ladder: DOWN while near ladder ===
     // Allow descent when walking slowly or stopped — block only while sprinting
+    // Only allow descent if ladder extends significantly below the player's feet
     const absVx = Math.abs(this.body.velocity.x);
     const isWalking = absVx < PLAYER.SPEED * 0.6;  // under 60% max speed = walking/stopped
-    if (this.onLadder && down && onGround && isWalking && this.ladderCooldown <= 0) {
+    const playerFeetY = this.body.y + this.body.height;
+    const ladderDeepEnough = this.ladderBottomY && (this.ladderBottomY - playerFeetY) > 40;
+    if (this.onLadder && down && onGround && isWalking && this.ladderCooldown <= 0 && ladderDeepEnough) {
       this._preClimbFlipX = this.flipX; // remember facing direction before climbing
       this.isClimbing = true;
       this.isDroppingToLadder = true;  // disable platform collision until below platform
