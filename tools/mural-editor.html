@@ -259,31 +259,63 @@ function fitToSpot() {
   renderColorEditor();
   draw();
   // Auto-lock ratio after fitting
-  lockedAspect = cols / rows;
+  calcBaseUnit();
   const lockCb = document.getElementById('lockRatio');
   if (!lockCb.checked) { lockCb.checked = true; lockCb.dispatchEvent(new Event('change')); }
-  status(`Dopasowano: ${cols}x${rows} (proporcje ${targetAspect.toFixed(2)}) — wzór zachowany`);
+  else {
+    // Already locked — update density slider to match new grid
+    const d = gridToDensity();
+    document.getElementById('locked-density').value = d;
+    onLockedDensity(true);
+  }
+  status(`Dopasowano: ${cols}x${rows} (format ${baseCols}:${baseRows}) — wzór zachowany`);
   updateRatioLabel();
 }
 
 // ===== Lock ratio + density slider =====
 let lockedAspect = 1; // cols/rows ratio when locked
+// Base unit for the locked ratio — smallest integer cols:rows pair
+let baseCols = 1, baseRows = 1;
 
 function updateRatioLabel() {
-  // Simplify ratio for display using GCD
   function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
   const g = gcd(cols, rows);
   document.getElementById('ratio-label').textContent = `${cols/g}:${rows/g}`;
 }
 
+/** Calculate baseCols/baseRows from current grid — smallest integer pair for locked ratio */
+function calcBaseUnit() {
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+  const g = gcd(cols, rows);
+  baseCols = cols / g;
+  baseRows = rows / g;
+  // If base is too small (e.g. 1:1), keep it; density slider will multiply
+  lockedAspect = cols / rows;
+}
+
+/** Given a density level (1-12), return {cols, rows} maintaining locked ratio */
+function densityToGrid(d) {
+  // Multiplier: density 1 = base, 2 = 2x base, etc.
+  // But cap so max dimension stays reasonable (≤60)
+  const maxDim = 60;
+  const maxMult = Math.max(1, Math.floor(maxDim / Math.max(baseCols, baseRows)));
+  const mult = Math.max(1, Math.min(maxMult, d));
+  return { cols: baseCols * mult, rows: baseRows * mult };
+}
+
+/** Given current grid, find the closest density level */
+function gridToDensity() {
+  const mult = Math.max(1, Math.round(cols / baseCols));
+  return Math.max(1, Math.min(12, mult));
+}
+
 document.getElementById('lockRatio').addEventListener('change', function() {
   const sec = document.getElementById('density-section');
   if (this.checked) {
-    lockedAspect = cols / rows;
+    calcBaseUnit();
     sec.style.display = 'block';
-    // Set slider to approximate current density
-    const d = Math.round(Math.sqrt(cols * rows) / 3);
-    document.getElementById('locked-density').value = Math.max(1, Math.min(12, d));
+    const d = gridToDensity();
+    document.getElementById('locked-density').value = d;
     onLockedDensity(true); // update label only
   } else {
     sec.style.display = 'none';
@@ -293,14 +325,12 @@ document.getElementById('lockRatio').addEventListener('change', function() {
 
 function onLockedDensity(labelOnly) {
   const d = parseInt(document.getElementById('locked-density').value);
-  // Map density 1-12 to total cells: d^2 * 4
-  const totalTarget = d * d * 4;
-  const newRows2 = Math.max(2, Math.round(Math.sqrt(totalTarget / lockedAspect)));
-  const newCols2 = Math.max(2, Math.round(newRows2 * lockedAspect));
-  document.getElementById('locked-density-val').textContent = `${d} (${newCols2}x${newRows2})`;
+  const target = densityToGrid(d);
+  document.getElementById('locked-density-val').textContent = `${d} (${target.cols}x${target.rows})`;
   if (labelOnly === true) return;
 
-  // Rescale grid
+  const newCols2 = target.cols, newRows2 = target.rows;
+  // Rescale grid content using nearest-neighbor sampling
   const oldGrid = grid;
   const oldCols = cols, oldRows = rows;
   const newGrid = Array.from({length: newRows2}, (_, r) =>
@@ -318,7 +348,7 @@ function onLockedDensity(labelOnly) {
   renderPalette();
   renderColorEditor();
   draw();
-  status(`Gestosc ${d}: ${cols}x${rows}`);
+  status(`Gęstość ${d}: ${cols}x${rows} (format ${baseCols}:${baseRows})`);
 }
 
 // ===== Init =====
@@ -651,25 +681,29 @@ function buildJSON() {
 }
 
 // ===== Pattern Generator =====
-// Density 1-8 maps to grid sizes:
-// 1=6x6, 2=10x10, 3=14x14, 4=20x20, 5=28x28, 6=36x36, 7=46x46, 8=56x56
+// Density 1-8 maps to grid sizes (used as base when ratio is NOT locked):
 const DENSITY_SIZES = [6, 10, 14, 20, 28, 36, 46, 56];
 
 function updateDensityLabel() {
   const d = parseInt(document.getElementById('gen-density').value);
-  const size = DENSITY_SIZES[d - 1];
-  document.getElementById('density-val').textContent = `${d} (${size}x${size})`;
+  const isLocked = document.getElementById('lockRatio').checked;
+  if (isLocked) {
+    const target = densityToGrid(d);
+    document.getElementById('density-val').textContent = `${d} (${target.cols}x${target.rows})`;
+  } else {
+    const size = DENSITY_SIZES[d - 1];
+    document.getElementById('density-val').textContent = `${d} (${size}x${size})`;
+  }
 }
 
 function onDensityChange() {
   updateDensityLabel();
-  // Rescale current grid content to new density
   rescaleGrid();
 }
 
 function rescaleGrid() {
   const density = parseInt(document.getElementById('gen-density').value) || 3;
-  const targetSize = DENSITY_SIZES[density - 1];
+  const isLocked = document.getElementById('lockRatio').checked;
 
   // If image is loaded, re-convert from source image
   if (uploadedImage) {
@@ -677,27 +711,35 @@ function rescaleGrid() {
     return;
   }
 
-  // Otherwise rescale existing grid using nearest-neighbor sampling
-  const oldGrid = grid;
-  const oldCols = cols, oldRows = rows;
-  if (oldCols === targetSize && oldRows === targetSize) return;
-
-  // Preserve aspect ratio of current grid
-  const aspect = oldCols / oldRows;
   let newCols, newRows;
-  if (aspect >= 1) {
-    newCols = targetSize;
-    newRows = Math.max(2, Math.round(targetSize / aspect));
+  if (isLocked) {
+    // Use locked ratio — density = multiplier of base unit
+    const target = densityToGrid(density);
+    newCols = target.cols;
+    newRows = target.rows;
   } else {
-    newRows = targetSize;
-    newCols = Math.max(2, Math.round(targetSize * aspect));
+    // No lock — use DENSITY_SIZES as square base, preserve current aspect
+    const targetSize = DENSITY_SIZES[density - 1];
+    const aspect = cols / rows;
+    if (aspect >= 1) {
+      newCols = targetSize;
+      newRows = Math.max(2, Math.round(targetSize / aspect));
+    } else {
+      newRows = targetSize;
+      newCols = Math.max(2, Math.round(targetSize * aspect));
+    }
   }
 
+  if (newCols === cols && newRows === rows) return;
+
+  // Rescale existing grid using nearest-neighbor sampling
+  const oldGrid = grid;
+  const oldCols = cols, oldRows = rows;
   const newGrid = Array.from({length: newRows}, (_, r) =>
     Array.from({length: newCols}, (_, c) => {
       const srcR = Math.min(oldRows - 1, Math.floor(r * oldRows / newRows));
       const srcC = Math.min(oldCols - 1, Math.floor(c * oldCols / newCols));
-      return oldGrid[srcR][srcC];
+      return oldGrid[srcR] ? (oldGrid[srcR][srcC] ?? -1) : -1;
     })
   );
 
@@ -718,9 +760,16 @@ function generatePattern() {
   const numColors = parseInt(document.getElementById('gen-colors').value) || 3;
   const pattern = document.getElementById('gen-pattern').value;
 
-  // Set up grid size from density
-  cols = gridSize;
-  rows = gridSize;
+  // Set up grid size from density — respect locked ratio
+  const isLocked = document.getElementById('lockRatio').checked;
+  if (isLocked) {
+    const target = densityToGrid(density);
+    cols = target.cols;
+    rows = target.rows;
+  } else {
+    cols = gridSize;
+    rows = gridSize;
+  }
   document.getElementById('cols').value = cols;
   document.getElementById('rows').value = rows;
 
@@ -989,16 +1038,38 @@ function convertImage() {
 
   const numColors = parseInt(document.getElementById('gen-colors').value) || 3;
 
-  // Keep current grid dimensions — image adapts to existing layout
-  const newCols = cols;
-  const newRows = rows;
+  // Use image's ORIGINAL proportions for the grid — don't stretch
+  const imgW = uploadedImage.naturalWidth || uploadedImage.width;
+  const imgH = uploadedImage.naturalHeight || uploadedImage.height;
+  const imgAspect = imgW / imgH;
 
-  // Render image stretched to fit current grid dimensions (transparent background)
+  // Calculate grid size: keep roughly the same total cells, but match image proportions
+  const totalCells = cols * rows;
+  let newRows = Math.max(2, Math.round(Math.sqrt(totalCells / imgAspect)));
+  let newCols = Math.max(2, Math.round(newRows * imgAspect));
+
+  // Update grid dimensions
+  cols = newCols;
+  rows = newRows;
+  document.getElementById('cols').value = cols;
+  document.getElementById('rows').value = rows;
+
+  // Update locked ratio to match image proportions
+  calcBaseUnit();
+  const lockCb = document.getElementById('lockRatio');
+  if (lockCb.checked) {
+    const d = gridToDensity();
+    document.getElementById('locked-density').value = d;
+    onLockedDensity(true);
+  }
+  updateRatioLabel();
+
+  // Render image to grid size preserving proportions (1:1 pixel-to-cell mapping)
   const sampleCanvas = document.createElement('canvas');
   sampleCanvas.width = newCols;
   sampleCanvas.height = newRows;
   const sctx = sampleCanvas.getContext('2d');
-  sctx.clearRect(0, 0, newCols, newRows); // ensure transparent background
+  sctx.clearRect(0, 0, newCols, newRows);
   sctx.drawImage(uploadedImage, 0, 0, newCols, newRows);
   const imageData = sctx.getImageData(0, 0, newCols, newRows).data;
 
