@@ -175,10 +175,18 @@ export default class PaintByNumbers {
     const cy = b.y + row * this.cellH;
     const hex = PAINT.COLORS[this.colorMap[targetColor]] || 0xff3344;
 
-    // Draw filled cell — extend by 1px to avoid sub-pixel gaps between cells
+    // Draw filled cell — extend by 1px to avoid sub-pixel gaps, fully opaque
     const pad = 1;
-    const alpha = Phaser.Math.FloatBetween(0.65, 0.9);
-    this.paintGfx.fillStyle(hex, alpha);
+    // Solid dark base to fully cover template lines underneath
+    this.paintGfx.fillStyle(0x000000, 1);
+    this.paintGfx.fillRect(cx - pad, cy - pad, this.cellW + pad * 2, this.cellH + pad * 2);
+    // Color layer on top — slight brightness variation for paint texture feel
+    const variation = Phaser.Math.FloatBetween(0.82, 1.0);
+    const r = ((hex >> 16) & 0xff) * variation | 0;
+    const g = ((hex >> 8) & 0xff) * variation | 0;
+    const b2 = (hex & 0xff) * variation | 0;
+    const variedHex = (r << 16) | (g << 8) | b2;
+    this.paintGfx.fillStyle(variedHex, 1);
     this.paintGfx.fillRect(cx - pad, cy - pad, this.cellW + pad * 2, this.cellH + pad * 2);
 
     // Random paint streaks
@@ -228,7 +236,9 @@ export default class PaintByNumbers {
         const cx = b.x + c * this.cellW;
         const cy = b.y + r * this.cellH;
         const hex = PAINT.COLORS[this.colorMap[ci]] || 0xff3344;
-        this.paintGfx.fillStyle(hex, 0.5);
+        this.paintGfx.fillStyle(0x000000, 1);
+        this.paintGfx.fillRect(cx - 1, cy - 1, this.cellW + 2, this.cellH + 2);
+        this.paintGfx.fillStyle(hex, 1);
         this.paintGfx.fillRect(cx - 1, cy - 1, this.cellW + 2, this.cellH + 2);
 
         // Hide number
@@ -298,7 +308,9 @@ export default class PaintByNumbers {
         const cx = b.x + c * this.cellW;
         const cy = b.y + r * this.cellH;
         const hex = PAINT.COLORS[this.colorMap[ci]] || 0xff3344;
-        this.paintGfx.fillStyle(hex, 0.75);
+        this.paintGfx.fillStyle(0x000000, 1);
+        this.paintGfx.fillRect(cx - 1, cy - 1, this.cellW + 2, this.cellH + 2);
+        this.paintGfx.fillStyle(hex, 1);
         this.paintGfx.fillRect(cx - 1, cy - 1, this.cellW + 2, this.cellH + 2);
 
         // Clear number from canvas

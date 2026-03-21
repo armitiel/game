@@ -111,7 +111,7 @@ export const LEVEL_1 = {
   ],
   shadows: [
     { x: 80, y: H - 130, w: 75, h: 100 },
-    { x: 710, y: H - 135, w: 75, h: 100 },
+    { x: 710, y: H - 132, w: 75, h: 100 },
   ],
   fillWalls: [
     { x: 0, y: H - 124, w: 256, h: 92 },
@@ -122,7 +122,7 @@ export const LEVEL_1 = {
   paintCans: [
   ],
   paintSpots: [
-    { x: 504, y: H - 147, w: 400, h: 210, paintingKey: 'painting_star' },
+    { x: 504, y: H - 142, w: 400, h: 210, paintingKey: 'painting_star' },
     { x: 1140, y: H - 560, w: 80, h: 100, paintingKey: 'painting_Nowy' },
   ],
   trashCans: [
