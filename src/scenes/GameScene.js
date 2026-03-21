@@ -65,6 +65,7 @@ export default class GameScene extends Phaser.Scene {
     this._bridgeLayer = this.add.layer();
     this._bridgeLayer.setDepth(50);
     this._bridgeBodies = []; // track all bridge collider bodies for step-up logic
+    this._bridgeLines = []; // track bridge line endpoints for smooth Y interpolation
 
     // === Trash cans (pushable) ===
     this.trashCans = [];
@@ -614,14 +615,48 @@ export default class GameScene extends Phaser.Scene {
    * Uses raw level data so it works at build time before physics bodies are ready.
    */
   _hasSurfaceBelow(px, bottomY, pw, ld) {
-    const maxDist = 200; // max vertical distance to look for a surface
+    const shadowH = 40; // must match _addPlatformShadow height
+    const hasOverlapX = (sx, sw) => px + pw > sx && px < sx + sw;
+
+    // Check fillWalls — shadow appears on a wall directly adjacent below the platform
+    if (ld.fillWalls) {
+      for (const fw of ld.fillWalls) {
+        // Wall top must be within shadow range of platform bottom (touching or very close)
+        if (fw.y > bottomY + shadowH) continue;
+        // Wall bottom must be at or below platform bottom
+        if (fw.y + fw.h < bottomY) continue;
+        if (hasOverlapX(fw.x, fw.w)) return true;
+      }
+    }
+
+    // Check ground/platforms — only if very close below (direct contact, not floating)
+    const maxDist = 80;
     const surfaces = [...ld.ground, ...ld.platforms];
     for (const s of surfaces) {
       const top = s.y;
-      // Surface must be below the platform bottom and within range
       if (top < bottomY || top > bottomY + maxDist) continue;
-      // Check horizontal overlap
-      if (px + pw > s.x && px < s.x + s.w) return true;
+      if (hasOverlapX(s.x, s.w)) return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if a fillWall exists behind a ladder (overlaps horizontally and vertically).
+   */
+  _hasWallBehindLadder(ladX, topY, bottomY, ladW, ld) {
+    if (!ld.fillWalls) return false;
+    const halfW = ladW / 2;
+    const lLeft = ladX - halfW;
+    const lRight = ladX + halfW;
+    for (const fw of ld.fillWalls) {
+      const fwRight = fw.x + fw.w;
+      const fwBottom = fw.y + fw.h;
+      // Horizontal overlap
+      if (lRight <= fw.x || lLeft >= fwRight) continue;
+      // Vertical overlap — wall must cover at least part of the ladder
+      if (bottomY <= fw.y || topY >= fwBottom) continue;
+      return true;
     }
     return false;
   }
@@ -710,7 +745,10 @@ export default class GameScene extends Phaser.Scene {
     this.textures.addCanvas(rtKey, canvas);
 
     const img = this.add.image(wx + w / 2, wy + h / 2, rtKey);
-    img.setDepth(depth ?? 1.5); // behind murals (2) and shadows (2)
+    // Clamp minimum depth above background parallax layers (sky=0, buildings=0.1/0.2)
+    const MIN_WALL_DEPTH = 0.5;
+    const wallDepth = Math.max(MIN_WALL_DEPTH, depth ?? 1.5);
+    img.setDepth(wallDepth); // behind murals (2) and shadows (2)
   }
 
   /**
@@ -872,13 +910,18 @@ export default class GameScene extends Phaser.Scene {
       visual.setDepth(ladderDepth ?? 4);
       this.ladderVisuals.add(visual);
 
-      // Cast shape-accurate shadow using the ladder's own texture
-      // Crop bottom so shadow doesn't spill onto the platform beneath
-      const ladShadow = this.add.image(x + 5, topY + height / 2 + 4, rtKey);
-      ladShadow.setTint(0x000000);
-      ladShadow.setAlpha(0.45);
-      ladShadow.setCrop(0, 0, snapW, snapH - 8);
-      ladShadow.setDepth((ladderDepth ?? 4) - 0.1);
+      // Cast shape-accurate shadow only when a fillWall is behind the ladder
+      const hasWallBehind = this._hasWallBehindLadder(x, topY, bottomY, snapW, ld);
+      let ladShadow = null;
+      if (hasWallBehind) {
+        const shadowOffX = 6;
+        const shadowOffY = 12; // shift further down against wall
+        ladShadow = this.add.image(x + shadowOffX, topY + height / 2 + shadowOffY, rtKey);
+        ladShadow.setTint(0x000000);
+        ladShadow.setAlpha(0.40);
+        ladShadow.setCrop(0, 0, snapW, snapH - 12);
+        ladShadow.setDepth((ladderDepth ?? 4) - 0.1);
+      }
 
       const zone = this.add.zone(
         x - ZONE_WIDTH / 2, topY - ZONE_EXTEND_TOP,
@@ -3078,7 +3121,7 @@ export default class GameScene extends Phaser.Scene {
             visual.destroy();
 
             // === PHASE 3: Create new plank (drabinka2) ===
-            this._createLadderBridge(ladderInfo, pivotX, pivotY, ladderHeight, dir, landingPlatform);
+            this._createLadderBridge(ladderInfo, pivotX, pivotY, ladderHeight, dir, landingPlatform, finalAngle);
           }
         });
       }
@@ -3131,39 +3174,35 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Convert a fallen ladder into a walkable bridge (static physics body).
    */
-  _createLadderBridge(ladderInfo, pivotX, pivotY, ladderHeight, dir, landingPlatform) {
+  _createLadderBridge(ladderInfo, pivotX, pivotY, ladderHeight, dir, landingPlatform, finalAngle) {
     ladderInfo.isBridge = true;
     ladderInfo.isFalling = false;
 
     const landPlatTop = landingPlatform.y - landingPlatform.height / 2;
 
-    // Bridge spans from pivot point to landing platform edge
-    const bridgeStartX = pivotX;
-    const bridgeEndX = dir === 1
-      ? (landingPlatform.x - landingPlatform.width / 2)
-      : (landingPlatform.x + landingPlatform.width / 2);
+    // Bridge endpoints: pivot (source platform edge) and landing point
+    const angleDeg = Phaser.Math.RadToDeg(finalAngle); // finalAngle is in radians
+    const absAngle = Math.abs(finalAngle);
 
-    const bridgeWidth = Math.abs(bridgeEndX - bridgeStartX);
-    const bridgeCenterX = (bridgeStartX + bridgeEndX) / 2;
+    // Ladder tip position (where it lands)
+    const tipX = pivotX + Math.sin(absAngle) * ladderHeight * dir;
+    const tipY = pivotY - Math.cos(absAngle) * ladderHeight;
+    // Clamp tip to landing platform top
+    const clampedTipY = Math.min(tipY, landPlatTop);
 
-    // === Plank visual: plain Image stretched to ladder height (no tiling) ===
-    // drabinka2.png is 10×31 — stretch length to match ladder, keep original thickness.
-    const PLANK_TEX_W = 10;  // original texture width (thickness)
-    const plankDisplayLength = ladderHeight;  // same length as original ladder
-    const plankDisplayThick = PLANK_TEX_W * 0.8;  // 80% of original thickness
+    // Plank center = midpoint between pivot base and tip
+    const plankCenterX = (pivotX + tipX) / 2;
+    const plankCenterY = (pivotY + clampedTipY) / 2;
 
-    // Position: plank rests on top of platform edges
-    const avgPlatTop = (pivotY + landPlatTop) / 2;
-    const bridgeCenterY = avgPlatTop - 4;
+    // === Plank visual: plain Image stretched to ladder height ===
+    const PLANK_TEX_W = 10;
+    const plankDisplayLength = ladderHeight;
+    const plankDisplayThick = PLANK_TEX_W * 0.8;
 
-    // Plank center: halfway along its full length from pivot
-    const plankCenterX = pivotX + dir * (plankDisplayLength / 2);
-
-    // Create as plain Image (no tiling), stretch to match ladder size
-    const plankVisual = this.add.image(plankCenterX, bridgeCenterY, 'ladder_plank');
-    plankVisual.setDisplaySize(plankDisplayThick, plankDisplayLength); // width=10px thick, height=ladderHeight long
-    plankVisual.setAngle(dir * 90); // rotate to lay flat
-    // When falling left, flip so asset top faces up
+    const plankVisual = this.add.image(plankCenterX, plankCenterY, 'ladder_plank');
+    plankVisual.setDisplaySize(plankDisplayThick, plankDisplayLength);
+    // Use the actual fall angle (converted to degrees) instead of flat 90°
+    plankVisual.setAngle(angleDeg);
     if (dir === -1) plankVisual.setFlipY(true);
     // Move to bridge layer (depth 50, renders above platforms)
     this.children.remove(plankVisual);
@@ -3178,73 +3217,117 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Quad.easeOut'
     });
 
-    // === Physics collider — spans FULL plank length (including parts over platforms) ===
-    const BRIDGE_H = 16;
-    const colliderY = bridgeCenterY - plankDisplayThick / 2 + BRIDGE_H / 2;
-    const bridge = this.add.rectangle(plankCenterX, colliderY, plankDisplayLength, BRIDGE_H, 0x000000, 0);
-    this.physics.add.existing(bridge, true);
-    bridge.body.checkCollision.down = false;
-    bridge.body.checkCollision.left = false;
-    bridge.body.checkCollision.right = false;
+    // === Physics colliders — staircase of small steps to approximate the slope ===
+    // Arcade Physics doesn't support rotated bodies, so we use steps
+    const BRIDGE_H = 14;
+    const STEPS = 6;
+    const bridgeBodies = [];
+    for (let i = 0; i < STEPS; i++) {
+      const t0 = i / STEPS;
+      const t1 = (i + 1) / STEPS;
+      const tMid = (t0 + t1) / 2;
+      // Interpolate along the plank from pivot to tip
+      const sx = pivotX + (tipX - pivotX) * tMid;
+      const sy = pivotY + (clampedTipY - pivotY) * tMid + BRIDGE_H / 2;
+      const stepW = Math.abs(tipX - pivotX) / STEPS + 4; // slight overlap
+      const step = this.add.rectangle(sx, sy, stepW, BRIDGE_H, 0x000000, 0);
+      this.physics.add.existing(step, true);
+      // Only allow upward collision (for cops). Player uses _bridgeSnap instead.
+      step.body.checkCollision.down = false;
+      step.body.checkCollision.left = false;
+      step.body.checkCollision.right = false;
+      step.setData('isBridgePlank', true);
+      bridgeBodies.push(step);
+    }
 
-    // Mark bridge so we can identify it in collider callbacks
-    bridge.setData('isBridgePlank', true);
+    // Use overlap (not collider) for player — no physical separation,
+    // only refresh _bridgeGrace. Positioning is done by _bridgeSnap.
+    for (const step of bridgeBodies) {
+      this.physics.add.overlap(this.player, step, (_p) => {
+        if (_p.isClimbing || _p.isDroppingToLadder || _p.isClimbing2) return;
+        if (_p._droppingThroughBridge) return;
+        _p._bridgeGrace = 10;
+      });
+      // Cops still use collider for physical support
+      this.cops.forEach(cop => {
+        this.physics.add.collider(cop, step);
+      });
+    }
 
-    // Dedicated collider for player — NOT in platforms group to avoid double-collision jitter
-    this.physics.add.collider(this.player, bridge, null, (player) => {
-      if (player.isClimbing || player.isDroppingToLadder || player.isClimbing2) return false;
-      // DROP-THROUGH: pressing DOWN while on bridge → fall through
-      if (player._droppingThroughBridge) return false;
-      const down = player.cursors.down.isDown || player.wasdKeys.down.isDown
-        || (player.touch && player.touch.down);
-      if (down && player.body.blocked.down) {
-        player._droppingThroughBridge = true;
-        // Re-enable collision after player drops past the bridge
-        this.time.delayedCall(300, () => { player._droppingThroughBridge = false; });
-        return false;
-      }
-      return true;
-    });
-    // Cops can also walk on bridge
-    this.cops.forEach(cop => {
-      this.physics.add.collider(cop, bridge);
-    });
-
-    ladderInfo.bridgeBody = bridge;
+    ladderInfo.bridgeBody = bridgeBodies[0];
+    ladderInfo.bridgeBodies = bridgeBodies;
     ladderInfo.bridgeVisual = plankVisual;
-    this._bridgeBodies.push(bridge);
+    // Store bridge line for smooth _bridgeSnap interpolation
+    const bridgeLine = { pivotX, pivotY, tipX, tipY: clampedTipY };
+    ladderInfo.bridgeLine = bridgeLine;
+    this._bridgeLines.push(bridgeLine);
+    for (const step of bridgeBodies) {
+      this._bridgeBodies.push(step);
+    }
   }
 
   /**
-   * Auto step-up: if the player is horizontally over a bridge and their feet
-   * are slightly below the bridge top, nudge them up so they walk onto it.
+   * Snap player to bridge surface line every frame.
+   * Instead of staircase colliders, directly set player Y
+   * from linear interpolation along the bridge slope.
    */
-  _bridgeStepUp(player) {
-    const MAX_STEP = player.isPushingLadder ? 18 : 12; // wider range during push
+  _bridgeSnap(player) {
     const pb = player.body;
     if (!pb) return;
-    const playerBottom = pb.y + pb.height;
-    const playerLeft = pb.x;
-    const playerRight = pb.x + pb.width;
+    if (player.isClimbing || player.isDroppingToLadder || player.isClimbing2) return;
+    if (player._droppingThroughBridge) return;
 
+    const playerCenterX = pb.x + pb.width / 2;
+    const playerBottom = pb.y + pb.height;
+    // If already on bridge, use generous range to keep tracking.
+    // If NOT on bridge yet, only snap when very close (landed on a step collider).
+    const alreadyOnBridge = player._bridgeGrace > 0;
+    const SNAP_ABOVE = 6;                     // max px player feet above surface
+    const SNAP_BELOW = alreadyOnBridge ? 14 : 6; // max px player feet below surface
+
+    for (const line of this._bridgeLines) {
+      const minX = Math.min(line.pivotX, line.tipX);
+      const maxX = Math.max(line.pivotX, line.tipX);
+      if (playerCenterX < minX - 4 || playerCenterX > maxX + 4) continue;
+
+      const spanX = line.tipX - line.pivotX;
+      if (Math.abs(spanX) < 1) continue;
+      const t = Phaser.Math.Clamp((playerCenterX - line.pivotX) / spanX, 0, 1);
+      // Slight lift so player walks ON the plank, not through it
+      const surfaceY = line.pivotY + (line.tipY - line.pivotY) * t - 4;
+
+      const diff = playerBottom - surfaceY; // positive = feet below surface
+      if (diff > -SNAP_ABOVE && diff <= SNAP_BELOW) {
+        // DROP-THROUGH: pressing DOWN while on bridge → fall through
+        const down = player.cursors.down.isDown || player.wasdKeys.down.isDown
+          || (player.touch && player.touch.down);
+        if (down && alreadyOnBridge && Math.abs(pb.velocity.x) < 10) {
+          player._droppingThroughBridge = true;
+          player._bridgeGrace = 0;
+          player.body.allowGravity = true;
+          this.time.delayedCall(400, () => { player._droppingThroughBridge = false; });
+          return;
+        }
+        // Snap player directly onto the bridge line
+        player.y -= diff;
+        pb.y -= diff;
+        pb.velocity.y = 0;
+        pb.blocked.down = true;
+        player.body.allowGravity = false;
+        player._bridgeGrace = 10;
+        return;
+      }
+    }
+
+    // Not on any diagonal bridge — check flat bridges (old style)
     for (const bridge of this._bridgeBodies) {
       if (!bridge.body) continue;
       const bb = bridge.body;
       const bridgeTop = bb.y;
-      const bridgeLeft = bb.x;
-      const bridgeRight = bb.x + bb.width;
-
-      // Player must horizontally overlap the bridge
-      if (playerRight < bridgeLeft || playerLeft > bridgeRight) continue;
-
-      // Player feet must be slightly below bridge top (within step-up range)
+      if (playerCenterX < bb.x || playerCenterX > bb.x + bb.width) continue;
       const diff = playerBottom - bridgeTop;
-      if (diff > 0 && diff <= MAX_STEP) {
-        // Nudge player up to bridge level
-        player.y -= diff;
-        pb.y -= diff;
-        pb.velocity.y = 0;
-        break;
+      if (diff > 0 && diff <= 12) {
+        player.y -= diff; pb.y -= diff; pb.velocity.y = 0;
       }
     }
   }
@@ -3472,10 +3555,8 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // 2d. Auto step-up onto bridges (works while walking or pushing ladder)
-    if ((this.player.body.blocked.down || this.player.isPushingLadder) && !this.player.isClimbing && !this.player.isClimbing2) {
-      this._bridgeStepUp(this.player);
-    }
+    // 2d. Snap player to bridge surface line (smooth diagonal walking)
+    this._bridgeSnap(this.player);
 
     // 3. Player movement & input (uses ladder/shadow state)
     this.player.update(delta);

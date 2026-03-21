@@ -26,6 +26,19 @@ export default class PaintByNumbers {
     this.targetGrid = gridData.grid;         // 2D: [row][col] → color index or -1
     this.colorMap = gridData.colors || DEFAULT_COLOR_MAP;  // painting's own color list
 
+    // Build resolved color lookup: start with PAINT.COLORS, then OVERRIDE with palette from JSON
+    // Palette always wins — it has the exact colors from the mural editor's image conversion
+    this._resolvedColors = { ...PAINT.COLORS };
+    if (gridData.palette) {
+      for (const [name, hexStr] of Object.entries(gridData.palette)) {
+        // Convert "#rrggbb" hex string to 0xRRGGBB number — always override
+        this._resolvedColors[name] = parseInt(hexStr.replace('#', ''), 16);
+      }
+    }
+    console.log('[PBN] colorMap:', this.colorMap, 'palette:', gridData.palette, 'resolved:', Object.fromEntries(
+      this.colorMap.map(c => [c, '0x' + (this._resolvedColors[c] || 0).toString(16).padStart(6, '0')])
+    ));
+
     this.cellW = bounds.w / this.cols;
     this.cellH = bounds.h / this.rows;
 
@@ -84,7 +97,7 @@ export default class PaintByNumbers {
 
         if (ci >= 0) {
           // Very subtle tint of the target color (hint) — numbers do the real guiding
-          const hex = PAINT.COLORS[this.colorMap[ci]] || 0xffffff;
+          const hex = this._resolvedColors[this.colorMap[ci]] || 0xffffff;
           g.fillStyle(hex, 0.06);
           g.fillRect(cx, cy, this.cellW, this.cellH);
         }
@@ -117,7 +130,7 @@ export default class PaintByNumbers {
         const ly = (r * this.cellH + this.cellH / 2) * RES;
         const label = String(ci + 1);
 
-        const targetHex = PAINT.COLORS[this.colorMap[ci]] || 0xffffff;
+        const targetHex = this._resolvedColors[this.colorMap[ci]] || 0xffffff;
         const hexStr = '#' + targetHex.toString(16).padStart(6, '0');
 
         // Stroke (outline) for contrast
@@ -169,7 +182,7 @@ export default class PaintByNumbers {
 
     const cx = b.x + col * this.cellW;
     const cy = b.y + row * this.cellH;
-    const hex = PAINT.COLORS[this.colorMap[targetColor]] || 0xff3344;
+    const hex = this._resolvedColors[this.colorMap[targetColor]] || 0xff3344;
 
     // Draw filled cell — extend by 1px to avoid sub-pixel gaps, fully opaque
     const pad = 1;
@@ -227,7 +240,7 @@ export default class PaintByNumbers {
         this.filledGrid[r][c] = true;
         const cx = b.x + c * this.cellW;
         const cy = b.y + r * this.cellH;
-        const hex = PAINT.COLORS[this.colorMap[ci]] || 0xff3344;
+        const hex = this._resolvedColors[this.colorMap[ci]] || 0xff3344;
         this.paintGfx.fillStyle(0x000000, 1);
         this.paintGfx.fillRect(cx - 1, cy - 1, this.cellW + 2, this.cellH + 2);
         this.paintGfx.fillStyle(hex, 1);
@@ -259,7 +272,7 @@ export default class PaintByNumbers {
   }
 
   getSelectedColorHex() {
-    return PAINT.COLORS[this.getSelectedColorName()] || 0xffffff;
+    return this._resolvedColors[this.getSelectedColorName()] || 0xffffff;
   }
 
   /**
@@ -299,7 +312,7 @@ export default class PaintByNumbers {
 
         const cx = b.x + c * this.cellW;
         const cy = b.y + r * this.cellH;
-        const hex = PAINT.COLORS[this.colorMap[ci]] || 0xff3344;
+        const hex = this._resolvedColors[this.colorMap[ci]] || 0xff3344;
         this.paintGfx.fillStyle(0x000000, 1);
         this.paintGfx.fillRect(cx - 1, cy - 1, this.cellW + 2, this.cellH + 2);
         this.paintGfx.fillStyle(hex, 1);

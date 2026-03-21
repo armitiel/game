@@ -99,7 +99,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this._walkYShift = 0;
     }
     // Apply walk adjustments — nudge down + scale up 1.5%
-    if (key === 'player_walk' && !this._walkYShift) {
+    // Skip Y shift on bridge to prevent fighting with _bridgeSnap
+    if (key === 'player_walk' && !this._walkYShift && !this._bridgeGrace) {
       this._walkYShift = 2;
       this.y += 2;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 2);
@@ -239,7 +240,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // Don't jump with UP right after exiting a ladder (prevents unwanted jump at top)
     const jump = jumpRaw && this.ladderCooldown <= 0;
 
-    const onGround = this.body.blocked.down;
+    // Bridge grace: treat player as grounded while walking across staircase bridge steps
+    // Decrement AFTER using the value so the frame the collider fires still counts
+    const onBridge = this._bridgeGrace > 0;
+    const onGround = this.body.blocked.down || onBridge;
     const anyInput = left || right || up || down || jump;
 
     // Cancel twist animation if any input detected
@@ -426,19 +430,22 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.exitLadder('move-left');
         this.setVelocityX(-PLAYER.SPEED);
         this.setFlipX(true);
+        this.playAnim('player_walk');
       } else if (right && !up && !down) {
         this.exitLadder('move-right');
         this.setVelocityX(PLAYER.SPEED);
         this.setFlipX(false);
+        this.playAnim('player_walk');
       }
 
-      // Auto-dismount at top: when player's feet are well above the ladder top
-      // ladderTopY is where the platform sits, so feet must clear the platform (32px thick)
+      // Auto-dismount at top: when player's feet reach platform level
+      // ladderTopY is where the platform sits (its top edge)
       const playerFeetY = this.y + PLAYER.BODY_H / 2;
-      const clearanceAbovePlatform = 36; // platform thickness + margin
+      const clearanceAbovePlatform = 8; // small margin above platform top
       if (up && this.ladderTopY && playerFeetY <= this.ladderTopY - clearanceAbovePlatform) {
-        // Position player precisely on the platform surface
-        this.y = this.ladderTopY - PLAYER.BODY_H / 2 - PLAYER.BODY_OFFSET_Y;
+        // Position player precisely on the platform surface — no visible snap
+        const targetY = this.ladderTopY - PLAYER.BODY_H / 2 - PLAYER.BODY_OFFSET_Y;
+        this.y = targetY;
         this.exitLadder('top-clearance');
         // Sync physics body to snapped position — prevents brief "in air" frames
         // that cause a jump animation flash at high fps
@@ -514,7 +521,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // === Normal movement ===
-    this.body.allowGravity = true;
+    // Suppress gravity while walking on diagonal bridge to prevent jitter
+    this.body.allowGravity = !(this._bridgeGrace > 0);
 
     // === Hide in shadow: DOWN/UP while stopped on ground in shadow zone (not on ladder) ===
     // On mobile joystick, require vertical to be the dominant axis — a slight diagonal
@@ -561,6 +569,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const absVxUp = Math.abs(this.body.velocity.x);
     const canGrabLadder = !onGround || absVxUp < PLAYER.SPEED * 0.6; // mid-air always OK, ground needs slow speed
     if (this.onLadder && up && this.ladderCooldown <= 0 && !playerFeetAtTop && canGrabLadder) {
+      this._preClimbFlipX = this.flipX; // remember facing direction before climbing
       this.isClimbing = true;
       this.climbFrameIndex = 0;
       this.body.allowGravity = false;
@@ -579,6 +588,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const absVx = Math.abs(this.body.velocity.x);
     const isWalking = absVx < PLAYER.SPEED * 0.6;  // under 60% max speed = walking/stopped
     if (this.onLadder && down && onGround && isWalking && this.ladderCooldown <= 0) {
+      this._preClimbFlipX = this.flipX; // remember facing direction before climbing
       this.isClimbing = true;
       this.isDroppingToLadder = true;  // disable platform collision until below platform
       this.dropPlatformY = this.y;     // remember platform Y to know when we're past it
@@ -662,13 +672,31 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // === Ladder push grab is now handled by GameScene (unified E key logic) ===
 
     // === Air animations ===
-    if (!onGround && !this.isPushingTrash && this.ladderCooldown <= 0) {
+    // Suppress air animations briefly after ladder exit or while on bridge
+    if (!onGround && !onBridge && !this.isPushingTrash && this.ladderCooldown <= 0 && !this._ladderExitGrace) {
       if (this.body.velocity.y < 0) {
         this.playAnim('player_jump');
       } else if (this.body.velocity.y > 50) {
         this.playAnim('player_fall');
       }
     }
+    // Force walk anim if moving on bridge but current anim got interrupted
+    if (onBridge && !this.body.blocked.down && (left || right)) {
+      if (this.currentAnim !== 'player_walk') {
+        this.playAnim('player_walk');
+      }
+    }
+    // Tick down ladder exit grace (set in exitLadder, cleared on ground)
+    if (this._ladderExitGrace) {
+      if (onGround) {
+        this._ladderExitGrace = 0;
+      } else {
+        this._ladderExitGrace--;
+      }
+    }
+
+    // Tick down bridge grace at the END of update (after all checks used it)
+    if (this._bridgeGrace > 0) this._bridgeGrace--;
 
     this.updateHiddenIcon();
   }
@@ -862,11 +890,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   // === LADDER ===
 
   exitLadder(reason) {
-    console.log('exitLadder called, reason:', reason || 'unknown', 'y:', this.y, 'feetY:', this.body.y + this.body.height);
     this.isClimbing = false;
     this.isDroppingToLadder = false;
     this.ladderCooldown = 15;  // ignore ladder for 15 frames after dismount
+    this._ladderExitGrace = 30; // suppress air animations until player lands (max 30 frames)
     this.body.allowGravity = true;
+    // Zero out vertical velocity to prevent upward carry-over from climbing
+    // (specific exit paths may override this with their own velocity)
+    this.setVelocityY(0);
+    // Restore facing direction from before climbing
+    // (move-left/right and side-jump exits override this afterward)
+    if (this._preClimbFlipX !== undefined) {
+      this.setFlipX(this._preClimbFlipX);
+    }
     this.currentAnim = ''; // force anim refresh
     this.anims.resume();
   }

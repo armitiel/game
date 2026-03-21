@@ -1965,9 +1965,9 @@ document.getElementById('btnSaveToGame').addEventListener('click', () => {
   btn.textContent = 'Zapisuję...';
   const code = generateExport();
   console.log('[EDITOR] Save button clicked, code length:', code.length);
-  console.log('[EDITOR] Fetching:', window.location.origin + '/save');
   localStorage.setItem(STORAGE_KEY, JSON.stringify(levels));
-  fetch('/save', { method: 'POST', body: code })
+  // Use /save-and-reload to write file AND trigger game reload via HMR
+  fetch('/save-and-reload', { method: 'POST', body: code })
     .then(r => {
       console.log('[EDITOR] /save response status:', r.status);
       return r.json();

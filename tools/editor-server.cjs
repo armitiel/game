@@ -106,14 +106,36 @@ const server = http.createServer((req, res) => {
   }
 
   // Save levels.js
+  // POST /save — silent auto-save (no game reload)
   if (req.method === 'POST' && req.url === '/save') {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
       fs.writeFileSync(LEVELS_PATH, body, 'utf-8');
-      console.log(`[${new Date().toLocaleTimeString()}] levels.js saved (${body.length} bytes)`);
+      console.log(`[${new Date().toLocaleTimeString()}] levels.js saved (${body.length} bytes) [silent]`);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
+    });
+    return;
+  }
+
+  // POST /save-and-reload — explicit save + notify Vite to reload game
+  if (req.method === 'POST' && req.url === '/save-and-reload') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      fs.writeFileSync(LEVELS_PATH, body, 'utf-8');
+      console.log(`[${new Date().toLocaleTimeString()}] levels.js saved (${body.length} bytes) [+ reload]`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+
+      // Notify Vite dev server to reload the game
+      const notify = http.request({ hostname: '127.0.0.1', port: 8080, path: '/save-and-reload', method: 'POST' }, () => {
+        console.log(`[${new Date().toLocaleTimeString()}] Vite notified — game will reload`);
+      });
+      notify.on('error', () => { /* Vite not running */ });
+      notify.write(body);
+      notify.end();
     });
     return;
   }

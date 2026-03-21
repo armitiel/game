@@ -682,20 +682,28 @@ export default class BootScene extends Phaser.Scene {
 
     for (const key of paintingKeys) {
       const data = this.cache.json.get(key);
+      console.log(`[BOOT] registerPalette: ${key} → palette:`, data ? data.palette : 'NO DATA');
       if (!data || !data.palette) continue;
 
       for (const [name, hex] of Object.entries(data.palette)) {
         // Skip if already registered
-        if (PAINT.COLORS[name]) continue;
+        if (PAINT.COLORS[name]) {
+          console.log(`[BOOT]   ${name} already in PAINT.COLORS = 0x${PAINT.COLORS[name].toString(16)}`);
+          continue;
+        }
 
         // Register color: "#ff3344" → 0xff3344
         const colorHex = parseInt(hex.replace('#', ''), 16);
         PAINT.COLORS[name] = colorHex;
+        console.log(`[BOOT]   Registered ${name}: ${hex} → 0x${colorHex.toString(16)}`);
 
         // Recolor once, create all texture variants
         this._generateCanVariants(name.toLowerCase(), colorHex);
       }
     }
+    console.log('[BOOT] Final PAINT.COLORS:', Object.fromEntries(
+      Object.entries(PAINT.COLORS).map(([k, v]) => [k, '0x' + v.toString(16).padStart(6, '0')])
+    ));
   }
 
   /**

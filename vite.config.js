@@ -92,9 +92,8 @@ function levelEditorSave() {
         });
       });
 
-      // POST /save — write levels.js and trigger game reload
+      // POST /save — write levels.js (silent auto-save, no game reload)
       server.middlewares.use('/save', (req, res) => {
-        console.log('[VITE PLUGIN] /save request:', req.method, req.url);
         if (req.method !== 'POST') {
           res.statusCode = 405;
           res.end(JSON.stringify({ error: 'POST only' }));
@@ -104,26 +103,41 @@ function levelEditorSave() {
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
           const target = path.resolve('src/config/levels.js');
-          console.log('[VITE PLUGIN] Writing levels.js to:', target, '(', body.length, 'bytes )');
+          fs.writeFileSync(target, body, 'utf-8');
+          console.log('[VITE PLUGIN] /save (silent) — levels.js saved');
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true }));
+        });
+      });
+
+      // POST /save-and-reload — write levels.js AND trigger game reload
+      server.middlewares.use('/save-and-reload', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: 'POST only' }));
+          return;
+        }
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+          const target = path.resolve('src/config/levels.js');
+          console.log('[VITE PLUGIN] /save-and-reload — writing levels.js + triggering reload');
           fs.writeFileSync(target, body, 'utf-8');
           // Invalidate Vite's cached module so next load gets fresh file
           const mod = server.moduleGraph.getModulesByFile(target);
-          console.log('[VITE PLUGIN] Module graph entries found:', mod ? mod.size : 0);
           if (mod) mod.forEach(m => server.moduleGraph.invalidateModule(m));
           // Update save timestamp for polling fallback
           _lastSaveTs = Date.now();
-          // Tell game to reload via HMR (try both ws and hot API)
+          // Tell game to reload via HMR
           const ws = server.hot || server.ws;
-          console.log('[VITE PLUGIN] Sending HMR event via:', server.hot ? 'server.hot' : 'server.ws');
           try {
             ws.send({ type: 'custom', event: 'levels-updated', data: {} });
-            console.log('[VITE PLUGIN] HMR event sent OK');
+            console.log('[VITE PLUGIN] HMR levels-updated event sent');
           } catch (e) {
             console.error('[VITE PLUGIN] HMR send error:', e.message);
           }
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ ok: true, file: target, ts: _lastSaveTs }));
-          console.log('[VITE PLUGIN] /save complete OK, ts:', _lastSaveTs);
+          res.end(JSON.stringify({ ok: true, ts: _lastSaveTs }));
         });
       });
     }
@@ -137,6 +151,9 @@ export default defineConfig({
     port: 8080,
     open: true,
     watch: {
+      // Ignore levels.js in file watcher — auto-save writes it frequently
+      // and we don't want Vite to trigger page reloads on every edit.
+      // Explicit "Zapisz do gry" uses /save-and-reload endpoint instead.
       ignored: ['**/src/config/levels.js']
     }
   },
