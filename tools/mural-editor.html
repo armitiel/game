@@ -139,7 +139,7 @@
     </div>
     <div id="img-scale-section" style="display:none;margin-top:6px">
       <label style="font-size:12px">Skala wzoru: <span id="img-scale-val">100%</span></label>
-      <input type="range" id="img-scale" min="1" max="6" value="1" oninput="onImageScaleChange()">
+      <input type="range" id="img-scale" min="1" max="7" value="1" oninput="onImageScaleChange()">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:#666;margin-top:-4px">
         <span>dopasuj</span><span>wypełnij</span>
       </div>
@@ -1041,7 +1041,7 @@ function convertImage() {
   // Scale: 1 = contain (fit), 3 = ~middle, 6 = fill grid fully
   // Scale multiplies the image footprint proportionally
   const maxScale = Math.max(cols / fitCols, rows / fitRows); // scale needed for "cover"
-  const scaleFactor = 1 + (scaleLevel - 1) * (maxScale - 1) / 5; // 1 at level 1, maxScale at level 6
+  const scaleFactor = 1 + (scaleLevel - 1) * (maxScale - 1) / 6; // 1 at level 1, maxScale at level 7
   const scaledCols = Math.round(fitCols * scaleFactor);
   const scaledRows = Math.round(fitRows * scaleFactor);
 
