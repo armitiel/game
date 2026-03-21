@@ -175,14 +175,15 @@ export default class PaintByNumbers {
     const cy = b.y + row * this.cellH;
     const hex = PAINT.COLORS[this.colorMap[targetColor]] || 0xff3344;
 
-    // Draw filled cell
+    // Draw filled cell — extend by 1px to avoid sub-pixel gaps between cells
+    const pad = 1;
     const alpha = Phaser.Math.FloatBetween(0.65, 0.9);
     this.paintGfx.fillStyle(hex, alpha);
-    this.paintGfx.fillRect(cx, cy, this.cellW, this.cellH);
+    this.paintGfx.fillRect(cx - pad, cy - pad, this.cellW + pad * 2, this.cellH + pad * 2);
 
     // Random paint streaks
     if (Math.random() > 0.5) {
-      this.paintGfx.fillStyle(0xffffff, 0.15);
+      this.paintGfx.fillStyle(0xffffff, 0.12);
       this.paintGfx.fillRect(cx + 1, cy + this.cellH * 0.3, this.cellW - 2, 1);
     }
 
@@ -228,7 +229,7 @@ export default class PaintByNumbers {
         const cy = b.y + r * this.cellH;
         const hex = PAINT.COLORS[this.colorMap[ci]] || 0xff3344;
         this.paintGfx.fillStyle(hex, 0.5);
-        this.paintGfx.fillRect(cx, cy, this.cellW, this.cellH);
+        this.paintGfx.fillRect(cx - 1, cy - 1, this.cellW + 2, this.cellH + 2);
 
         // Hide number
         const entry = this.numberTexts.find(t => t.row === r && t.col === c);
@@ -298,7 +299,7 @@ export default class PaintByNumbers {
         const cy = b.y + r * this.cellH;
         const hex = PAINT.COLORS[this.colorMap[ci]] || 0xff3344;
         this.paintGfx.fillStyle(hex, 0.75);
-        this.paintGfx.fillRect(cx, cy, this.cellW, this.cellH);
+        this.paintGfx.fillRect(cx - 1, cy - 1, this.cellW + 2, this.cellH + 2);
 
         // Clear number from canvas
         this._clearNumberCell(c, r);
