@@ -320,7 +320,8 @@ document.getElementById('lockRatio').addEventListener('change', function() {
   updateDensityLabel();
 });
 
-/** Unified density slider — works for both locked and unlocked ratio */
+/** Unified density slider — works for both locked and unlocked ratio.
+ *  ALWAYS scales both axes by the SAME factor to preserve pattern proportions. */
 function onDensitySlider(labelOnly) {
   updateDensityLabel();
   if (labelOnly === true) return;
@@ -334,21 +335,17 @@ function onDensitySlider(labelOnly) {
     newCols2 = target.cols;
     newRows2 = target.rows;
   } else {
-    // Unlocked: use DENSITY_SIZES, preserve current aspect
+    // Unlocked: scale UNIFORMLY based on longer axis → same factor for both
     const targetSize = DENSITY_SIZES[Math.min(d - 1, DENSITY_SIZES.length - 1)];
-    const aspect = cols / rows;
-    if (aspect >= 1) {
-      newCols2 = targetSize;
-      newRows2 = Math.max(2, Math.round(targetSize / aspect));
-    } else {
-      newRows2 = targetSize;
-      newCols2 = Math.max(2, Math.round(targetSize * aspect));
-    }
+    const longerAxis = Math.max(cols, rows);
+    const scale = targetSize / longerAxis;
+    newCols2 = Math.max(2, Math.round(cols * scale));
+    newRows2 = Math.max(2, Math.round(rows * scale));
   }
 
   if (newCols2 === cols && newRows2 === rows) return;
 
-  // If image is loaded, re-convert at new scale
+  // If image is loaded, re-convert at new grid size
   if (uploadedImage) {
     cols = newCols2;
     rows = newRows2;
@@ -595,6 +592,9 @@ function fillAll() {
 
 function clearAll() {
   grid = Array.from({length: rows}, () => Array(cols).fill(-1));
+  uploadedImage = null;
+  document.getElementById('img-scale-section').style.display = 'none';
+  document.getElementById('img-preview-wrap').style.display = 'none';
   draw();
 }
 
@@ -725,6 +725,11 @@ function buildJSON() {
 const DENSITY_SIZES = [4, 6, 8, 10, 14, 18, 22, 28, 34, 40, 48, 56];
 
 function generatePattern() {
+  // Generating a pattern replaces image content — clear uploaded image
+  uploadedImage = null;
+  document.getElementById('img-scale-section').style.display = 'none';
+  document.getElementById('img-preview-wrap').style.display = 'none';
+
   const numColors = parseInt(document.getElementById('gen-colors').value) || 3;
   const pattern = document.getElementById('gen-pattern').value;
 
