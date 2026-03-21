@@ -3,10 +3,10 @@
   "cols": 34,
   "rows": 18,
   "colors": [
-    "IMG_0",
-    "IMG_1",
-    "IMG_2",
-    "IMG_3"
+    "BLACK",
+    "YELLOW",
+    "BLUE",
+    "RED"
   ],
   "grid": [
     [
@@ -659,9 +659,6 @@
     ]
   ],
   "palette": {
-    "IMG_0": "#1a1319",
-    "IMG_1": "#f6ce21",
-    "IMG_2": "#598ff7",
-    "IMG_3": "#f52c39"
+    "BLACK": "#1a1319"
   }
 }

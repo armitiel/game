@@ -75,7 +75,8 @@ export const PAINT = {
     RED: 0xff3344,
     BLUE: 0x3388ff,
     YELLOW: 0xffdd33,
-    GREEN: 0x33ff88
+    GREEN: 0x33ff88,
+    BLACK: 0x1a1319
   },
   CAN_SIZE: 16,
   SPOT_W: 64,
