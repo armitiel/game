@@ -144,7 +144,7 @@
         <span>mało detali</span><span>dużo detali</span>
       </div>
     </div>
-    <button onclick="convertImage()" style="width:100%;margin-top:6px">🖼 Konwertuj zdjęcie</button>
+    <button onclick="convertImage(false)" style="width:100%;margin-top:6px">🖼 Konwertuj zdjęcie</button>
   </div>
 
   <div class="section">
@@ -345,13 +345,13 @@ function onDensitySlider(labelOnly) {
 
   if (newCols2 === cols && newRows2 === rows) return;
 
-  // If image is loaded, re-convert at new grid size
+  // If image is loaded, re-convert at new grid size (grid already set — preserve it)
   if (uploadedImage) {
     cols = newCols2;
     rows = newRows2;
     document.getElementById('cols').value = cols;
     document.getElementById('rows').value = rows;
-    convertImage();
+    convertImage(true);
     return;
   }
 
@@ -998,24 +998,55 @@ function handleImageUpload(event) {
   img.src = URL.createObjectURL(file);
 }
 
-/** Image scale slider changed — re-convert with new detail level */
+/** Image scale slider changed — re-convert WITHOUT changing grid proportions */
 function onImageScaleChange() {
   const s = parseInt(document.getElementById('img-scale').value);
   document.getElementById('img-scale-val').textContent = s + 'x';
-  if (uploadedImage) convertImage();
+  if (uploadedImage) convertImage(true); // true = keep grid dimensions
 }
 
-function convertImage() {
+/**
+ * Convert uploaded image to grid pattern.
+ * @param {boolean} preserveGrid — if true, keep current cols/rows (scale slider).
+ *                                  if false (button click), adapt grid to image proportions.
+ */
+function convertImage(preserveGrid) {
   if (!uploadedImage) { status('Najpierw wybierz zdjęcie!'); return; }
 
   const numColors = parseInt(document.getElementById('gen-colors').value) || 3;
   const imgScale = parseInt(document.getElementById('img-scale').value) || 1;
 
-  // Grid dimensions stay UNCHANGED — scale only affects sampling quality.
-  // Higher scale = sample image at higher resolution per cell → better color accuracy.
-  const sampleMult = imgScale; // 1x–6x supersampling per cell
+  // On first convert (button click): adapt grid to image proportions
+  if (!preserveGrid) {
+    const imgW = uploadedImage.naturalWidth || uploadedImage.width;
+    const imgH = uploadedImage.naturalHeight || uploadedImage.height;
+    const imgAspect = imgW / imgH;
 
-  // Sample image at (cols * mult) x (rows * mult) resolution
+    // Keep roughly the same total cells but match image proportions
+    const totalCells = Math.max(cols * rows, 100);
+    let newRows = Math.max(2, Math.round(Math.sqrt(totalCells / imgAspect)));
+    let newCols = Math.max(2, Math.round(newRows * imgAspect));
+    // Cap at 60
+    if (newCols > 60) { newCols = 60; newRows = Math.max(2, Math.round(60 / imgAspect)); }
+    if (newRows > 60) { newRows = 60; newCols = Math.max(2, Math.round(60 * imgAspect)); }
+
+    cols = newCols;
+    rows = newRows;
+    document.getElementById('cols').value = cols;
+    document.getElementById('rows').value = rows;
+
+    // Lock ratio to image proportions
+    calcBaseUnit();
+    const lockCb = document.getElementById('lockRatio');
+    if (!lockCb.checked) lockCb.checked = true;
+    const d = gridToDensity();
+    document.getElementById('density-slider').value = Math.max(1, Math.min(12, d));
+    updateDensityLabel();
+    updateRatioLabel();
+  }
+
+  // Sample image at higher resolution for better color accuracy
+  const sampleMult = imgScale; // 1x–6x supersampling per cell
   const sampleW = cols * sampleMult;
   const sampleH = rows * sampleMult;
 
