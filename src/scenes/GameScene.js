@@ -3308,11 +3308,14 @@ export default class GameScene extends Phaser.Scene {
           this.time.delayedCall(400, () => { player._droppingThroughBridge = false; });
           return;
         }
-        // Snap player directly onto the bridge line (round to whole pixel to prevent flicker)
-        const snap = Math.round(diff);
-        if (snap !== 0) {
-          player.y -= snap;
-          pb.y -= snap;
+        // Set ABSOLUTE body bottom to the bridge surface (rounded to whole pixel).
+        // Using absolute target prevents oscillation between two Y values.
+        const targetBodyBottom = Math.round(surfaceY);
+        const currentBodyBottom = Math.round(pb.y + pb.height);
+        const nudge = currentBodyBottom - targetBodyBottom;
+        if (nudge !== 0) {
+          player.y -= nudge;
+          pb.y -= nudge;
         }
         pb.velocity.y = 0;
         pb.blocked.down = true;
