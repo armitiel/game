@@ -139,9 +139,9 @@
     </div>
     <div id="img-scale-section" style="display:none;margin-top:6px">
       <label style="font-size:12px">Skala wzoru: <span id="img-scale-val">100%</span></label>
-      <input type="range" id="img-scale" min="1" max="7" value="1" oninput="onImageScaleChange()">
+      <input type="range" id="img-scale" min="1" max="7" value="4" oninput="onImageScaleChange()">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:#666;margin-top:-4px">
-        <span>dopasuj</span><span>wypełnij</span>
+        <span>mały 30%</span><span>duży 250%</span>
       </div>
     </div>
     <button onclick="convertImage()" style="width:100%;margin-top:6px">🖼 Konwertuj zdjęcie</button>
@@ -974,8 +974,8 @@ function handleImageUpload(event) {
     uploadedImage = img;
     // Show scale slider
     document.getElementById('img-scale-section').style.display = 'block';
-    document.getElementById('img-scale').value = 1;
-    document.getElementById('img-scale-val').textContent = 'dopasuj';
+    document.getElementById('img-scale').value = 4;
+    document.getElementById('img-scale-val').textContent = '100%';
     // Draw preview with transparency checkerboard
     const preview = document.getElementById('img-preview');
     const wrap = document.getElementById('img-preview-wrap');
@@ -1026,24 +1026,23 @@ function convertImage() {
   const imgAspect = imgW / imgH;
   const gridAspect = cols / rows;
 
-  // === Calculate image footprint in grid cells (contain mode) ===
-  let fitCols, fitRows;
+  // === Calculate image footprint in grid cells ===
+  // "contain" size = image fits entirely within grid, preserving proportions
+  let containCols, containRows;
   if (imgAspect > gridAspect) {
-    // Image is wider than grid — fit to width
-    fitCols = cols;
-    fitRows = Math.max(1, Math.round(cols / imgAspect));
+    containCols = cols;
+    containRows = Math.max(1, Math.round(cols / imgAspect));
   } else {
-    // Image is taller than grid — fit to height
-    fitRows = rows;
-    fitCols = Math.max(1, Math.round(rows * imgAspect));
+    containRows = rows;
+    containCols = Math.max(1, Math.round(rows * imgAspect));
   }
 
-  // Scale: 1 = contain (fit), 3 = ~middle, 6 = fill grid fully
-  // Scale multiplies the image footprint proportionally
-  const maxScale = Math.max(cols / fitCols, rows / fitRows); // scale needed for "cover"
-  const scaleFactor = 1 + (scaleLevel - 1) * (maxScale - 1) / 6; // 1 at level 1, maxScale at level 7
-  const scaledCols = Math.round(fitCols * scaleFactor);
-  const scaledRows = Math.round(fitRows * scaleFactor);
+  // Scale range: level 1 = 30% of contain, level 4 = contain (100%), level 7 = 250%
+  // This gives a wide visible range regardless of image/grid proportions
+  const scaleMap = [0.3, 0.5, 0.75, 1.0, 1.4, 1.9, 2.5];
+  const scaleFactor = scaleMap[scaleLevel - 1] || 1.0;
+  const scaledCols = Math.max(2, Math.round(containCols * scaleFactor));
+  const scaledRows = Math.max(2, Math.round(containRows * scaleFactor));
 
   // Center the image in the grid
   const offsetC = Math.floor((cols - scaledCols) / 2);
@@ -1135,6 +1134,7 @@ function convertImage() {
   renderColorEditor();
   draw();
   const pct = Math.round(scaleFactor * 100);
+  document.getElementById('img-scale-val').textContent = pct + '%';
   status(`Obraz na siatce ${cols}x${rows}, ${numColors} kolorów, skala ${pct}%`);
 }
 
