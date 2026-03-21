@@ -432,11 +432,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.setFlipX(false);
       }
 
-      // Auto-dismount at top: when feet reach platform surface, place onto it
-      const playerFeetY = this.y - PLAYER.FRAME_H / 2 + PLAYER.BODY_OFFSET_Y + PLAYER.BODY_H;
-      if (up && this.ladderTopY && playerFeetY <= this.ladderTopY + 6) {
-        // Snap player so body bottom sits exactly on the platform surface
-        const snapY = this.ladderTopY - PLAYER.BODY_H + PLAYER.FRAME_H / 2 - PLAYER.BODY_OFFSET_Y;
+      // Auto-dismount at top: let player climb well above platform, then snap down onto it.
+      // Requires 30px clearance above platform so the climb feels complete before landing.
+      const playerFeetY = this.body.y + this.body.height;
+      const clearanceAbovePlatform = 30;
+      if (up && this.ladderTopY && playerFeetY <= this.ladderTopY - clearanceAbovePlatform) {
+        // Snap player so body bottom sits 2px above platform surface (gravity settles it)
+        const snapY = this.ladderTopY - PLAYER.BODY_H - PLAYER.BODY_OFFSET_Y + PLAYER.FRAME_H / 2 - 2;
         this.y = snapY;
         this.exitLadder('top-clearance');
         this.body.reset(this.x, this.y);
