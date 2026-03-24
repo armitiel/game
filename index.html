@@ -100,9 +100,20 @@
 <body>
   <div id="rotate-overlay">
     <div class="phone-icon">&#128241;</div>
-    <p>Obróć telefon do pozycji poziomej</p>
-    <p style="font-size: 12px; color: #445566;">Rotate your phone to landscape</p>
+    <p id="rotate-primary">Obróć telefon do pozycji poziomej</p>
+    <p id="rotate-secondary" style="font-size: 12px; color: #445566;">Rotate your phone to landscape</p>
   </div>
+  <script>
+    (function() {
+      var lang = (localStorage.getItem('st_lang') || navigator.language || 'en').slice(0, 2);
+      if (lang !== 'pl') {
+        var p = document.getElementById('rotate-primary');
+        if (p) p.textContent = 'Rotate your phone to landscape';
+        var s = document.getElementById('rotate-secondary');
+        if (s) s.textContent = '';
+      }
+    })();
+  </script>
   <div id="game-container"></div>
   <script type="module" src="/src/main.js"></script>
 </body>

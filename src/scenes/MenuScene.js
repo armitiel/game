@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME } from '../config/gameConfig.js';
+import { t } from '../config/i18n.js';
 
 export default class MenuScene extends Phaser.Scene {
   constructor() {
@@ -23,7 +24,7 @@ export default class MenuScene extends Phaser.Scene {
     }
 
     // Subtitle
-    this.add.text(cx, cy + logo.displayHeight / 2 - 30, 'Paint the city. Stay in the shadows.', {
+    this.add.text(cx, cy + logo.displayHeight / 2 - 30, t('subtitle'), {
       font: '16px ChangaOne, monospace',
       fill: '#667788',
       stroke: '#000000', strokeThickness: 3
@@ -32,7 +33,7 @@ export default class MenuScene extends Phaser.Scene {
     // Start button
     const isMobile = this.sys.game.device.input.touch;
     const startText = this.add.text(cx, cy + 100,
-      isMobile ? '[ TAP TO START ]' : '[ PRESS SPACE TO START ]', {
+      isMobile ? t('tapToStart') : t('spaceToStart'), {
       font: '20px ChangaOne, monospace',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 4
@@ -49,19 +50,19 @@ export default class MenuScene extends Phaser.Scene {
 
     // Controls info
     if (isMobile) {
-      this.add.text(cx, this.scale.height - 65, 'D-pad: ruch   JUMP: skok   ACT: maluj   E: interakcja', {
+      this.add.text(cx, this.scale.height - 65, t('controlsMobile'), {
         font: '12px ChangaOne, monospace',
         fill: '#445566',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
     } else {
-      this.add.text(cx, this.scale.height - 80, 'ARROWS: Move   SPACE: Jump   E: Paint/Pickup', {
+      this.add.text(cx, this.scale.height - 80, t('controlsDesktop1'), {
         font: '12px ChangaOne, monospace',
         fill: '#445566',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
 
-      this.add.text(cx, this.scale.height - 55, 'UP/DOWN on ladder   Hide in shadows to avoid cops', {
+      this.add.text(cx, this.scale.height - 55, t('controlsDesktop2'), {
         font: '12px ChangaOne, monospace',
         fill: '#445566',
         stroke: '#000000', strokeThickness: 2
@@ -90,7 +91,7 @@ export default class MenuScene extends Phaser.Scene {
       .then(r => r.json())
       .then(data => {
         if (data.count != null) {
-          counterText.setText(`visitors: ${data.count}`);
+          counterText.setText(`${t('visitors')}: ${data.count}`);
         }
       })
       .catch(() => {});

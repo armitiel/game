@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME, PLAYER, COP, PAINT } from '../config/gameConfig.js';
+import { t } from '../config/i18n.js';
 
 export default class BootScene extends Phaser.Scene {
   constructor() {
@@ -24,7 +25,7 @@ export default class BootScene extends Phaser.Scene {
 
     let frameImg = null;
 
-    const loadingText = this.add.text(width / 2, barY - 62, 'Loading...', {
+    const loadingText = this.add.text(width / 2, barY - 62, t('loading'), {
       font: '36px ChangaOne, monospace',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 3

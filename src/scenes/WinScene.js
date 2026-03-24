@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { t } from '../config/i18n.js';
 
 export default class WinScene extends Phaser.Scene {
   constructor() {
@@ -28,14 +29,14 @@ export default class WinScene extends Phaser.Scene {
     }
 
     // Win text
-    this.add.text(cx, cy - 60, 'LEVEL COMPLETE', {
+    this.add.text(cx, cy - 60, t('levelComplete'), {
       font: 'bold 48px ChangaOne, monospace',
       fill: '#00ff88',
       stroke: '#003322',
       strokeThickness: 6
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 10, 'The city is your canvas.', {
+    this.add.text(cx, cy + 10, t('winSubtitle'), {
       font: '18px ChangaOne, monospace',
       fill: '#667788',
       stroke: '#000000', strokeThickness: 3
@@ -44,14 +45,14 @@ export default class WinScene extends Phaser.Scene {
     // Restart prompt
     const isMobile = this.sys.game.device.input.touch;
     const restartText = this.add.text(cx, cy + 80,
-      isMobile ? '[ TAP - Zagraj ponownie ]' : '[ SPACE - Zagraj ponownie ]', {
+      isMobile ? t('tapReplay') : t('spaceReplay'), {
       font: '16px ChangaOne, monospace',
       fill: '#ffdd33',
       stroke: '#332200', strokeThickness: 3
     }).setOrigin(0.5);
 
     if (!isMobile) {
-      this.add.text(cx, cy + 110, '[ M - Menu glowne ]', {
+      this.add.text(cx, cy + 110, t('mainMenu'), {
         font: '14px ChangaOne, monospace',
         fill: '#556677',
         stroke: '#000000', strokeThickness: 2

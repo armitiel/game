@@ -1,4 +1,5 @@
 import { GAME } from './gameConfig.js';
+import { t } from './i18n.js';
 
 const H = GAME.HEIGHT;
 const W = GAME.WIDTH;
@@ -7,9 +8,9 @@ const TW = 2000;
 const TH = 720;
 
 export const LEVEL_TUTORIAL = {
-  name: 'Tutorial',
+  name: t('lvlTutorial'),
   mode: 'tutorial',
-  description: 'Naucz sie podstaw gry',
+  description: t('lvlTutorialDesc'),
   worldWidth: TW,
   worldHeight: TH,
   checkpoint: { x: 60, y: TH - 101 },
@@ -71,20 +72,20 @@ export const LEVEL_TUTORIAL = {
     { x: 1600, phase: 4 },
   ],
   tutorialHints: [
-    { phase: 0, x: 200, y: TH - 100, desktop: 'Uzyj ← → by sie poruszac', mobile: 'Przeciagnij joystick w lewo/prawo' },
-    { phase: 1, x: 550, y: TH - 200, desktop: 'Nacisnij ↑ lub SPACJE by skoczyc!', mobile: 'Nacisnij przycisk JUMP by skoczyc!' },
-    { phase: 2, x: 950, y: TH - 340, desktop: 'Wejdz na drabine (↑↓) | E = przesun kosz', mobile: 'Joystick ↑↓ = drabina | przycisk E = kosz' },
-    { phase: 3, x: 1400, y: TH - 360, desktop: 'Zbierz puszki z farba!', mobile: 'Zbierz puszki z farba!' },
-    { phase: 4, x: 1800, y: TH - 460, desktop: 'Podejdz do muralu i nacisnij SPACJE!', mobile: 'Podejdz do muralu i nacisnij ACT!' },
+    { phase: 0, x: 200, y: TH - 100, desktop: t('tutHintMove'), mobile: t('tutHintMoveMobile') },
+    { phase: 1, x: 550, y: TH - 200, desktop: t('tutHintJump'), mobile: t('tutHintJumpMobile') },
+    { phase: 2, x: 950, y: TH - 340, desktop: t('tutHintLadder'), mobile: t('tutHintLadderMobile') },
+    { phase: 3, x: 1400, y: TH - 360, desktop: t('tutHintCollect'), mobile: t('tutHintCollect') },
+    { phase: 4, x: 1800, y: TH - 460, desktop: t('tutHintPaint'), mobile: t('tutHintPaintMobile') },
   ],
   mapWidth: TW,
   mapHeight: TH,
 };
 
 export const LEVEL_1 = {
-  name: 'Ulica',
+  name: t('lvlStreet'),
   mode: 'stealth',
-  description: 'Pomaluj dwa murale w miescie',
+  description: t('lvlStreetDesc'),
   worldWidth: W,
   worldHeight: H,
   checkpoint: { x: 60, y: H - 101 },
@@ -155,9 +156,9 @@ const L2_W = 800;
 const L2_H = 1300;
 
 export const LEVEL_2 = {
-  name: 'Wiezowiec',
+  name: t('lvlSkyscraper'),
   mode: 'stealth',
-  description: 'Pokoloruj wielki mural na scianie wiezowca',
+  description: t('lvlSkyscraperDesc'),
   worldWidth: L2_W,
   worldHeight: L2_H,
   checkpoint: { x: 60, y: L2_H - 101 },
@@ -231,9 +232,9 @@ export const LEVEL_2 = {
 };
 
 export const LEVEL_3 = {
-  name: 'Lamiglowka',
+  name: t('lvlPuzzle'),
   mode: 'puzzle',
-  description: 'Przesuwaj kosze, buduj mosty i znajdz droge do murali',
+  description: t('lvlPuzzleDesc'),
   worldWidth: W,
   worldHeight: H,
   checkpoint: { x: 60, y: H - 101 },
@@ -308,9 +309,9 @@ const L4_W = 1280;
 const L4_H = 1900;
 
 export const LEVEL_4 = {
-  name: 'Wieza',
+  name: t('lvlTower'),
   mode: 'tower',
-  description: 'Wspinaj sie i maluj — czas ucieka!',
+  description: t('lvlTowerDesc'),
   worldWidth: L4_W,
   worldHeight: L4_H,
   checkpoint: { x: 60, y: L4_H - 101 },

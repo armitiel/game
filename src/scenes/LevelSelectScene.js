@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { LEVELS, STEALTH_LEVELS, PUZZLE_LEVELS, TOWER_LEVELS, LEVEL_TUTORIAL } from '../config/levels.js';
+import { t } from '../config/i18n.js';
 
 export default class LevelSelectScene extends Phaser.Scene {
   constructor() {
@@ -53,30 +54,30 @@ export default class LevelSelectScene extends Phaser.Scene {
     };
     // 3D layers (bottom to top)
     for (let d = 4; d >= 1; d--) {
-      this.add.text(cx, titleY + d * 2, 'WYBIERZ TRYB', {
+      this.add.text(cx, titleY + d * 2, t('chooseMode'), {
         ...titleStyle, color: '#003311', stroke: '#001a08', strokeThickness: 7
       }).setOrigin(0.5).setAlpha(0.6);
     }
-    this.add.text(cx, titleY, 'WYBIERZ TRYB', {
+    this.add.text(cx, titleY, t('chooseMode'), {
       ...titleStyle, color: '#00ff88', stroke: '#003322', strokeThickness: 7
     }).setOrigin(0.5);
 
     const modes = [
       {
-        key: 'stealth', name: 'STEALTH',
-        desc: 'Uciekaj przed policja\ni maluj murale w cieniu',
+        key: 'stealth', name: t('stealthName'),
+        desc: t('stealthDesc'),
         icon: '\u{1F3AD}', color: 0x3366ff,
         levels: this.getLevelsForMode('stealth')
       },
       {
-        key: 'puzzle', name: 'PUZZLE',
-        desc: 'Uzyj drabin i koszy\nby dotrzec do murali',
+        key: 'puzzle', name: t('puzzleName'),
+        desc: t('puzzleDesc'),
         icon: '\u{1F9E9}', color: 0xff9933,
         levels: this.getLevelsForMode('puzzle')
       },
       {
-        key: 'tower', name: 'WIEZA',
-        desc: 'Wspinaj sie w gore\nczas ucieka!',
+        key: 'tower', name: t('towerName'),
+        desc: t('towerDesc'),
         icon: '\u{1F3D7}', color: 0xff3366,
         levels: this.getLevelsForMode('tower')
       }
@@ -130,7 +131,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       // Level count — below frame
-      this.add.text(tx, cardY + frameH * 0.24, `Level: ${m.levels.length}`, {
+      this.add.text(tx, cardY + frameH * 0.24, `${t('levelCount')}: ${m.levels.length}`, {
         fontFamily: 'ChangaOne',
         fontSize: '20px',
         fontStyle: 'bold',
@@ -168,7 +169,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     // Tutorial button — small link at bottom
     const tutIdx = LEVELS.indexOf(LEVEL_TUTORIAL);
     if (tutIdx >= 0) {
-      const tutBtn = this.add.text(cx, gh - 70, '[ TUTORIAL ]', {
+      const tutBtn = this.add.text(cx, gh - 70, t('tutorial'), {
         fontFamily: 'ChangaOne', fontSize: '18px', fontStyle: 'bold',
         color: '#88aacc', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -185,7 +186,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       });
     }
 
-    this.add.text(cx, gh - 40, '[ Kliknij tryb lub nacisnij 1-3 | T = tutorial | ESC = menu ]', {
+    this.add.text(cx, gh - 40, t('modeSelectHint'), {
       font: '12px ChangaOne, monospace', fill: '#445566',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
@@ -195,7 +196,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
   showLevelCards(cx, gh, modeKey) {
     const levels = this.getLevelsForMode(modeKey);
-    const modeNames = { stealth: 'STEALTH', puzzle: 'PUZZLE', tower: 'WIEZA' };
+    const modeNames = { stealth: t('stealthName'), puzzle: t('puzzleName'), tower: t('towerName') };
 
     // Mode title with 3D depth effect (matches mode select screen)
     const titleText = modeNames[modeKey] || modeKey.toUpperCase();
@@ -222,7 +223,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     // Subtitle (instruction)
     const subtitleY = titleY + 50;
-    this.add.text(cx, subtitleY, 'WYBIERZ LEVEL', {
+    this.add.text(cx, subtitleY, t('chooseLevel'), {
       font: 'bold 24px ChangaOne, monospace',
       fill: '#00ff88',
       stroke: '#003322',
@@ -291,7 +292,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       });
     }
 
-    this.add.text(cx, gh - 40, '[ Kliknij level | ESC = tryby ]', {
+    this.add.text(cx, gh - 40, t('levelSelectHint'), {
       font: '12px ChangaOne, monospace', fill: '#445566',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);

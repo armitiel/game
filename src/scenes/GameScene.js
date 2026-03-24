@@ -12,6 +12,7 @@ import TouchControls from '../utils/TouchControls.js';
 import Paper from '../entities/Paper.js';
 import Bottle from '../entities/Bottle.js';
 import Carton from '../entities/Carton.js';
+import { t } from '../config/i18n.js';
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -1541,7 +1542,7 @@ export default class GameScene extends Phaser.Scene {
     if (this._towerTimeLeft <= 0) {
       this._towerTimeLeft = 0;
       this._towerGameOver = true;
-      this._towerTimerText.setText('CZAS MINĄŁ!').setFill('#ff3333');
+      this._towerTimerText.setText(t('timeUp')).setFill('#ff3333');
       this.player.setVelocity(0, 0);
       this.player.body.allowGravity = false;
       this.time.delayedCall(2000, () => {
@@ -1595,7 +1596,7 @@ export default class GameScene extends Phaser.Scene {
         this.player.collectPaint(colorName);
         this._addingHud = true;
         const unlockText = this.add.text(gw / 2, 70,
-          `NOWY KOLOR: ${unlocks[muralIdx]}!`, {
+          `${t('newColor')}: ${unlocks[muralIdx]}!`, {
           font: 'bold 14px ChangaOne, monospace', fill: '#33ff88',
           stroke: '#000000', strokeThickness: 3
         }).setOrigin(0.5, 0).setDepth(301);
@@ -1642,7 +1643,7 @@ export default class GameScene extends Phaser.Scene {
     // Welcome flash (on UI cam — always crisp)
     this._addingHud = true;
     const gw = this.scale.width;
-    const welcomeText = this.add.text(gw / 2, 80, 'TUTORIAL', {
+    const welcomeText = this.add.text(gw / 2, 80, t('tutWelcome'), {
       fontFamily: 'ChangaOne', fontSize: '42px', fontStyle: 'bold',
       color: '#00ff88', stroke: '#003322', strokeThickness: 6
     }).setOrigin(0.5).setDepth(301).setScrollFactor(0).setResolution(2);
@@ -1795,7 +1796,7 @@ export default class GameScene extends Phaser.Scene {
       const arrowR = this.add.text(joyX + 42, joyY, '▶', {
         fontSize: '22px', color: '#ffdd33'
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      const label = this.add.text(gw / 2, joyY, 'Przeciagnij joystick ← →', {
+      const label = this.add.text(gw / 2, joyY, t('tutMoveJoystick'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
@@ -1813,7 +1814,7 @@ export default class GameScene extends Phaser.Scene {
         fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#33ff88', stroke: '#003322', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      const desc = this.add.text(gw / 2 - 40, btnY, 'Nacisnij przycisk JUMP!', {
+      const desc = this.add.text(gw / 2 - 40, btnY, t('tutJump'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
@@ -1850,14 +1851,14 @@ export default class GameScene extends Phaser.Scene {
         duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
       });
 
-      const desc = this.add.text(gw / 2, joyY, 'Drabina ↑↓ | E = kosz', {
+      const desc = this.add.text(gw / 2, joyY, t('tutLadderE'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(ring, arrowU, arrowD, eCircle, eLabel, desc);
     } else if (phase === 3) {
       // Phase 3: Simple text — collect paint
-      const desc = this.add.text(gw / 2, panelY + panelH / 2, 'Przejdz obok puszek by je zebrac!', {
+      const desc = this.add.text(gw / 2, panelY + panelH / 2, t('tutCollectPaint'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
         color: '#ffdd33', stroke: '#332200', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
@@ -1876,7 +1877,7 @@ export default class GameScene extends Phaser.Scene {
         targets: actCircle, scaleX: 1.15, scaleY: 1.15,
         duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
       });
-      const desc = this.add.text(gw / 2 - 40, btnY, 'Podejdz do muralu i nacisnij ACT!', {
+      const desc = this.add.text(gw / 2 - 40, btnY, t('tutPaintACT'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
@@ -1935,7 +1936,7 @@ export default class GameScene extends Phaser.Scene {
     if (phase === 0) {
       drawKey(baseX, cy, '←', true);
       drawKey(baseX + 40, cy, '→', true);
-      const desc = this.add.text(baseX + 100, cy, 'poruszanie', {
+      const desc = this.add.text(baseX + 100, cy, t('tutMove'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
@@ -1945,7 +1946,7 @@ export default class GameScene extends Phaser.Scene {
       drawKey(baseX + 20, cy, '→', false);
       drawKey(baseX + 70, cy, '↑', true);
       drawKey(baseX + 130, cy, 'SPACE', true);
-      const desc = this.add.text(baseX + 180, cy, 'skok', {
+      const desc = this.add.text(baseX + 180, cy, t('tutJumpWord'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
@@ -1953,25 +1954,25 @@ export default class GameScene extends Phaser.Scene {
     } else if (phase === 2) {
       drawKey(baseX - 20, cy, '↑', true);
       drawKey(baseX + 20, cy, '↓', true);
-      const lbl1 = this.add.text(baseX + 50, cy, 'drabina', {
+      const lbl1 = this.add.text(baseX + 50, cy, t('tutLadder'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '11px', fontStyle: 'bold',
         color: '#ffaa33', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       drawKey(baseX + 120, cy, 'E', true);
-      const lbl2 = this.add.text(baseX + 145, cy, 'przesun kosz', {
+      const lbl2 = this.add.text(baseX + 145, cy, t('tutPushCrate'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '11px', fontStyle: 'bold',
         color: '#ffaa33', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(lbl1, lbl2);
     } else if (phase === 3) {
-      const desc = this.add.text(gw / 2, cy, 'Zbierz puszki z farba — przejdz obok!', {
+      const desc = this.add.text(gw / 2, cy, t('tutCollectPaintDesktop'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#ffdd33', stroke: '#332200', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
     } else if (phase === 4) {
       drawKey(gw / 2 - 30, cy, 'SPACE', true);
-      const desc = this.add.text(gw / 2 + 20, cy, '= maluj mural', {
+      const desc = this.add.text(gw / 2 + 20, cy, t('tutPaintMural'), {
         fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
@@ -2038,8 +2039,8 @@ export default class GameScene extends Phaser.Scene {
       // "Bravo!" feedback (UI cam — always crisp)
       this._addingHud = true;
       const gw = this.scale.width;
-      const bravoTexts = ['Brawo!', 'Swietnie!', 'Super!', 'Dobrze!', 'Tak trzymaj!'];
-      const bravoText = this.add.text(gw / 2, 120, bravoTexts[newPhase - 1] || 'Brawo!', {
+      const bravoTexts = t('bravo');
+      const bravoText = this.add.text(gw / 2, 120, bravoTexts[newPhase - 1] || bravoTexts[0], {
         fontFamily: 'ChangaOne', fontSize: '28px', fontStyle: 'bold',
         color: '#00ff88', stroke: '#003322', strokeThickness: 4
       }).setOrigin(0.5).setDepth(302).setScrollFactor(0).setResolution(2);
@@ -2463,14 +2464,14 @@ export default class GameScene extends Phaser.Scene {
       let color = '#00ff88';
 
       if (this.player.isPainting) {
-        const colorInfo = this.pbn ? ` | Kolor: ${this.pbn.getSelectedColorName()} (1-${this.pbn.colorMap.length})` : '';
-        msg = `[ MALOWANIE${colorInfo} — SPACE anuluj ]`;
+        const colorInfo = this.pbn ? ` | ${t('paintColor')}: ${this.pbn.getSelectedColorName()} (1-${this.pbn.colorMap.length})` : '';
+        msg = `[ ${t('painting')}${colorInfo} — ${t('paintCancel')} ]`;
         color = '#ffdd33';
       } else if (this.player.isPushingLadder) {
-        msg = '[ PRZESUWANIE DRABINY — E puść ]';
+        msg = `[ ${t('movingLadder')} ]`;
         color = '#ffaa33';
       } else if (this.player.isPushingTrash) {
-        msg = '[ PRZESUWANIE KOSZA — E puść ]';
+        msg = `[ ${t('movingCrate')} ]`;
         color = '#ffaa33';
       } else {
         // Build context hints
@@ -2484,10 +2485,10 @@ export default class GameScene extends Phaser.Scene {
             const reqColors = gridData ? gridData.colors : [];
             const hasAny = reqColors.some(c => this.player.hasPaint(c.toLowerCase()));
             if (hasAny) {
-              hints.push('SPACE: maluj mural');
+              hints.push(t('paintMural'));
               paintHint = true;
             } else {
-              hints.push(`brak farb: ${reqColors.join(', ')}`);
+              hints.push(`${t('noPaint')}: ${reqColors.join(', ')}`);
               paintHint = true;
             }
           }
@@ -2498,13 +2499,13 @@ export default class GameScene extends Phaser.Scene {
         if (nearLadder && !this.player.isClimbing && !this.player.isPushingLadder) {
           const onGnd = this.player.body.blocked.down;
           if (onGnd) {
-            hints.push('\u2191/W: wejdź na drabinę');
+            hints.push(t('climbLadder'));
           }
           // Show grab hint if near ladder bottom
           if (onGnd && this._lastLadderInfo) {
             const playerFeetY = this.player.body.y + this.player.body.height;
             if (playerFeetY >= this._lastLadderInfo.bottomY - 40) {
-              hints.push('E: chwyć drabinę');
+              hints.push(t('grabLadder'));
             }
           }
         }
@@ -2513,7 +2514,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.playerInShadow && !this.player.isHiding && !this.player.isClimbing) {
           const onGnd = this.player.body.blocked.down;
           if (onGnd) {
-            hints.push('\u2193/S: ukryj się w cieniu');
+            hints.push(t('hideInShadow'));
           }
         }
 
@@ -2568,7 +2569,7 @@ export default class GameScene extends Phaser.Scene {
     const hasAny = requiredColors.some(c => this.player.hasPaint(c.toLowerCase()));
     if (!hasAny) {
       const hint = this.add.text(this.player.x, this.player.y - 40,
-        `Potrzebujesz farb: ${requiredColors.join(', ')}`, {
+        `${t('needPaint')}: ${requiredColors.join(', ')}`, {
           font: '11px ChangaOne, monospace',
           fill: '#ff6666',
           backgroundColor: '#000000aa',
@@ -2803,7 +2804,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.flash(200, 100, 200, 100, false);
     const spotX = spot.getData('spotX') || spot.x;
     const spotY = spot.getData('spotY') || spot.y;
-    const splash = this.add.text(spotX, spotY, 'TAGGED!', {
+    const splash = this.add.text(spotX, spotY, t('tagged'), {
       font: 'bold 16px ChangaOne, monospace',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 3

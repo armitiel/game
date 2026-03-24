@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { t } from '../config/i18n.js';
 
 export default class IntroScene extends Phaser.Scene {
   constructor() {
@@ -36,7 +37,7 @@ export default class IntroScene extends Phaser.Scene {
     this._video.muted = false;
 
     this._skipHint = document.createElement('div');
-    this._skipHint.textContent = '[ SPACJA / TAP — POMIŃ ]';
+    this._skipHint.textContent = t('skipHint');
     this._skipHint.style.cssText = `
       position: absolute;
       bottom: 18px; right: 20px;

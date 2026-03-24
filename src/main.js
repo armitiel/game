@@ -6,6 +6,7 @@ import LevelSelectScene from './scenes/LevelSelectScene.js';
 import GameScene from './scenes/GameScene.js';
 import WinScene from './scenes/WinScene.js';
 import IntroScene from './scenes/IntroScene.js';
+import { t } from './config/i18n.js';
 
 const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
@@ -146,28 +147,28 @@ function showInstallBanner(type) {
 
   const messages = {
     'chromium': `
-      <span>Zainstaluj Shadow Tagger na ekranie!</span>
-      <button id="pwa-install">Instaluj</button>
+      <span>${t('pwaInstall')}</span>
+      <button id="pwa-install">${t('pwaInstallBtn')}</button>
       <button id="pwa-dismiss">&times;</button>
     `,
     'ios-safari': `
       <button id="pwa-dismiss" style="position:absolute;top:6px;right:8px;">&times;</button>
-      <div style="font-size:13px;font-weight:bold;margin-bottom:6px;color:#00ff88;">Zainstaluj Shadow Tagger</div>
+      <div style="font-size:13px;font-weight:bold;margin-bottom:6px;color:#00ff88;">${t('pwaIosTitle')}</div>
       <div style="${stepStyle}">
         <span style="${numStyle}">1</span>
-        <span>Tap</span> ${iosShareIcon} <span style="color:#aaa;">na pasku Safari</span>
+        <span>Tap</span> ${iosShareIcon} <span style="color:#aaa;">${t('pwaIosStep1')}</span>
       </div>
       <div style="${stepStyle}">
         <span style="${numStyle}">2</span>
-        <span>Wybierz</span> ${iosAddIcon} <strong>Na ekranie poczatkowym</strong>
+        ${iosAddIcon} <strong>${t('pwaIosStep2')}</strong>
       </div>
       <div style="${stepStyle}">
         <span style="${numStyle}">3</span>
-        <span>Tap</span> <strong>Dodaj</strong> ${arrowRight} <span style="color:#aaa;">Gotowe!</span>
+        <span>Tap</span> <strong>${t('pwaIosTapAdd')}</strong> ${arrowRight} <span style="color:#aaa;">${t('pwaIosStep3')}</span>
       </div>
     `,
     'ios-other': `
-      <span>Otworz w <strong>Safari</strong> aby zainstalowac jako aplikacje</span>
+      <span>${t('pwaOpenSafari')}</span>
       <button id="pwa-dismiss">&times;</button>
     `
   };
