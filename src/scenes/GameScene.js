@@ -2310,107 +2310,37 @@ export default class GameScene extends Phaser.Scene {
     this.muteBtnHit = this.add.rectangle(muteX, centerY, Math.round(44 * uiScale), barH, 0x000000, 0)
       .setDepth(210).setScrollFactor(0).setInteractive({ useHandCursor: true });
 
-    // Generate music note icon via canvas to bypass pixelArt nearest-neighbor filtering
+    // Load SVG music icon via Image→canvas to bypass pixelArt nearest-neighbor filtering
     const noteSize = Math.round(30 * uiScale);
-    const noteRes = noteSize * 2; // 2x resolution for crisp rendering
-    const noteKey = '__music_note_canvas';
+    const noteRes = noteSize * 3; // 3x resolution for crisp rendering
+    const noteKey = '__music_note_svg';
+
+    // Create a placeholder so the image exists immediately; replace once SVG loads
     if (!this.textures.exists(noteKey)) {
-      const noteCanvas = this.textures.createCanvas(noteKey, noteRes, noteRes);
-      const nCtx = noteCanvas.context;
-      const s = noteRes; // shorthand
-      nCtx.clearRect(0, 0, s, s);
-
-      // Draw beamed eighth notes (♫) — two note heads connected by a beam
-      const noteColor = '#00e5ff';
-      const darkColor = '#009db3';
-      const outlineColor = '#003844';
-
-      // Proportional coordinates
-      const stemW = s * 0.07;
-      const headRx = s * 0.14;
-      const headRy = s * 0.10;
-
-      // Left note
-      const lx = s * 0.30, ly = s * 0.76;
-      // Right note
-      const rx = s * 0.70, ry = s * 0.76;
-      // Stems
-      const lStemX = lx + headRx * 0.7;
-      const rStemX = rx + headRx * 0.7;
-      const stemTop = s * 0.18;
-
-      // Outline (slightly thicker pass)
-      nCtx.lineWidth = stemW + 3;
-      nCtx.strokeStyle = outlineColor;
-      nCtx.lineCap = 'round';
-      // Left stem outline
-      nCtx.beginPath();
-      nCtx.moveTo(lStemX, ly - headRy * 0.3);
-      nCtx.lineTo(lStemX, stemTop);
-      nCtx.stroke();
-      // Right stem outline
-      nCtx.beginPath();
-      nCtx.moveTo(rStemX, ry - headRy * 0.3);
-      nCtx.lineTo(rStemX, stemTop);
-      nCtx.stroke();
-      // Beam outline
-      nCtx.lineWidth = s * 0.10 + 3;
-      nCtx.beginPath();
-      nCtx.moveTo(lStemX, stemTop);
-      nCtx.lineTo(rStemX, stemTop);
-      nCtx.stroke();
-      // Head outlines
-      nCtx.fillStyle = outlineColor;
-      for (const [hx, hy] of [[lx, ly], [rx, ry]]) {
-        nCtx.beginPath();
-        nCtx.ellipse(hx, hy, headRx + 2, headRy + 2, -0.3, 0, Math.PI * 2);
-        nCtx.fill();
-      }
-
-      // Stems
-      nCtx.lineWidth = stemW;
-      nCtx.strokeStyle = noteColor;
-      nCtx.beginPath();
-      nCtx.moveTo(lStemX, ly - headRy * 0.3);
-      nCtx.lineTo(lStemX, stemTop);
-      nCtx.stroke();
-      nCtx.beginPath();
-      nCtx.moveTo(rStemX, ry - headRy * 0.3);
-      nCtx.lineTo(rStemX, stemTop);
-      nCtx.stroke();
-
-      // Beam
-      nCtx.lineWidth = s * 0.10;
-      nCtx.beginPath();
-      nCtx.moveTo(lStemX, stemTop);
-      nCtx.lineTo(rStemX, stemTop);
-      nCtx.stroke();
-
-      // Note heads with gradient
-      for (const [hx, hy] of [[lx, ly], [rx, ry]]) {
-        const grad = nCtx.createRadialGradient(hx - headRx * 0.3, hy - headRy * 0.3, 0, hx, hy, headRx * 1.3);
-        grad.addColorStop(0, noteColor);
-        grad.addColorStop(1, darkColor);
-        nCtx.fillStyle = grad;
-        nCtx.beginPath();
-        nCtx.ellipse(hx, hy, headRx, headRy, -0.3, 0, Math.PI * 2);
-        nCtx.fill();
-      }
-
-      // Small highlight on heads
-      nCtx.fillStyle = 'rgba(255,255,255,0.35)';
-      for (const [hx, hy] of [[lx, ly], [rx, ry]]) {
-        nCtx.beginPath();
-        nCtx.ellipse(hx - headRx * 0.25, hy - headRy * 0.25, headRx * 0.4, headRy * 0.35, -0.3, 0, Math.PI * 2);
-        nCtx.fill();
-      }
-
-      noteCanvas.refresh();
+      this.textures.createCanvas(noteKey, noteRes, noteRes).refresh();
     }
-
     this.muteBtn = this.add.image(muteX, centerY, noteKey)
       .setDisplaySize(noteSize, noteSize)
       .setOrigin(0.5).setDepth(101).setScrollFactor(0);
+
+    // Async SVG→canvas rendering (loads in background, updates texture)
+    const svgImg = new Image();
+    svgImg.onload = () => {
+      const cvs = document.createElement('canvas');
+      cvs.width = noteRes;
+      cvs.height = noteRes;
+      const ctx = cvs.getContext('2d');
+      ctx.clearRect(0, 0, noteRes, noteRes);
+      ctx.drawImage(svgImg, 0, 0, noteRes, noteRes);
+      // Replace Phaser texture with rendered SVG canvas
+      if (this.textures.exists(noteKey)) this.textures.remove(noteKey);
+      this.textures.addCanvas(noteKey, cvs);
+      if (this.muteBtn && this.muteBtn.active) {
+        this.muteBtn.setTexture(noteKey);
+        this.muteBtn.setDisplaySize(noteSize, noteSize);
+      }
+    };
+    svgImg.src = 'assets/sprites/elementy/nutka.svg';
 
     this.muteBtnHit.on('pointerdown', () => {
       this.musicOn = !this.musicOn;
