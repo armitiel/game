@@ -2309,22 +2309,117 @@ export default class GameScene extends Phaser.Scene {
     const muteX = gw - Math.round(36 * uiScale);
     this.muteBtnHit = this.add.rectangle(muteX, centerY, Math.round(44 * uiScale), barH, 0x000000, 0)
       .setDepth(210).setScrollFactor(0).setInteractive({ useHandCursor: true });
-    this.muteBtn = this.add.image(muteX, centerY, 'icon_music')
-      .setDisplaySize(Math.round(30 * uiScale), Math.round(30 * uiScale))
+
+    // Generate music note icon via canvas to bypass pixelArt nearest-neighbor filtering
+    const noteSize = Math.round(30 * uiScale);
+    const noteRes = noteSize * 2; // 2x resolution for crisp rendering
+    const noteKey = '__music_note_canvas';
+    if (!this.textures.exists(noteKey)) {
+      const noteCanvas = this.textures.createCanvas(noteKey, noteRes, noteRes);
+      const nCtx = noteCanvas.context;
+      const s = noteRes; // shorthand
+      nCtx.clearRect(0, 0, s, s);
+
+      // Draw beamed eighth notes (♫) — two note heads connected by a beam
+      const noteColor = '#00e5ff';
+      const darkColor = '#009db3';
+      const outlineColor = '#003844';
+
+      // Proportional coordinates
+      const stemW = s * 0.07;
+      const headRx = s * 0.14;
+      const headRy = s * 0.10;
+
+      // Left note
+      const lx = s * 0.30, ly = s * 0.76;
+      // Right note
+      const rx = s * 0.70, ry = s * 0.76;
+      // Stems
+      const lStemX = lx + headRx * 0.7;
+      const rStemX = rx + headRx * 0.7;
+      const stemTop = s * 0.18;
+
+      // Outline (slightly thicker pass)
+      nCtx.lineWidth = stemW + 3;
+      nCtx.strokeStyle = outlineColor;
+      nCtx.lineCap = 'round';
+      // Left stem outline
+      nCtx.beginPath();
+      nCtx.moveTo(lStemX, ly - headRy * 0.3);
+      nCtx.lineTo(lStemX, stemTop);
+      nCtx.stroke();
+      // Right stem outline
+      nCtx.beginPath();
+      nCtx.moveTo(rStemX, ry - headRy * 0.3);
+      nCtx.lineTo(rStemX, stemTop);
+      nCtx.stroke();
+      // Beam outline
+      nCtx.lineWidth = s * 0.10 + 3;
+      nCtx.beginPath();
+      nCtx.moveTo(lStemX, stemTop);
+      nCtx.lineTo(rStemX, stemTop);
+      nCtx.stroke();
+      // Head outlines
+      nCtx.fillStyle = outlineColor;
+      for (const [hx, hy] of [[lx, ly], [rx, ry]]) {
+        nCtx.beginPath();
+        nCtx.ellipse(hx, hy, headRx + 2, headRy + 2, -0.3, 0, Math.PI * 2);
+        nCtx.fill();
+      }
+
+      // Stems
+      nCtx.lineWidth = stemW;
+      nCtx.strokeStyle = noteColor;
+      nCtx.beginPath();
+      nCtx.moveTo(lStemX, ly - headRy * 0.3);
+      nCtx.lineTo(lStemX, stemTop);
+      nCtx.stroke();
+      nCtx.beginPath();
+      nCtx.moveTo(rStemX, ry - headRy * 0.3);
+      nCtx.lineTo(rStemX, stemTop);
+      nCtx.stroke();
+
+      // Beam
+      nCtx.lineWidth = s * 0.10;
+      nCtx.beginPath();
+      nCtx.moveTo(lStemX, stemTop);
+      nCtx.lineTo(rStemX, stemTop);
+      nCtx.stroke();
+
+      // Note heads with gradient
+      for (const [hx, hy] of [[lx, ly], [rx, ry]]) {
+        const grad = nCtx.createRadialGradient(hx - headRx * 0.3, hy - headRy * 0.3, 0, hx, hy, headRx * 1.3);
+        grad.addColorStop(0, noteColor);
+        grad.addColorStop(1, darkColor);
+        nCtx.fillStyle = grad;
+        nCtx.beginPath();
+        nCtx.ellipse(hx, hy, headRx, headRy, -0.3, 0, Math.PI * 2);
+        nCtx.fill();
+      }
+
+      // Small highlight on heads
+      nCtx.fillStyle = 'rgba(255,255,255,0.35)';
+      for (const [hx, hy] of [[lx, ly], [rx, ry]]) {
+        nCtx.beginPath();
+        nCtx.ellipse(hx - headRx * 0.25, hy - headRy * 0.25, headRx * 0.4, headRy * 0.35, -0.3, 0, Math.PI * 2);
+        nCtx.fill();
+      }
+
+      noteCanvas.refresh();
+    }
+
+    this.muteBtn = this.add.image(muteX, centerY, noteKey)
+      .setDisplaySize(noteSize, noteSize)
       .setOrigin(0.5).setDepth(101).setScrollFactor(0);
-    // Ensure the texture uses linear filtering so it doesn't look blocky when scaled.
-    this.muteBtn.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
-    // Use white (no tint) by default so the icon keeps its original colors.
-    this.muteBtn.setTint(0xffffff);
 
     this.muteBtnHit.on('pointerdown', () => {
       this.musicOn = !this.musicOn;
       if (this.musicOn) {
         this.bgm.resume();
-        this.muteBtn.setTint(0xffffff);
+        this.muteBtn.setAlpha(1);
       } else {
         this.bgm.pause();
-        this.muteBtn.setTint(0x999999);
+        this.muteBtn.setAlpha(0.4);
       }
     });
 
@@ -2605,47 +2700,50 @@ export default class GameScene extends Phaser.Scene {
 
     for (const seg of segments) {
       if (seg.t === 'key') {
-        const kw = seg.v.length > 2 ? Math.round(58 * uiScale) : Math.round(30 * uiScale);
-        const kh = Math.round(26 * uiScale);
+        const kw = seg.v.length > 2 ? Math.round(70 * uiScale) : Math.round(34 * uiScale);
+        const kh = Math.round(30 * uiScale);
         items.push({ t: 'key', label: seg.v, w: kw, h: kh });
         totalW += kw + gap;
       } else {
         const txt = this.add.text(0, -999, seg.v, {
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: 'Calibri, Arial, Helvetica, sans-serif',
           fontSize: `${fontSize}px`, fontStyle: 'bold',
-          fill: color, stroke: '#000000', strokeThickness: Math.round(2 * uiScale)
+          fill: '#ffdd33', stroke: '#000000', strokeThickness: Math.round(1 * uiScale)
         }).setResolution(4);
+        txt.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
         items.push({ t: 'txt', obj: txt, w: txt.width });
         totalW += txt.width;
         this._statusElements.push(txt);
       }
     }
 
-    // Background panel
-    const padX = Math.round(10 * uiScale);
-    const padY = Math.round(6 * uiScale);
-    const barH = fontSize + padY * 2;
+    // Background panel — single Graphics pill shape (no overlap artifacts)
+    const padX = Math.round(18 * uiScale);
+    const padY = Math.round(10 * uiScale);
+    const maxItemH = Math.max(fontSize, Math.round(30 * uiScale));
+    const barH = maxItemH + padY * 2;
     const centerY = y + barH / 2;
     const bgW = totalW + padX * 2;
     const bgR = Math.round(barH / 2);
-    const bg = this.add.graphics().setDepth(99).setScrollFactor(0);
-    bg.fillStyle(0x000000, 0.65);
-    bg.fillRoundedRect(gw / 2 - bgW / 2, centerY - barH / 2, bgW, barH, bgR);
-    this._statusElements.push(bg);
+    const bgGfx = this.add.graphics().setDepth(99).setScrollFactor(0);
+    bgGfx.fillStyle(0x050505, 0.58);
+    bgGfx.fillRoundedRect(gw / 2 - bgW / 2, centerY - barH / 2, bgW, barH, bgR);
+    this._statusElements.push(bgGfx);
 
     // Second pass: position elements centered
     let x = gw / 2 - totalW / 2;
     for (const item of items) {
       if (item.t === 'key') {
-        const kBg = this.add.rectangle(x + item.w / 2, centerY, item.w, item.h, 0x444444, 0.95)
-          .setStrokeStyle(1, 0x666666, 1)
+        const kBg = this.add.rectangle(x + item.w / 2, centerY, item.w, item.h, 0x4b4b4b, 1)
+          .setStrokeStyle(Math.round(3 * uiScale), 0x818181, 1)
           .setDepth(101).setScrollFactor(0);
         const isArrow = /[↑↓←→]/.test(item.label);
         const kFs = isArrow ? Math.round(keyFontSize * 1.5) : keyFontSize;
         const kTxt = this.add.text(x + item.w / 2, centerY, item.label, {
-          fontFamily: 'Arial, Helvetica, sans-serif', fontSize: `${kFs}px`, fontStyle: 'bold',
-          color: '#ffffff', stroke: '#000000', strokeThickness: 1
+          fontFamily: 'Calibri, Arial, Helvetica, sans-serif', fontSize: `${kFs}px`, fontStyle: 'bold',
+          color: '#ffffff'
         }).setOrigin(0.5).setDepth(102).setScrollFactor(0).setResolution(4);
+        kTxt.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
         this._statusElements.push(kBg, kTxt);
         x += item.w + gap;
       } else {
