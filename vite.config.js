@@ -27,7 +27,7 @@ function levelEditorSave() {
           let code = fs.readFileSync(filePath, 'utf-8');
           code = code.replace(/^import .*/gm, '');
           code = code.replace(/^export /gm, '');
-          code = 'const GAME = { WIDTH: 1280, HEIGHT: 720 };\n' + code;
+          code = 'const GAME = { WIDTH: 1280, HEIGHT: 720 };\nconst t = (k) => k;\n' + code;
           const sandbox = {};
           vm.runInNewContext(code + '\n__result = JSON.stringify(LEVELS);', sandbox);
           console.log('[VITE PLUGIN] /levels-data OK, length:', sandbox.__result.length);
