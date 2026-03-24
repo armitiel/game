@@ -2586,15 +2586,21 @@ export default class GameScene extends Phaser.Scene {
         const nearLadder = this._ladderOverlapTs && (this.time.now - this._ladderOverlapTs < 100);
         if (nearLadder && !this.player.isClimbing && !this.player.isPushingLadder) {
           const onGnd = this.player.body.blocked.down;
-          if (onGnd) {
-            hints.push(t('climbLadder'));
-          }
-          // Show grab hint if near ladder bottom
           if (onGnd && this._lastLadderInfo) {
             const playerFeetY = this.player.body.y + this.player.body.height;
+            const ladderMidY = (this._lastLadderInfo.topY + this._lastLadderInfo.bottomY) / 2;
+            // Player above ladder midpoint → show "descend" (↓/S), otherwise "climb" (↑/W)
+            if (playerFeetY < ladderMidY) {
+              hints.push(t('descendLadder'));
+            } else {
+              hints.push(t('climbLadder'));
+            }
+            // Show grab hint if near ladder bottom
             if (playerFeetY >= this._lastLadderInfo.bottomY - 40) {
               hints.push(t('grabLadder'));
             }
+          } else if (onGnd) {
+            hints.push(t('climbLadder'));
           }
         }
 
@@ -2654,8 +2660,8 @@ export default class GameScene extends Phaser.Scene {
 
     this._addingHud = true;
     const uiScale = this._statusUiScale || 1;
-    const fontSize = Math.round(14 * uiScale);
-    const keyFontSize = Math.round(12 * uiScale);
+    const fontSize = Math.round(11 * uiScale);
+    const keyFontSize = Math.round(10 * uiScale);
     const gw = this.cameras.main.width;
     const y = Math.round(10 * uiScale);
 
@@ -2700,8 +2706,8 @@ export default class GameScene extends Phaser.Scene {
 
     for (const seg of segments) {
       if (seg.t === 'key') {
-        const kw = seg.v.length > 2 ? Math.round(70 * uiScale) : Math.round(34 * uiScale);
-        const kh = Math.round(30 * uiScale);
+        const kw = seg.v.length > 2 ? Math.round(52 * uiScale) : Math.round(26 * uiScale);
+        const kh = Math.round(24 * uiScale);
         items.push({ t: 'key', label: seg.v, w: kw, h: kh });
         totalW += kw + gap;
       } else {
@@ -2718,9 +2724,9 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Background panel — single Graphics pill shape (no overlap artifacts)
-    const padX = Math.round(18 * uiScale);
-    const padY = Math.round(10 * uiScale);
-    const maxItemH = Math.max(fontSize, Math.round(30 * uiScale));
+    const padX = Math.round(14 * uiScale);
+    const padY = Math.round(7 * uiScale);
+    const maxItemH = Math.max(fontSize, Math.round(24 * uiScale));
     const barH = maxItemH + padY * 2;
     const centerY = y + barH / 2;
     const bgW = totalW + padX * 2;
@@ -2735,7 +2741,7 @@ export default class GameScene extends Phaser.Scene {
     for (const item of items) {
       if (item.t === 'key') {
         const kBg = this.add.rectangle(x + item.w / 2, centerY, item.w, item.h, 0x4b4b4b, 1)
-          .setStrokeStyle(Math.round(3 * uiScale), 0x818181, 1)
+          .setStrokeStyle(Math.round(2 * uiScale), 0x818181, 1)
           .setDepth(101).setScrollFactor(0);
         const isArrow = /[↑↓←→]/.test(item.label);
         const kFs = isArrow ? Math.round(keyFontSize * 1.5) : keyFontSize;
@@ -3200,6 +3206,7 @@ export default class GameScene extends Phaser.Scene {
 
   exitTrashPush() {
     this.player.isPushingTrash = false;
+    if (this.touch) this.touch.setActiveMode('grab', false);
     this.trashCans.forEach(t => {
       if (!t.body) return;
       t.body.immovable = true;
@@ -3855,11 +3862,13 @@ export default class GameScene extends Phaser.Scene {
               onComplete: () => {
                 this._trashApproachTween = null;
                 this.player.isPushingTrash = true;
+                if (this.touch) this.touch.setActiveMode('grab', true);
               }
             });
           } else {
             // Already close enough
             this.player.isPushingTrash = true;
+            if (this.touch) this.touch.setActiveMode('grab', true);
           }
         }
       }
@@ -4057,6 +4066,12 @@ export default class GameScene extends Phaser.Scene {
         nearGrab = feetY >= this.currentLadderInfo.bottomY - 40;
       }
       this.touch.highlightButton('grab', nearGrab && !this.player.isPushingTrash && !this.player.isPushingLadder);
+
+      // Active mode for grab button (push trash or ladder) — show "✕" exit icon
+      const grabActive = this.player.isPushingTrash || this.player.isPushingLadder;
+      if (grabActive !== this.touch._grabActive) {
+        this.touch.setActiveMode('grab', grabActive);
+      }
     }
 
     // 5. HUD (uses interactablePaintSpot, ladder info)

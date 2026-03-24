@@ -1,5 +1,4 @@
 import { GAME } from './gameConfig.js';
-import { t } from './i18n.js';
 
 const H = GAME.HEIGHT;
 const W = GAME.WIDTH;
@@ -8,9 +7,9 @@ const TW = 2000;
 const TH = 720;
 
 export const LEVEL_TUTORIAL = {
-  name: t('lvlTutorial'),
+  name: 'lvlTutorial',
   mode: 'tutorial',
-  description: t('lvlTutorialDesc'),
+  description: 'lvlTutorialDesc',
   worldWidth: TW,
   worldHeight: TH,
   checkpoint: { x: 60, y: TH - 101 },
@@ -72,20 +71,20 @@ export const LEVEL_TUTORIAL = {
     { x: 1600, phase: 4 },
   ],
   tutorialHints: [
-    { phase: 0, x: 200, y: TH - 100, desktop: t('tutHintMove'), mobile: t('tutHintMoveMobile') },
-    { phase: 1, x: 550, y: TH - 200, desktop: t('tutHintJump'), mobile: t('tutHintJumpMobile') },
-    { phase: 2, x: 950, y: TH - 340, desktop: t('tutHintLadder'), mobile: t('tutHintLadderMobile') },
-    { phase: 3, x: 1400, y: TH - 360, desktop: t('tutHintCollect'), mobile: t('tutHintCollect') },
-    { phase: 4, x: 1800, y: TH - 460, desktop: t('tutHintPaint'), mobile: t('tutHintPaintMobile') },
+    { phase: 0, x: 200, y: TH - 100, desktop: 'tutHintMove', mobile: 'tutHintMoveMobile' },
+    { phase: 1, x: 550, y: TH - 200, desktop: 'tutHintJump', mobile: 'tutHintJumpMobile' },
+    { phase: 2, x: 950, y: TH - 340, desktop: 'tutHintLadder', mobile: 'tutHintLadderMobile' },
+    { phase: 3, x: 1400, y: TH - 360, desktop: 'tutHintCollect', mobile: 'tutHintCollect' },
+    { phase: 4, x: 1800, y: TH - 460, desktop: 'tutHintPaint', mobile: 'tutHintPaintMobile' },
   ],
   mapWidth: TW,
   mapHeight: TH,
 };
 
 export const LEVEL_1 = {
-  name: t('lvlStreet'),
+  name: 'lvlStreet',
   mode: 'stealth',
-  description: t('lvlStreetDesc'),
+  description: 'lvlStreetDesc',
   worldWidth: W,
   worldHeight: H,
   checkpoint: { x: 60, y: H - 101 },
@@ -105,7 +104,7 @@ export const LEVEL_1 = {
   ],
   ladders: [
     { x: 224, topY: H - 142, bottomY: H - 32, minX: 54, maxX: 264 },
-    { x: 340, topY: H - 415, bottomY: H - 285, minX: 310, maxX: 590 },
+    { x: 340, topY: H - 380, bottomY: H - 370, minX: 310, maxX: 590 },
     { x: 830, topY: H - 270, bottomY: H - 32, minX: 640, maxX: 920 },
     { x: 1140, topY: H - 500, bottomY: H - 262, minX: 950, maxX: 1190 },
   ],
@@ -156,9 +155,9 @@ const L2_W = 800;
 const L2_H = 1300;
 
 export const LEVEL_2 = {
-  name: t('lvlSkyscraper'),
+  name: 'lvlSkyscraper',
   mode: 'stealth',
-  description: t('lvlSkyscraperDesc'),
+  description: 'lvlSkyscraperDesc',
   worldWidth: L2_W,
   worldHeight: L2_H,
   checkpoint: { x: 60, y: L2_H - 101 },
@@ -232,9 +231,9 @@ export const LEVEL_2 = {
 };
 
 export const LEVEL_3 = {
-  name: t('lvlPuzzle'),
+  name: 'lvlPuzzle',
   mode: 'puzzle',
-  description: t('lvlPuzzleDesc'),
+  description: 'lvlPuzzleDesc',
   worldWidth: W,
   worldHeight: H,
   checkpoint: { x: 60, y: H - 101 },
@@ -309,9 +308,9 @@ const L4_W = 1280;
 const L4_H = 1900;
 
 export const LEVEL_4 = {
-  name: t('lvlTower'),
+  name: 'lvlTower',
   mode: 'tower',
-  description: t('lvlTowerDesc'),
+  description: 'lvlTowerDesc',
   worldWidth: L4_W,
   worldHeight: L4_H,
   checkpoint: { x: 60, y: L4_H - 101 },

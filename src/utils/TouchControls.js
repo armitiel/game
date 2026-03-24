@@ -285,8 +285,28 @@ export default class TouchControls {
     this._actIcon = act.el;
     this._eBg     = e.bg;
     this._eIcon   = e.el;
+    this._eOrigIcon = e.el;          // original icon reference
+    this._actOrigIcon = act.el;      // original icon reference
     this._paintHighlight = false;
     this._grabHighlight  = false;
+    this._grabActive     = false;    // push mode currently active
+    this._paintActive    = false;    // paint mode currently active
+
+    // Pre-create "✕" exit labels (hidden by default) for grab and paint buttons
+    const exitStyle = {
+      fontFamily: 'ChangaOne, monospace', fontStyle: 'bold',
+      color: '#ff4444', stroke: '#110000', strokeThickness: 4,
+      padding: { x: 4, y: 4 }
+    };
+    this._eExitLabel = scene.add.text(eX, eY, '✕', {
+      ...exitStyle, fontSize: `${Math.floor(E_R * 0.7)}px`
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0).setVisible(false);
+    this._actExitLabel = scene.add.text(actX, actY, '✕', {
+      ...exitStyle, fontSize: `${Math.floor(ACT_R * 0.7)}px`
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0).setVisible(false);
+
+    this.buttons.push(this._eExitLabel, this._actExitLabel);
+    this.actionButtons.push(this._eExitLabel, this._actExitLabel);
   }
 
   setPaintMode(on) {
@@ -302,18 +322,56 @@ export default class TouchControls {
 
   /**
    * Highlight a button to signal proximity to an interactable.
+   * Does NOT override active-mode styling.
    * @param {'paint'|'grab'} name
    * @param {boolean} on
    */
   highlightButton(name, on) {
     if (name === 'paint') {
       this._paintHighlight = on;
-      if (this._actBg)   this._actBg.setAlpha(on ? 0.45 : 0.15).setStrokeStyle(on ? 3 : 2, 0xffdd33, on ? 0.9 : 0.4);
-      if (this._actIcon) this._actIcon.setAlpha(on ? 0.95 : 0.5);
+      if (this._paintActive) return; // active mode overrides highlight
+      // Stronger highlight when near a paint spot — more visible pulse
+      if (this._actBg)   this._actBg.setAlpha(on ? 0.55 : 0.15).setStrokeStyle(on ? 3.5 : 2, 0xffdd33, on ? 1.0 : 0.4);
+      if (this._actOrigIcon) this._actOrigIcon.setAlpha(on ? 1.0 : 0.5);
     } else if (name === 'grab') {
       this._grabHighlight = on;
-      if (this._eBg)   this._eBg.setAlpha(on ? 0.45 : 0.15).setStrokeStyle(on ? 3 : 2, 0xff8833, on ? 0.9 : 0.4);
-      if (this._eIcon) this._eIcon.setAlpha(on ? 0.95 : 0.5);
+      if (this._grabActive) return; // active mode overrides highlight
+      // Stronger highlight when near a pushable object
+      if (this._eBg)   this._eBg.setAlpha(on ? 0.55 : 0.15).setStrokeStyle(on ? 3.5 : 2, 0xff8833, on ? 1.0 : 0.4);
+      if (this._eOrigIcon) this._eOrigIcon.setAlpha(on ? 1.0 : 0.5);
+    }
+  }
+
+  /**
+   * Set a button to "active" state — brighter, icon swapped to "✕".
+   * @param {'paint'|'grab'} name
+   * @param {boolean} on
+   */
+  setActiveMode(name, on) {
+    if (name === 'grab') {
+      this._grabActive = on;
+      if (on) {
+        // Show bright orange bg + "✕" exit label
+        if (this._eBg) this._eBg.setAlpha(0.55).setStrokeStyle(3, 0xff4444, 0.95);
+        if (this._eOrigIcon) this._eOrigIcon.setVisible(false);
+        if (this._eExitLabel) { this._eExitLabel.setVisible(true).setAlpha(1); }
+      } else {
+        // Restore original icon + default dim state
+        if (this._eOrigIcon) this._eOrigIcon.setVisible(true).setAlpha(0.5);
+        if (this._eExitLabel) { this._eExitLabel.setVisible(false).setAlpha(0); }
+        if (this._eBg) this._eBg.setAlpha(0.15).setStrokeStyle(2, 0xff8833, 0.4);
+      }
+    } else if (name === 'paint') {
+      this._paintActive = on;
+      if (on) {
+        if (this._actBg) this._actBg.setAlpha(0.55).setStrokeStyle(3, 0xff4444, 0.95);
+        if (this._actOrigIcon) this._actOrigIcon.setVisible(false);
+        if (this._actExitLabel) { this._actExitLabel.setVisible(true).setAlpha(1); }
+      } else {
+        if (this._actOrigIcon) this._actOrigIcon.setVisible(true).setAlpha(0.5);
+        if (this._actExitLabel) { this._actExitLabel.setVisible(false).setAlpha(0); }
+        if (this._actBg) this._actBg.setAlpha(0.15).setStrokeStyle(2, 0xffdd33, 0.4);
+      }
     }
   }
 
