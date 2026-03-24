@@ -88,7 +88,10 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
       case 'SUSPICIOUS':
         // Stop and watch — turn towards player
         this.setVelocityX(0);
-        if (this.anims.currentAnim?.key !== 'cop_idle') this.play('cop_idle');
+        // Don't interrupt notice animation — only switch to idle after it completes
+        if (this.anims.currentAnim?.key !== 'cop_idle' && this.anims.currentAnim?.key !== 'cop_notice') {
+          this.play('cop_idle');
+        }
         this._facePoint(this.lastSeenX);
         this.drawDetectionZone(0xff8800, 0.12);
         this.stateTimer += delta;
@@ -174,6 +177,14 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.alertMark.setText('?');
     this.alertMark.setStyle({ fill: '#ffff00' });
     this.setTint(0xffaa00);
+    // Play notice reaction animation, then return to idle
+    this.setVelocityX(0);
+    this.play('cop_notice');
+    this.once('animationcomplete-cop_notice', () => {
+      if (this.state === 'SUSPICIOUS') {
+        this.play('cop_idle');
+      }
+    });
   }
 
   enterChase() {

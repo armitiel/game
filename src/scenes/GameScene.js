@@ -2181,17 +2181,11 @@ export default class GameScene extends Phaser.Scene {
       this.hudWallIcon, this.hudCountText
     ]).setDepth(101).setScrollFactor(0);
 
-    // Status text (desktop only) — readable sans-serif (same as level select descriptions)
+    // Status bar (desktop only) — dynamic elements with keyboard key icons
     if (!isMobile) {
-      this.statusText = this.add.text(gw / 2, 10, '', {
-        fontFamily: 'Arial, Helvetica, sans-serif',
-        fontSize: `${Math.round(14 * uiScale)}px`,
-        fontStyle: 'bold',
-        fill: '#00ff88',
-        stroke: '#000000',
-        strokeThickness: Math.round(2 * uiScale),
-        padding: { x: Math.round(8 * uiScale), y: Math.round(5 * uiScale) }
-      }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0).setResolution(2).setVisible(false);
+      this._statusElements = [];
+      this._lastStatusMsg = '';
+      this._statusUiScale = uiScale;
     }
 
     // Music toggle button (speaker icon)
@@ -2394,7 +2388,7 @@ export default class GameScene extends Phaser.Scene {
     const hudElements = [
       this.hudBgBar, this.hudBgMute,
       this.hudBgLeft, this.hudBgMid, this.hudBgRight,
-      this.hudCountContainer, this.statusText, this.menuBtn, this.menuBtnHit, this.muteBtn, this.muteBtnHit,
+      this.hudCountContainer, this.menuBtn, this.menuBtnHit, this.muteBtn, this.muteBtnHit,
       ...slotElements, ...heartElements, ...this.touch.getElements()
     ].filter(Boolean);
     this.cameras.main.ignore(hudElements);
@@ -2459,13 +2453,12 @@ export default class GameScene extends Phaser.Scene {
 
     const isMob = !!(this.touch && this.touch.enabled);
 
-    if (!isMob && this.statusText) {
+    if (!isMob && this._statusElements) {
       let msg = '';
       let color = '#00ff88';
 
       if (this.player.isPainting) {
-        const colorInfo = this.pbn ? ` | ${t('paintColor')}: ${this.pbn.getSelectedColorName()} (1-${this.pbn.colorMap.length})` : '';
-        msg = `[ ${t('painting')}${colorInfo} — ${t('paintCancel')} ]`;
+        msg = `[ ${t('painting')} — ${t('paintCancel')} ]`;
         color = '#ffdd33';
       } else if (this.player.isPushingLadder) {
         msg = `[ ${t('movingLadder')} ]`;
@@ -2488,7 +2481,7 @@ export default class GameScene extends Phaser.Scene {
               hints.push(t('paintMural'));
               paintHint = true;
             } else {
-              hints.push(`${t('noPaint')}: ${reqColors.join(', ')}`);
+              hints.push(t('noPaint'));
               paintHint = true;
             }
           }
@@ -2519,21 +2512,151 @@ export default class GameScene extends Phaser.Scene {
         }
 
         if (hints.length > 0) {
-          msg = `[ ${hints.join('  |  ')} ]`;
           color = paintHint ? '#ffdd33' : '#00ff88';
+          if (hints.length === 1) {
+            msg = `[ ${hints[0]} ]`;
+            this._hintRotateIdx = 0;
+          } else {
+            // Rotate hints one at a time
+            const hintKey = hints.join('|');
+            if (this._hintRotateKey !== hintKey) {
+              this._hintRotateKey = hintKey;
+              this._hintRotateIdx = 0;
+              this._hintRotateTs = this.time.now;
+            }
+            const elapsed = this.time.now - (this._hintRotateTs || 0);
+            if (elapsed > 2500) {
+              this._hintRotateIdx = ((this._hintRotateIdx || 0) + 1) % hints.length;
+              this._hintRotateTs = this.time.now;
+            }
+            msg = `[ ${hints[this._hintRotateIdx || 0]} ]`;
+          }
         }
       }
 
-      if (msg) {
-        this.statusText.setText(msg);
-        this.statusText.setStyle({ fill: color, backgroundColor: '#000000aa' });
-        this.statusText.setVisible(true);
+      this._renderStatus(msg, color);
+    }
+  }
+
+  _renderStatus(msg, color) {
+    if (msg === this._lastStatusMsg) return;
+
+    // Hold current message for at least 1s to prevent flickering
+    const now = this.time.now;
+    if (msg && this._lastStatusMsg && this._statusShownAt) {
+      if (now - this._statusShownAt < 1000) return;
+    }
+
+    this._lastStatusMsg = msg;
+    this._statusShownAt = now;
+
+    // Destroy old elements
+    if (this._statusElements) {
+      this._statusElements.forEach(e => { if (e.active) e.destroy(); });
+      this._statusElements = [];
+    }
+    if (!msg) return;
+
+    this._addingHud = true;
+    const uiScale = this._statusUiScale || 1;
+    const fontSize = Math.round(14 * uiScale);
+    const keyFontSize = Math.round(12 * uiScale);
+    const gw = this.cameras.main.width;
+    const y = Math.round(10 * uiScale);
+
+    // Parse message to find key tokens (SPACE, standalone E/W/S, arrows)
+    const keyRegex = /(SPACE|(?<![A-Za-z])[EWSM](?![A-Za-z])|[↑↓←→])/g;
+    const rawSegs = [];
+    let lastIdx = 0;
+    let match;
+    while ((match = keyRegex.exec(msg)) !== null) {
+      if (match.index > lastIdx) rawSegs.push({ t: 'txt', v: msg.slice(lastIdx, match.index) });
+      rawSegs.push({ t: 'key', v: match[0] });
+      lastIdx = keyRegex.lastIndex;
+    }
+    if (lastIdx < msg.length) rawSegs.push({ t: 'txt', v: msg.slice(lastIdx) });
+
+    // Clean up punctuation that looks bad next to key icons
+    const segments = [];
+    for (let i = 0; i < rawSegs.length; i++) {
+      const s = rawSegs[i];
+      if (s.t === 'key') { segments.push(s); continue; }
+      let v = s.v;
+      // Strip outer brackets
+      if (i === 0) v = v.replace(/^\[\s*/, '');
+      if (i === rawSegs.length - 1) v = v.replace(/\s*\]$/, '');
+      // Replace pipe separators with spacing
+      v = v.replace(/\s*\|\s*/g, '    ');
+      // Remove slash between keys (e.g. "↑/W")
+      const prevKey = i > 0 && rawSegs[i - 1].t === 'key';
+      const nextKey = i < rawSegs.length - 1 && rawSegs[i + 1].t === 'key';
+      if (prevKey && nextKey && v.trim() === '/') { segments.push({ t: 'txt', v: ' ' }); continue; }
+      // Remove colon right after a key
+      if (prevKey) v = v.replace(/^:\s*/, ' ');
+      // Remove "— " before a key at end of text
+      if (nextKey) v = v.replace(/\s*—\s*$/, '   ');
+      if (v) segments.push({ t: 'txt', v });
+    }
+
+    // First pass: create elements, measure widths
+    const items = [];
+    let totalW = 0;
+    const gap = Math.round(2 * uiScale);
+
+    for (const seg of segments) {
+      if (seg.t === 'key') {
+        const kw = seg.v.length > 2 ? Math.round(58 * uiScale) : Math.round(30 * uiScale);
+        const kh = Math.round(26 * uiScale);
+        items.push({ t: 'key', label: seg.v, w: kw, h: kh });
+        totalW += kw + gap;
       } else {
-        this.statusText.setText('');
-        this.statusText.setStyle({ backgroundColor: '' });
-        this.statusText.setVisible(false);
+        const txt = this.add.text(0, -999, seg.v, {
+          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontSize: `${fontSize}px`, fontStyle: 'bold',
+          fill: color, stroke: '#000000', strokeThickness: Math.round(2 * uiScale)
+        }).setResolution(4);
+        items.push({ t: 'txt', obj: txt, w: txt.width });
+        totalW += txt.width;
+        this._statusElements.push(txt);
       }
     }
+
+    // Background panel
+    const padX = Math.round(10 * uiScale);
+    const padY = Math.round(6 * uiScale);
+    const barH = fontSize + padY * 2;
+    const centerY = y + barH / 2;
+    const bgW = totalW + padX * 2;
+    const bgR = Math.round(barH / 2);
+    const bg = this.add.graphics().setDepth(99).setScrollFactor(0);
+    bg.fillStyle(0x000000, 0.65);
+    bg.fillRoundedRect(gw / 2 - bgW / 2, centerY - barH / 2, bgW, barH, bgR);
+    this._statusElements.push(bg);
+
+    // Second pass: position elements centered
+    let x = gw / 2 - totalW / 2;
+    for (const item of items) {
+      if (item.t === 'key') {
+        const kBg = this.add.rectangle(x + item.w / 2, centerY, item.w, item.h, 0x444444, 0.95)
+          .setStrokeStyle(1, 0x666666, 1)
+          .setDepth(101).setScrollFactor(0);
+        const isArrow = /[↑↓←→]/.test(item.label);
+        const kFs = isArrow ? Math.round(keyFontSize * 1.5) : keyFontSize;
+        const kTxt = this.add.text(x + item.w / 2, centerY, item.label, {
+          fontFamily: 'Arial, Helvetica, sans-serif', fontSize: `${kFs}px`, fontStyle: 'bold',
+          color: '#ffffff', stroke: '#000000', strokeThickness: 1
+        }).setOrigin(0.5).setDepth(102).setScrollFactor(0).setResolution(4);
+        this._statusElements.push(kBg, kTxt);
+        x += item.w + gap;
+      } else {
+        item.obj.setPosition(x, centerY).setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
+        x += item.w;
+      }
+    }
+
+    // Hide from main camera (show only on UI camera)
+    this._statusElements.forEach(el => this.cameras.main.ignore(el));
+    this._addingHud = false;
   }
 
   // === ACTIVE PAINT-BY-NUMBERS SYSTEM ===
@@ -2569,7 +2692,7 @@ export default class GameScene extends Phaser.Scene {
     const hasAny = requiredColors.some(c => this.player.hasPaint(c.toLowerCase()));
     if (!hasAny) {
       const hint = this.add.text(this.player.x, this.player.y - 40,
-        `${t('needPaint')}: ${requiredColors.join(', ')}`, {
+        t('needPaint'), {
           font: '11px ChangaOne, monospace',
           fill: '#ff6666',
           backgroundColor: '#000000aa',
@@ -2992,18 +3115,9 @@ export default class GameScene extends Phaser.Scene {
   moveLadder(ladderInfo, dx) {
     if (!ladderInfo || ladderInfo.isFalling || ladderInfo.isBridge) return 0;
 
-    let minX = ladderInfo.minX;
-    let maxX = ladderInfo.maxX;
-
-    // Extend allowed range to cover any existing bridges so ladder can cross them
-    for (const l of this.ladderData) {
-      if (!l.isBridge || !l.bridgeBody || !l.bridgeBody.body) continue;
-      const bb = l.bridgeBody.body;
-      minX = Math.min(minX, bb.x + 10);
-      maxX = Math.max(maxX, bb.x + bb.width - 10);
-    }
-
-    const newX = Phaser.Math.Clamp(ladderInfo.visual.x + dx, minX, maxX);
+    // No horizontal limits — ladder can be pushed freely within world bounds
+    const worldW = this.levelData.worldWidth || this.physics.world.bounds.width;
+    const newX = Phaser.Math.Clamp(ladderInfo.visual.x + dx, 20, worldW - 20);
     const actualDx = newX - ladderInfo.visual.x;
     if (Math.abs(actualDx) < 0.1) return 0;
 
