@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@upstash/redis": "^1.37.0",
     "phaser": "^3.80.1"
   },
   "devDependencies": {

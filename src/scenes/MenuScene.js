@@ -68,6 +68,33 @@ export default class MenuScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
+    // Visitor counter (bottom-right)
+    const counterText = this.add.text(this.scale.width - 16, this.scale.height - 16, '', {
+      font: '11px ChangaOne, monospace',
+      fill: '#334455',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(1, 1);
+
+    // ?owner=SECRET sets localStorage flag to exclude self from counter
+    const params = new URLSearchParams(window.location.search);
+    const ownerParam = params.get('owner');
+    if (ownerParam) {
+      localStorage.setItem('st_owner', ownerParam);
+    }
+    const ownerSecret = localStorage.getItem('st_owner') || '';
+
+    const headers = {};
+    if (ownerSecret) headers['x-owner'] = ownerSecret;
+
+    fetch('/api/visit', { method: 'POST', headers })
+      .then(r => r.json())
+      .then(data => {
+        if (data.count != null) {
+          counterText.setText(`visitors: ${data.count}`);
+        }
+      })
+      .catch(() => {});
+
     // Input — keyboard + touch
     this.input.keyboard.once('keydown-SPACE', () => {
       this.scene.start('LevelSelectScene');
