@@ -136,7 +136,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
 
     // === Load cop spritesheet (1x at COP.HEIGHT, same approach as player) ===
-    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=7', {
+    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=9', {
       frameWidth: COP.HEIGHT,
       frameHeight: COP.HEIGHT
     });
@@ -190,6 +190,22 @@ export default class BootScene extends Phaser.Scene {
       key: 'cop_notice',
       frames: this.anims.generateFrameNumbers('cop_sheet', { start: 24, end: 38 }),
       frameRate: 15,
+      repeat: 0
+    });
+
+    // Walk_Bit — cop hitting with baton while walking toward player
+    this.anims.create({
+      key: 'cop_hit',
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 39, end: 62 }),
+      frameRate: 18,
+      repeat: -1
+    });
+
+    // Look_P — cop looking around after losing sight of player
+    this.anims.create({
+      key: 'cop_look',
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 63, end: 86 }),
+      frameRate: 12,
       repeat: 0
     });
 

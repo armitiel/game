@@ -292,6 +292,14 @@ export default class TouchControls {
     this._grabActive     = false;    // push mode currently active
     this._paintActive    = false;    // paint mode currently active
 
+    // Glow circles behind icons — soft colored halo, hidden by default
+    this._actGlow = scene.add.circle(actX, actY, ACT_R * 1.4, 0xffdd33, 0)
+      .setScrollFactor(0).setDepth(199).setVisible(false);
+    this._eGlow = scene.add.circle(eX, eY, E_R * 1.4, 0xff8833, 0)
+      .setScrollFactor(0).setDepth(199).setVisible(false);
+    this.buttons.push(this._actGlow, this._eGlow);
+    this.actionButtons.push(this._actGlow, this._eGlow);
+
     // Pre-create "✕" exit labels (hidden by default) for grab and paint buttons
     const exitStyle = {
       fontFamily: 'ChangaOne, monospace', fontStyle: 'bold',
@@ -322,6 +330,7 @@ export default class TouchControls {
 
   /**
    * Highlight a button to signal proximity to an interactable.
+   * Adds a pulsing glow animation and tints the icon.
    * Does NOT override active-mode styling.
    * @param {'paint'|'grab'} name
    * @param {boolean} on
@@ -330,16 +339,94 @@ export default class TouchControls {
     if (name === 'paint') {
       this._paintHighlight = on;
       if (this._paintActive) return; // active mode overrides highlight
-      // Stronger highlight when near a paint spot — more visible pulse
-      if (this._actBg)   this._actBg.setAlpha(on ? 0.55 : 0.15).setStrokeStyle(on ? 3.5 : 2, 0xffdd33, on ? 1.0 : 0.4);
-      if (this._actOrigIcon) this._actOrigIcon.setAlpha(on ? 1.0 : 0.5);
+      if (on) {
+        if (this._actBg) this._actBg.setAlpha(0.45).setStrokeStyle(3.5, 0xffdd33, 1.0);
+        if (this._actOrigIcon) { this._actOrigIcon.setAlpha(1.0); this._actOrigIcon.setTint(0xffdd33); }
+        if (this._actGlow) this._actGlow.setVisible(true);
+        this._startPulseTween('paint');
+      } else {
+        this._stopPulseTween('paint');
+        if (this._actBg) this._actBg.setAlpha(0.15).setStrokeStyle(2, 0xffdd33, 0.4);
+        if (this._actOrigIcon) { this._actOrigIcon.setAlpha(0.5); this._actOrigIcon.clearTint(); }
+        if (this._actGlow) { this._actGlow.setVisible(false).setAlpha(0).setScale(1); }
+      }
     } else if (name === 'grab') {
       this._grabHighlight = on;
       if (this._grabActive) return; // active mode overrides highlight
-      // Stronger highlight when near a pushable object
-      if (this._eBg)   this._eBg.setAlpha(on ? 0.55 : 0.15).setStrokeStyle(on ? 3.5 : 2, 0xff8833, on ? 1.0 : 0.4);
-      if (this._eOrigIcon) this._eOrigIcon.setAlpha(on ? 1.0 : 0.5);
+      if (on) {
+        if (this._eBg) this._eBg.setAlpha(0.45).setStrokeStyle(3.5, 0xff8833, 1.0);
+        if (this._eOrigIcon) { this._eOrigIcon.setAlpha(1.0); this._eOrigIcon.setTint(0xffaa33); }
+        if (this._eGlow) this._eGlow.setVisible(true);
+        this._startPulseTween('grab');
+      } else {
+        this._stopPulseTween('grab');
+        if (this._eBg) this._eBg.setAlpha(0.15).setStrokeStyle(2, 0xff8833, 0.4);
+        if (this._eOrigIcon) { this._eOrigIcon.setAlpha(0.5); this._eOrigIcon.clearTint(); }
+        if (this._eGlow) { this._eGlow.setVisible(false).setAlpha(0).setScale(1); }
+      }
     }
+  }
+
+  /**
+   * Start a pulsing glow tween on a button's background circle.
+   * @param {'paint'|'grab'} name
+   */
+  _startPulseTween(name) {
+    const bg = name === 'paint' ? this._actBg : this._eBg;
+    const glow = name === 'paint' ? this._actGlow : this._eGlow;
+    const tweenKey = name === 'paint' ? '_paintPulseTween' : '_grabPulseTween';
+    const glowTweenKey = name === 'paint' ? '_paintGlowTween' : '_grabGlowTween';
+    // Don't start if already pulsing
+    if (this[tweenKey]) return;
+    if (!bg || !this.scene) return;
+
+    // Pulse: oscillate alpha and scale of the bg circle
+    this[tweenKey] = this.scene.tweens.add({
+      targets: bg,
+      alpha: { from: 0.3, to: 0.6 },
+      scaleX: { from: 1.0, to: 1.12 },
+      scaleY: { from: 1.0, to: 1.12 },
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Glow: soft halo pulses behind button
+    if (glow) {
+      this[glowTweenKey] = this.scene.tweens.add({
+        targets: glow,
+        alpha: { from: 0.08, to: 0.25 },
+        scaleX: { from: 1.0, to: 1.25 },
+        scaleY: { from: 1.0, to: 1.25 },
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+  }
+
+  /**
+   * Stop the pulsing glow tween and reset scale.
+   * @param {'paint'|'grab'} name
+   */
+  _stopPulseTween(name) {
+    const bg = name === 'paint' ? this._actBg : this._eBg;
+    const glow = name === 'paint' ? this._actGlow : this._eGlow;
+    const tweenKey = name === 'paint' ? '_paintPulseTween' : '_grabPulseTween';
+    const glowTweenKey = name === 'paint' ? '_paintGlowTween' : '_grabGlowTween';
+    if (this[tweenKey]) {
+      this[tweenKey].stop();
+      this[tweenKey] = null;
+    }
+    if (this[glowTweenKey]) {
+      this[glowTweenKey].stop();
+      this[glowTweenKey] = null;
+    }
+    // Reset scale back to 1
+    if (bg) { bg.setScale(1); }
+    if (glow) { glow.setScale(1).setAlpha(0); }
   }
 
   /**
@@ -350,25 +437,30 @@ export default class TouchControls {
   setActiveMode(name, on) {
     if (name === 'grab') {
       this._grabActive = on;
+      // Stop any pulse animation when entering/exiting active mode
+      this._stopPulseTween('grab');
+      if (this._eGlow) { this._eGlow.setVisible(false).setAlpha(0).setScale(1); }
       if (on) {
         // Show bright orange bg + "✕" exit label
         if (this._eBg) this._eBg.setAlpha(0.55).setStrokeStyle(3, 0xff4444, 0.95);
-        if (this._eOrigIcon) this._eOrigIcon.setVisible(false);
+        if (this._eOrigIcon) { this._eOrigIcon.setVisible(false); this._eOrigIcon.clearTint(); }
         if (this._eExitLabel) { this._eExitLabel.setVisible(true).setAlpha(1); }
       } else {
         // Restore original icon + default dim state
-        if (this._eOrigIcon) this._eOrigIcon.setVisible(true).setAlpha(0.5);
+        if (this._eOrigIcon) { this._eOrigIcon.setVisible(true).setAlpha(0.5); this._eOrigIcon.clearTint(); }
         if (this._eExitLabel) { this._eExitLabel.setVisible(false).setAlpha(0); }
         if (this._eBg) this._eBg.setAlpha(0.15).setStrokeStyle(2, 0xff8833, 0.4);
       }
     } else if (name === 'paint') {
       this._paintActive = on;
+      this._stopPulseTween('paint');
+      if (this._actGlow) { this._actGlow.setVisible(false).setAlpha(0).setScale(1); }
       if (on) {
         if (this._actBg) this._actBg.setAlpha(0.55).setStrokeStyle(3, 0xff4444, 0.95);
-        if (this._actOrigIcon) this._actOrigIcon.setVisible(false);
+        if (this._actOrigIcon) { this._actOrigIcon.setVisible(false); this._actOrigIcon.clearTint(); }
         if (this._actExitLabel) { this._actExitLabel.setVisible(true).setAlpha(1); }
       } else {
-        if (this._actOrigIcon) this._actOrigIcon.setVisible(true).setAlpha(0.5);
+        if (this._actOrigIcon) { this._actOrigIcon.setVisible(true).setAlpha(0.5); this._actOrigIcon.clearTint(); }
         if (this._actExitLabel) { this._actExitLabel.setVisible(false).setAlpha(0); }
         if (this._actBg) this._actBg.setAlpha(0.15).setStrokeStyle(2, 0xffdd33, 0.4);
       }
@@ -516,6 +608,8 @@ export default class TouchControls {
   }
 
   destroy() {
+    this._stopPulseTween('paint');
+    this._stopPulseTween('grab');
     if (this.buttons) {
       this.buttons.forEach(b => b.destroy());
     }

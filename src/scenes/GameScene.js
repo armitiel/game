@@ -137,11 +137,18 @@ export default class GameScene extends Phaser.Scene {
           return true;  // solid wall — player can't walk through
         }
         t.isBeingPushed = false;
-        // Only solid when falling onto top
+        // Only solid when player is landing on top from above.
+        // Must check that player's feet were ABOVE the trash top in the previous
+        // frame (prev.y) to avoid oscillation when standing beside the trash
+        // at the same Y level.
         const playerBottom = player.body.y + player.body.height;
+        const playerPrevBottom = player.body.prev.y + player.body.height;
         const trashTop = t.body.y;
         const falling = player.body.velocity.y >= 0;
-        return falling && playerBottom <= trashTop + 8;
+        const wasAbove = playerPrevBottom <= trashTop + 4;
+        // Already standing on top (touching.down vs touching.up) — stay solid
+        const alreadyOnTop = player.body.touching.down && t.body.touching.up;
+        return (falling && wasAbove && playerBottom <= trashTop + 10) || alreadyOnTop;
       });
       // Overlap — detect proximity for HUD hint and push activation
       // Use a wider invisible zone so player can enter push mode earlier
@@ -172,7 +179,7 @@ export default class GameScene extends Phaser.Scene {
       // Skip fallen/destroyed ladders — can't climb a bridge
       if (info && (info.isFalling || info.isBridge || info.destroyed)) return;
       this.playerOnLadderThisFrame = true;
-      this.ladderCenterX = ladder.x + ladder.width / 2;
+      this.ladderCenterX = ladder.x + ladder.width / 2 + 6;
       this.ladderTopY = ladder.getData('ladderTopY');
       this.currentLadderInfo = info;
       this._ladderOverlapTs = this.time.now;
@@ -231,6 +238,8 @@ export default class GameScene extends Phaser.Scene {
 
     // === Events ===
     this.events.on('player-caught', () => {
+      // Always reset cops out of ALERT state (even if damage doesn't go through)
+      this.cops.forEach(cop => cop.resetState());
       // Deal damage instead of instant death
       const took = this.player.takeDamage(1);
       if (!took) return; // invincible — ignore
@@ -242,7 +251,6 @@ export default class GameScene extends Phaser.Scene {
       if (this.player.isPushingLadder) this.player.stopLadderPush();
       if (this.player.isHiding) this.player.stopHiding();
       this.sfx.caught();
-      this.cops.forEach(cop => cop.resetState());
     });
 
     // Full death — all hearts lost → respawn at checkpoint with full HP

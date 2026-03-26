@@ -46,6 +46,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.chaseSeenTime = 0;   // accumulated time seeing player during chase
     this._investigateDir = 1; // direction to look during investigate
     this._investigateTurns = 0;
+    this._noticePlayed = false; // true after notice anim played — reset on full return to patrol
 
     // Detection zone (visual)
     this.detectionCone = scene.add.graphics();
@@ -80,7 +81,21 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
       case 'PATROL':
         this.patrol();
         this.drawDetectionZone(0xffff00, 0.08);
+        // Post-catch cooldown — ignore player briefly after hitting
+        if (this._postCatchCooldown > 0) {
+          this._postCatchCooldown -= delta;
+          break;
+        }
+        // Reset notice flag after calm patrol for a while (cop "forgets")
+        if (this._noticePlayed) {
+          this._patrolCalmTime = (this._patrolCalmTime || 0) + delta;
+          if (this._patrolCalmTime > 3000) {
+            this._noticePlayed = false;
+            this._patrolCalmTime = 0;
+          }
+        }
         if (canSee) {
+          this._patrolCalmTime = 0;
           this.enterSuspicious();
         }
         break;
@@ -97,12 +112,18 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
         this.stateTimer += delta;
 
         if (canSee) {
-          if (this.stateTimer >= COP.SUSPICIOUS_TIME) {
+          this._suspLostTime = 0;
+          this._suspSeenTime = (this._suspSeenTime || 0) + delta;
+          if (this._suspSeenTime >= COP.SUSPICIOUS_TIME) {
             this.enterChase();
           }
         } else {
-          // Lost sight — go back to patrol
-          this.returnToPatrol();
+          // Grace period — don't snap back instantly
+          this._suspLostTime = (this._suspLostTime || 0) + delta;
+          if (this._suspLostTime > 800) {
+            // Lost sight — look around then return to patrol
+            this.enterInvestigate();
+          }
         }
         break;
 
@@ -110,7 +131,14 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
         // Run towards player
         this._facePoint(this.lastSeenX);
         this._moveTowards(this.lastSeenX);
-        if (this.anims.currentAnim?.key !== 'cop_walk') this.play('cop_walk');
+        // Switch to baton-hit animation when very close to player
+        {
+          const closeDist = player ? Math.abs(player.x - this.x) : 999;
+          const closeY = player ? Math.abs(player.y - this.y) : 999;
+          const isClose = closeDist < 55 && closeY < 50;
+          const wantAnim = isClose ? 'cop_hit' : 'cop_walk';
+          if (this.anims.currentAnim?.key !== wantAnim) this.play(wantAnim);
+        }
         this.drawDetectionZone(0xff3300, 0.15);
 
         if (canSee) {
@@ -129,12 +157,21 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
         this._investigate(delta);
         this.drawDetectionZone(0xff8800, 0.10);
 
-        if (canSee) {
-          // Found again — resume chase
-          this.enterChase();
-        } else if (this.stateTimer >= COP.INVESTIGATE_TIME) {
-          this.returnToPatrol();
+        // Grace period — cop is "focused on searching" and less alert
+        // Don't react to player for the first 1.2s of investigation,
+        // and NEVER interrupt the look animation once it starts.
+        {
+          const graceOver = this.stateTimer > 1200;
+          const lookingAround = this._investigateArrived;
+          if (canSee && graceOver && !lookingAround) {
+            // Found again while walking — resume chase
+            this.enterChase();
+          } else if (!this._investigateArrived && this.stateTimer >= 8000) {
+            // Safety timeout only while walking — never interrupt look animation
+            this.returnToPatrol();
+          }
         }
+        // Once arrived, cop_look animationcomplete handles exit to patrol
         break;
 
       case 'ALERT':
@@ -171,23 +208,32 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
   // --- STATE TRANSITIONS ---
   enterSuspicious() {
+    console.log('[COP] enterSuspicious, noticePlayed:', this._noticePlayed);
     this.state = 'SUSPICIOUS';
     this.stateTimer = 0;
+    this._suspSeenTime = 0;
+    this._suspLostTime = 0;
     this.alertMark.setVisible(true);
     this.alertMark.setText('?');
     this.alertMark.setStyle({ fill: '#ffff00' });
     this.setTint(0xffaa00);
-    // Play notice reaction animation, then return to idle
     this.setVelocityX(0);
-    this.play('cop_notice');
-    this.once('animationcomplete-cop_notice', () => {
-      if (this.state === 'SUSPICIOUS') {
-        this.play('cop_idle');
-      }
-    });
+    // Play notice reaction only once per encounter
+    if (!this._noticePlayed) {
+      this._noticePlayed = true;
+      this.play('cop_notice');
+      this.once('animationcomplete-cop_notice', () => {
+        if (this.state === 'SUSPICIOUS') {
+          this.play('cop_idle');
+        }
+      });
+    } else {
+      this.play('cop_idle');
+    }
   }
 
   enterChase() {
+    console.log('[COP] enterChase');
     this.state = 'CHASE';
     this.stateTimer = 0;
     this.chaseSeenTime = 0;
@@ -198,9 +244,11 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   }
 
   enterInvestigate() {
+    console.log('[COP] enterInvestigate, lastSeenX:', this.lastSeenX, 'copX:', this.x);
     this.state = 'INVESTIGATE';
     this.stateTimer = 0;
     this._investigateTurns = 0;
+    this._investigateArrived = false;
     this.alertMark.setText('?');
     this.alertMark.setStyle({ fill: '#ff8800' });
   }
@@ -210,14 +258,17 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.alertMark.setText('!');
     this.alertMark.setStyle({ fill: '#ff3333' });
     this.setVelocityX(0);
-    if (this.anims.currentAnim?.key !== 'cop_idle') this.play('cop_idle');
+    // Play baton hit animation when catching the player
+    this.play('cop_hit');
     this.scene.events.emit('player-caught');
   }
 
   returnToPatrol() {
+    console.log('[COP] returnToPatrol');
     this.state = 'PATROL';
     this.stateTimer = 0;
     this.chaseSeenTime = 0;
+    this._patrolCalmTime = 0; // start counting calm time before notice can reset
     this.alertMark.setVisible(false);
     this.clearTint();
     this.play('cop_walk');
@@ -225,37 +276,65 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   }
 
   resetState() {
-    this.state = 'PATROL';
+    // After catching player — go straight to CHASE (skip notice/suspicious).
+    // Cop already knows where player is, no need to "discover" again.
+    this.state = 'CHASE';
     this.stateTimer = 0;
     this.chaseSeenTime = 0;
     this._dirCooldown = 0;
-    this.alertMark.setVisible(false);
-    this.clearTint();
+    this._noticePlayed = true;   // keep notice blocked — will reset after 3s calm patrol
+    this._patrolCalmTime = 0;
+    this.alertMark.setVisible(true);
+    this.alertMark.setText('!');
+    this.alertMark.setStyle({ fill: '#ff6600' });
+    this.setTint(COP.ALERT_COLOR);
     this.play('cop_walk');
-    this.setVelocityX(COP.SPEED * this.direction);
   }
 
-  // --- INVESTIGATE: walk to last known pos, look around ---
+  // --- INVESTIGATE: walk to last known pos, play look animation, return to patrol ---
   _investigate(delta) {
     const dx = this.lastSeenX - this.x;
     const dist = Math.abs(dx);
 
-    if (dist > 15) {
+    if (!this._investigateArrived && dist > 30) {
       // Walk towards last seen position
       this._facePoint(this.lastSeenX);
       this._moveTowards(this.lastSeenX, COP.SPEED * 0.7);
       if (this.anims.currentAnim?.key !== 'cop_walk') this.play('cop_walk');
-    } else {
-      // At position — look around (turn every 600ms)
+    } else if (!this._investigateArrived) {
+      // Close enough or already at position — stop and play look animation
+      this._investigateArrived = true;
+      console.log('[COP] Arrived at lastSeenX, playing cop_look. dist:', Math.round(dist));
       this.setVelocityX(0);
-      if (this.anims.currentAnim?.key !== 'cop_idle') this.play('cop_idle');
-
-      const lookInterval = 600;
-      const turnIndex = Math.floor(this.stateTimer / lookInterval);
-      if (turnIndex > this._investigateTurns) {
-        this._investigateTurns = turnIndex;
-        this.direction *= -1;
-        this.setFlipX(this.direction === -1);
+      this.play('cop_look');
+      // Safety: remove any stale listeners first
+      this.off('animationcomplete-cop_look');
+      this.once('animationcomplete-cop_look', () => {
+        console.log('[COP] cop_look COMPLETE → returnToPatrol');
+        if (this.state === 'INVESTIGATE') {
+          this.returnToPatrol();
+        }
+      });
+      // Safety fallback — if animationcomplete never fires (e.g., animation issue)
+      // return to patrol after 3 seconds
+      this._lookFallbackTimer = 3000;
+    } else {
+      // Waiting for look animation to finish
+      this.setVelocityX(0);
+      // Ensure cop_look is still playing (not overridden)
+      if (this.anims.currentAnim?.key !== 'cop_look') {
+        this.play('cop_look');
+      }
+      // Fallback timer in case animationcomplete doesn't fire
+      if (this._lookFallbackTimer !== undefined) {
+        this._lookFallbackTimer -= delta;
+        if (this._lookFallbackTimer <= 0) {
+          console.log('[COP] cop_look FALLBACK timeout → returnToPatrol');
+          this._lookFallbackTimer = undefined;
+          if (this.state === 'INVESTIGATE') {
+            this.returnToPatrol();
+          }
+        }
       }
     }
   }
@@ -296,7 +375,15 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     const dy = Math.abs(player.y - this.y);
     const dist = Math.sqrt(dx * dx + dy * dy);
     const inFront = (this.direction === 1 && dx > 0) || (this.direction === -1 && dx < 0);
-    return inFront && dist < COP.DETECTION_RANGE && dy < 80;
+    // Normal forward detection
+    if (inFront && dist < COP.DETECTION_RANGE && dy < 80) return true;
+    // Behind detection — cop senses player close behind (hearing/peripheral)
+    // Disabled during INVESTIGATE — cop is focused on searching the area
+    if (this.state !== 'INVESTIGATE') {
+      const behindRange = 80;
+      if (!inFront && dist < behindRange && dy < 60) return true;
+    }
+    return false;
   }
 
   _hasGroundAt(px, py) {

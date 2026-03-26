@@ -104,9 +104,9 @@ export const LEVEL_1 = {
   ],
   ladders: [
     { x: 224, topY: H - 142, bottomY: H - 32, minX: 54, maxX: 264 },
-    { x: 340, topY: H - 380, bottomY: H - 370, minX: 310, maxX: 590 },
     { x: 830, topY: H - 270, bottomY: H - 32, minX: 640, maxX: 920 },
     { x: 1140, topY: H - 500, bottomY: H - 262, minX: 950, maxX: 1190 },
+    { x: 330, topY: H - 450, bottomY: H - 420, minX: 80, maxX: 380 },
   ],
   shadows: [
     { x: 80, y: H - 130, w: 75, h: 100 },
