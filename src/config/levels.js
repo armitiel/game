@@ -125,14 +125,14 @@ export const LEVEL_1 = {
     { x: 1140, y: H - 560, w: 95, h: 110, paintingKey: 'painting_Nowy' },
   ],
   trashCans: [
-    { x: 350, y: H - 50 },
-    { x: 1060, y: H - 518 },
+    { x: 350, y: H - 53 },
+    { x: 1060, y: H - 522 },
   ],
   cops: [
-    { x: 1140, y: H - 110, minX: 1040, maxX: 1980 },
+    { x: 400, y: H - 100, minX: 300, maxX: W - 40 },
   ],
   lamps: [
-    { x: 1120, y: H - 27, radius: 120, intensity: 0.65 },
+    { x: 1150, y: H - 25, radius: 120, intensity: 0.65 },
     { x: 80, y: H - 150, radius: 120, intensity: 0.65 },
   ],
   papers: [

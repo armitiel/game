@@ -30,9 +30,10 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     // Start walk animation
     this.play('cop_walk');
 
-    // Patrol bounds
-    this.patrolLeft = patrolLeft;
-    this.patrolRight = patrolRight;
+    // Patrol bounds — clamp to world bounds to prevent walking off ground
+    const wb = scene.physics.world.bounds;
+    this.patrolLeft = Math.max(patrolLeft, wb.left + bodyW);
+    this.patrolRight = Math.min(patrolRight, wb.right - bodyW);
     this.direction = 1;
     this._dirCooldown = 0;
 
@@ -242,26 +243,12 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    let wantFlip = false;
-    let atEndpoint = false;
-
-    if (this.x <= this.patrolLeft && this.direction === -1) {
-      wantFlip = true;
-      atEndpoint = true;
-    } else if (this.x >= this.patrolRight && this.direction === 1) {
-      wantFlip = true;
-      atEndpoint = true;
+    // Check patrol bounds only — no ground edge check (patrol bounds are clamped to world)
+    if (this.x <= this.patrolLeft && this.direction === -1 && this._dirCooldown <= 0) {
+      this.enterPatrolIdle(true);
+      return;
     }
-
-    if (!wantFlip && this.body.blocked.down) {
-      if (!this._hasGroundAhead()) {
-        wantFlip = true;
-        atEndpoint = true;
-      }
-    }
-
-    if (wantFlip && this._dirCooldown <= 0) {
-      // Idle at endpoint before turning
+    if (this.x >= this.patrolRight && this.direction === 1 && this._dirCooldown <= 0) {
       this.enterPatrolIdle(true);
       return;
     }
@@ -435,21 +422,15 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
   _moveTowards(px, speed) {
     speed = speed || COP.CHASE_SPEED;
-    // Respect patrol bounds and edges
-    let wantFlip = false;
-    if (this.x <= this.patrolLeft && this.direction === -1) wantFlip = true;
-    if (this.x >= this.patrolRight && this.direction === 1) wantFlip = true;
-
-    // Skip ground edge check during CHASE — cop chases aggressively
-    if (!wantFlip && this.state !== 'CHASE' && this.body.blocked.down) {
-      if (!this._hasGroundAhead()) wantFlip = true;
-    }
-
-    if (wantFlip) {
+    // Only respect patrol bounds
+    if (this.x <= this.patrolLeft && this.direction === -1) {
       this.setVelocityX(0);
       return;
     }
-
+    if (this.x >= this.patrolRight && this.direction === 1) {
+      this.setVelocityX(0);
+      return;
+    }
     this.setVelocityX(speed * this.direction);
   }
 

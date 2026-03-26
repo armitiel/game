@@ -7,8 +7,8 @@ const translations = {
   pl: {
     // Menu
     subtitle: 'Maluj miasto. Kryj sie w cieniu.',
-    tapToStart: '[ DOTKNIJ BY ZACZAC ]',
-    spaceToStart: '[ NACISNIJ SPACJE BY ZACZAC ]',
+    tapToStart: '[ DOTKNIJ BY ZACZĄĆ ]',
+    spaceToStart: '[ NACIŚNIJ SPACJĘ BY ZACZĄĆ ]',
     controlsMobile: 'D-pad: ruch   JUMP: skok   ACT: maluj   E: interakcja',
     controlsDesktop1: 'STRZALKI: Ruch   SPACJA: Skok   E: Maluj/Podnieś',
     controlsDesktop2: 'GORA/DOL na drabinie   Ukryj sie w cieniu przed policja',

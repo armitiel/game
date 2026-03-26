@@ -48,9 +48,11 @@ export default class MenuScene extends Phaser.Scene {
 
     // Start button
     const isMobile = this.sys.game.device.input.touch;
-    const startText = this.add.text(cx, this.scale.height - 110,
+    const startText = this.add.text(cx, this.scale.height - 140,
       isMobile ? t('tapToStart') : t('spaceToStart'), {
-      font: '20px ChangaOne, monospace',
+      fontFamily: 'Calibri, sans-serif',
+      fontSize: '24px',
+      fontStyle: 'bold',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 4
     }).setOrigin(0.5);
@@ -65,18 +67,16 @@ export default class MenuScene extends Phaser.Scene {
     });
 
     // Last update date (bottom-left)
-    const buildDate = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : '';
-    if (buildDate) {
-      this.add.text(16, this.scale.height - 16, `${t('lastUpdate')}: ${buildDate}`, {
-        font: '14px ChangaOne, monospace',
-        fill: '#556677',
-        stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0, 1);
-    }
+    const buildDate = __BUILD_DATE__ || '';
+    this.add.text(16, this.scale.height - 16, buildDate ? `${t('lastUpdate')}: ${buildDate}` : '', {
+      font: 'bold 18px Calibri, sans-serif',
+      fill: '#778899',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0, 1).setDepth(10).setResolution(2);
 
     // Visitor counter (bottom-right)
     const counterText = this.add.text(this.scale.width - 16, this.scale.height - 16, '', {
-      font: '14px ChangaOne, monospace',
+      font: 'bold 18px Calibri, sans-serif',
       fill: '#556677',
       stroke: '#000000', strokeThickness: 3
     }).setOrigin(1, 1);

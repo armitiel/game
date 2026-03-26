@@ -130,14 +130,6 @@ export default class LevelSelectScene extends Phaser.Scene {
         align: 'center', lineSpacing: 6
       }).setOrigin(0.5);
 
-      // Level count — below frame
-      this.add.text(tx, cardY + frameH * 0.24, `${t('levelCount')}: ${m.levels.length}`, {
-        fontFamily: 'ChangaOne',
-        fontSize: '20px',
-        fontStyle: 'bold',
-        color: '#aabbcc',
-        stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0.5);
 
       // Hover — scale frame up slightly
       const baseScale = frameW / 512;
@@ -170,7 +162,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     const tutIdx = LEVELS.indexOf(LEVEL_TUTORIAL);
     if (tutIdx >= 0) {
       const tutBtn = this.add.text(cx, gh - 70, t('tutorial'), {
-        fontFamily: 'ChangaOne', fontSize: '18px', fontStyle: 'bold',
+        fontFamily: 'ChangaOne', fontSize: '28px', fontStyle: 'bold',
         color: '#88aacc', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
@@ -186,10 +178,6 @@ export default class LevelSelectScene extends Phaser.Scene {
       });
     }
 
-    this.add.text(cx, gh - 40, t('modeSelectHint'), {
-      font: '12px ChangaOne, monospace', fill: '#445566',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5);
   }
 
   // === LEVEL CARDS FOR SELECTED MODE ===
@@ -200,7 +188,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     // Mode title with 3D depth effect (matches mode select screen)
     const titleText = modeNames[modeKey] || modeKey.toUpperCase();
-    const titleY = 40;
+    const titleY = 70;
     const titleStyle = {
       fontFamily: 'ChangaOne',
       fontSize: '48px',
@@ -219,15 +207,6 @@ export default class LevelSelectScene extends Phaser.Scene {
       color: '#00ff88',
       stroke: '#003322',
       strokeThickness: 7
-    }).setOrigin(0.5);
-
-    // Subtitle (instruction)
-    const subtitleY = titleY + 50;
-    this.add.text(cx, subtitleY, t('chooseLevel'), {
-      font: 'bold 24px ChangaOne, monospace',
-      fill: '#00ff88',
-      stroke: '#003322',
-      strokeThickness: 4
     }).setOrigin(0.5);
 
     const cardW = 220;
@@ -267,7 +246,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         strokeThickness: 5,
         shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, stroke: true, fill: true }
       };
-      this.add.text(x, cardY - 40, level.name, nameStyle).setOrigin(0.5);
+      this.add.text(x, cardY - 40, t(level.name), nameStyle).setOrigin(0.5);
 
       // Level description — readable sans-serif font (same as mode select)
       const descStyle = {
@@ -281,7 +260,7 @@ export default class LevelSelectScene extends Phaser.Scene {
         align: 'center',
         lineSpacing: 6
       };
-      this.add.text(x, cardY + 40, level.description, descStyle).setOrigin(0.5);
+      this.add.text(x, cardY + 40, t(level.description), descStyle).setOrigin(0.5);
 
       card.on('pointerdown', () => {
         this.scene.start('IntroScene', { levelIndex: globalIdx });
@@ -292,9 +271,5 @@ export default class LevelSelectScene extends Phaser.Scene {
       });
     }
 
-    this.add.text(cx, gh - 40, t('levelSelectHint'), {
-      font: '12px ChangaOne, monospace', fill: '#445566',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5);
   }
 }
