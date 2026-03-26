@@ -28,7 +28,8 @@ export default class BootScene extends Phaser.Scene {
     const loadingText = this.add.text(width / 2, barY - 62, t('loading'), {
       font: '36px ChangaOne, monospace',
       fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 3
+      stroke: '#003322', strokeThickness: 3,
+      shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 4, fill: true }
     }).setOrigin(0.5);
 
     // Once frame texture is ready, show it behind the bar
@@ -96,7 +97,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.audio('sfx_canshake', ['assets/sounds/canshake.m4a', 'assets/sounds/canshake.mp3', 'assets/sounds/canshake.ogg']);
 
     // === Load logo ===
-    this.load.image('logo', 'assets/sprites/logo.png');
+    this.load.image('logo', 'assets/sprites/ST_logo.png');
     this.load.image('bckg', 'assets/sprites/bckg.png');
     this.load.image('frame', 'assets/sprites/frame.png');
     this.load.spritesheet('mode_frames', 'assets/sprites/frames.png', {
@@ -136,7 +137,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
 
     // === Load cop spritesheet (1x at COP.HEIGHT, same approach as player) ===
-    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=11', {
+    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=12', {
       frameWidth: COP.HEIGHT,
       frameHeight: COP.HEIGHT
     });
@@ -178,10 +179,10 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
-    // Idle_P — cop standing idle, casual movement (frames 87-111) — patrol idle only
+    // Idle_P — cop standing idle, casual movement (frames 90-114) — patrol idle only
     this.anims.create({
       key: 'cop_idle',
-      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 87, end: 111 }),
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 90, end: 114 }),
       frameRate: 10,
       repeat: -1
     });
@@ -194,10 +195,10 @@ export default class BootScene extends Phaser.Scene {
       repeat: 0
     });
 
-    // Notice reaction — plays once when cop spots player
+    // Notice reaction — plays once when cop spots player (18 frames)
     this.anims.create({
       key: 'cop_notice',
-      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 24, end: 38 }),
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 24, end: 41 }),
       frameRate: 15,
       repeat: 0
     });
@@ -205,7 +206,7 @@ export default class BootScene extends Phaser.Scene {
     // Walk_Bit — cop hitting with baton while walking toward player
     this.anims.create({
       key: 'cop_hit',
-      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 39, end: 62 }),
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 42, end: 65 }),
       frameRate: 18,
       repeat: -1
     });
@@ -213,7 +214,7 @@ export default class BootScene extends Phaser.Scene {
     // Look_P — cop looking around after losing sight of player
     this.anims.create({
       key: 'cop_look',
-      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 63, end: 86 }),
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 66, end: 89 }),
       frameRate: 12,
       repeat: 0
     });

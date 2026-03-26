@@ -97,16 +97,16 @@ export const LEVEL_1 = {
     { x: 620, y: H - 420, w: 170 },
     { x: 940, y: H - 160, w: 100 },
     { x: 1090, y: H - 260, w: 100 },
-    { x: 1090, y: H - 500, w: 100 },
+    { x: 1040, y: H - 500, w: 150 },
   ],
   ground: [
     { x: 0, y: H - 32, w: W },
   ],
   ladders: [
-    { x: 224, topY: H - 142, bottomY: H - 32, minX: 54, maxX: 264 },
+    { x: 220, topY: H - 140, bottomY: H - 30, minX: 50, maxX: 260 },
     { x: 830, topY: H - 270, bottomY: H - 32, minX: 640, maxX: 920 },
     { x: 1140, topY: H - 500, bottomY: H - 262, minX: 950, maxX: 1190 },
-    { x: 330, topY: H - 404, bottomY: H - 304, minX: 120, maxX: 380 },
+    { x: 330, topY: H - 404, bottomY: H - 290, minX: 120, maxX: 380 },
   ],
   shadows: [
     { x: 80, y: H - 130, w: 75, h: 100 },
@@ -126,7 +126,7 @@ export const LEVEL_1 = {
   ],
   trashCans: [
     { x: 350, y: H - 50 },
-    { x: 902, y: H - 56 },
+    { x: 1060, y: H - 518 },
   ],
   cops: [
     { x: 1140, y: H - 110, minX: 1040, maxX: 1980 },

@@ -40,7 +40,7 @@ const translations = {
     mainMenu: '[ M - Menu glowne ]',
 
     // Boot
-    loading: 'Ladowanie...',
+    loading: 'Ładowanie...',
 
     // Game — tower
     timeUp: 'CZAS MINAL!',

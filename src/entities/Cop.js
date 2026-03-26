@@ -121,9 +121,13 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
           this._patrolCalmTime = 0;
           this.enterSuspicious();
         } else if (this.stateTimer >= this._idleDuration) {
-          // Idle done — flip direction and resume patrol
-          this.direction *= -1;
-          this.setFlipX(this.direction === -1);
+          // Idle done — resume patrol
+          if (this._idleAtEndpoint) {
+            // At endpoint: flip direction before walking
+            this.direction *= -1;
+            this.setFlipX(this.direction === -1);
+          }
+          this._dirCooldown = 500; // prevent re-triggering idle immediately
           this.state = 'PATROL';
           this.stateTimer = 0;
           this._patrolWalkTime = 0;
@@ -250,17 +254,15 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     }
 
     if (!wantFlip && this.body.blocked.down) {
-      const probeX = this.x + this.direction * (this.body.halfWidth + 4);
-      const probeY = this.body.bottom + 6;
-      if (!this._hasGroundAt(probeX, probeY)) {
+      if (!this._hasGroundAhead()) {
         wantFlip = true;
         atEndpoint = true;
       }
     }
 
     if (wantFlip && this._dirCooldown <= 0) {
-      // Always idle at endpoint before turning
-      this.enterPatrolIdle();
+      // Idle at endpoint before turning
+      this.enterPatrolIdle(true);
       return;
     }
 
@@ -268,9 +270,13 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     if (this.anims.currentAnim?.key !== 'cop_walk') this.play('cop_walk');
   }
 
-  enterPatrolIdle() {
+  /**
+   * @param {boolean} [atEndpoint=false] — true if at patrol boundary (flip after idle)
+   */
+  enterPatrolIdle(atEndpoint) {
     this.state = 'PATROL_IDLE';
     this.stateTimer = 0;
+    this._idleAtEndpoint = !!atEndpoint; // remember if we need to flip after idle
     this.setVelocityX(0);
 
     // 40% chance to play look_P (looking around), 60% casual idle
@@ -434,10 +440,9 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     if (this.x <= this.patrolLeft && this.direction === -1) wantFlip = true;
     if (this.x >= this.patrolRight && this.direction === 1) wantFlip = true;
 
-    if (!wantFlip && this.body.blocked.down) {
-      const probeX = this.x + this.direction * (this.body.halfWidth + 4);
-      const probeY = this.body.bottom + 6;
-      if (!this._hasGroundAt(probeX, probeY)) wantFlip = true;
+    // Skip ground edge check during CHASE — cop chases aggressively
+    if (!wantFlip && this.state !== 'CHASE' && this.body.blocked.down) {
+      if (!this._hasGroundAhead()) wantFlip = true;
     }
 
     if (wantFlip) {
@@ -461,6 +466,20 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     if (this.state !== 'INVESTIGATE') {
       const behindRange = 80;
       if (!inFront && dist < behindRange && dy < 60) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Check if there is ground ahead of the cop (multiple probe points to avoid
+   * false negatives from small gaps between tiles).
+   */
+  _hasGroundAhead() {
+    const probeY = this.body.bottom + 8;
+    // Check 3 points ahead: close, medium, far — if ANY has ground, it's safe
+    for (const dist of [6, 16, 28]) {
+      const probeX = this.x + this.direction * (this.body.halfWidth + dist);
+      if (this._hasGroundAt(probeX, probeY)) return true;
     }
     return false;
   }
