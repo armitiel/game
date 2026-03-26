@@ -271,9 +271,16 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   enterPatrolIdle() {
     this.state = 'PATROL_IDLE';
     this.stateTimer = 0;
-    this._idleDuration = 1500 + Math.random() * 1500; // 1.5–3s
     this.setVelocityX(0);
-    this.play('cop_idle');
+
+    // 40% chance to play look_P (looking around), 60% casual idle
+    if (Math.random() < 0.4) {
+      this.play('cop_look');
+      this._idleDuration = 2200; // cop_look is 24 frames @ 12fps ≈ 2s
+    } else {
+      this.play('cop_idle');
+      this._idleDuration = 1500 + Math.random() * 1500; // 1.5–3s
+    }
   }
 
   // --- STATE TRANSITIONS ---
