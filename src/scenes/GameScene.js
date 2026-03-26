@@ -2426,18 +2426,23 @@ export default class GameScene extends Phaser.Scene {
     ].filter(Boolean);
     this.cameras.main.ignore(hudElements);
 
+    // Hide ALL scene objects from uiCam using cameraFilter bitmask
+    const uiId = this.uiCam.id;
     this.children.list.forEach(child => {
-      if (!hudElements.includes(child)) {
-        this.uiCam.ignore(child);
-      }
+      child.cameraFilter |= uiId;
+    });
+    // Then reveal ONLY HUD elements on uiCam
+    hudElements.forEach(el => {
+      if (el) el.cameraFilter &= ~uiId;
     });
 
     this._hudElements = new Set(hudElements);
 
     this.events.on('addedtoscene', (obj) => {
       if (this._addingHud) return;
-      if (this.uiCam && !this._hudElements.has(obj)) {
-        this.uiCam.ignore(obj);
+      // Any new non-HUD object: hide from uiCam immediately
+      if (this.uiCam) {
+        obj.cameraFilter |= this.uiCam.id;
       }
     });
   }

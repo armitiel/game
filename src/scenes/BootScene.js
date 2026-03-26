@@ -199,7 +199,7 @@ export default class BootScene extends Phaser.Scene {
     this.anims.create({
       key: 'cop_notice',
       frames: this.anims.generateFrameNumbers('cop_sheet', { start: 24, end: 41 }),
-      frameRate: 15,
+      frameRate: 20,
       repeat: 0
     });
 
