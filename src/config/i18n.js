@@ -13,6 +13,7 @@ const translations = {
     controlsDesktop1: 'STRZALKI: Ruch   SPACJA: Skok   E: Maluj/Podnieś',
     controlsDesktop2: 'GORA/DOL na drabinie   Ukryj sie w cieniu przed policja',
     visitors: 'odwiedziny',
+    lastUpdate: 'aktualizacja',
 
     // Level select
     chooseMode: 'WYBIERZ TRYB',
@@ -126,6 +127,7 @@ const translations = {
     controlsDesktop1: 'ARROWS: Move   SPACE: Jump   E: Paint/Pickup',
     controlsDesktop2: 'UP/DOWN on ladder   Hide in shadows to avoid cops',
     visitors: 'visitors',
+    lastUpdate: 'last update',
 
     // Level select
     chooseMode: 'CHOOSE MODE',

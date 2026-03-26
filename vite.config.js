@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
@@ -144,9 +145,18 @@ function levelEditorSave() {
   };
 }
 
+// Get last git commit date for build stamp
+let buildDate = new Date().toISOString().slice(0, 10);
+try {
+  buildDate = execSync('git log -1 --format=%ci').toString().trim().slice(0, 10);
+} catch (_) {}
+
 export default defineConfig({
   base: './',
   plugins: [levelEditorSave()],
+  define: {
+    __BUILD_DATE__: JSON.stringify(buildDate)
+  },
   server: {
     port: 8080,
     open: true,

@@ -69,11 +69,21 @@ export default class MenuScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
+    // Last update date (bottom-left)
+    const buildDate = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : '';
+    if (buildDate) {
+      this.add.text(16, this.scale.height - 16, `${t('lastUpdate')}: ${buildDate}`, {
+        font: '14px ChangaOne, monospace',
+        fill: '#556677',
+        stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0, 1);
+    }
+
     // Visitor counter (bottom-right)
     const counterText = this.add.text(this.scale.width - 16, this.scale.height - 16, '', {
-      font: '11px ChangaOne, monospace',
-      fill: '#334455',
-      stroke: '#000000', strokeThickness: 2
+      font: '14px ChangaOne, monospace',
+      fill: '#556677',
+      stroke: '#000000', strokeThickness: 3
     }).setOrigin(1, 1);
 
     // ?owner=SECRET sets localStorage flag to exclude self from counter
