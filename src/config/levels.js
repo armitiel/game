@@ -106,7 +106,7 @@ export const LEVEL_1 = {
     { x: 224, topY: H - 142, bottomY: H - 32, minX: 54, maxX: 264 },
     { x: 830, topY: H - 270, bottomY: H - 32, minX: 640, maxX: 920 },
     { x: 1140, topY: H - 500, bottomY: H - 262, minX: 950, maxX: 1190 },
-    { x: 330, topY: H - 450, bottomY: H - 420, minX: 80, maxX: 380 },
+    { x: 330, topY: H - 404, bottomY: H - 304, minX: 120, maxX: 380 },
   ],
   shadows: [
     { x: 80, y: H - 130, w: 75, h: 100 },
@@ -121,26 +121,26 @@ export const LEVEL_1 = {
   paintCans: [
   ],
   paintSpots: [
-    { x: 505, y: H - 141, w: 400, h: 210, paintingKey: 'painting_star' },
+    { x: 440, y: H - 140, w: 250, h: 210, paintingKey: 'painting_star' },
     { x: 1140, y: H - 560, w: 95, h: 110, paintingKey: 'painting_Nowy' },
   ],
   trashCans: [
-    { x: 310, y: H - 56 },
+    { x: 350, y: H - 50 },
     { x: 902, y: H - 56 },
   ],
   cops: [
-    { x: 430, y: H - 120, minX: 330, maxX: 1270 },
+    { x: 1140, y: H - 110, minX: 1040, maxX: 1980 },
   ],
   lamps: [
-    { x: 1120, y: H - 23, radius: 120, intensity: 0.65 },
-    { x: 80, y: H - 147, radius: 120, intensity: 0.65 },
+    { x: 1120, y: H - 27, radius: 120, intensity: 0.65 },
+    { x: 80, y: H - 150, radius: 120, intensity: 0.65 },
   ],
   papers: [
-    { x: 550, y: H - 25 },
+    { x: 1060, y: H - 24 },
     { x: 200, y: H - 150 },
   ],
   bottles: [
-    { x: 380, y: H - 25 },
+    { x: 690, y: H - 30 },
   ],
   cartons: [
     { x: 976, y: H - 153 },

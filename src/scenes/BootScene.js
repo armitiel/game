@@ -136,7 +136,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
 
     // === Load cop spritesheet (1x at COP.HEIGHT, same approach as player) ===
-    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=9', {
+    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=11', {
       frameWidth: COP.HEIGHT,
       frameHeight: COP.HEIGHT
     });
@@ -178,8 +178,17 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
+    // Idle_P — cop standing idle, casual movement (frames 87-111) — patrol idle only
     this.anims.create({
       key: 'cop_idle',
+      frames: this.anims.generateFrameNumbers('cop_sheet', { start: 87, end: 111 }),
+      frameRate: 10,
+      repeat: -1
+    });
+
+    // Alert stand — single frame, cop stands still (used in SUSPICIOUS state)
+    this.anims.create({
+      key: 'cop_stand',
       frames: [{ key: 'cop_sheet', frame: 0 }],
       frameRate: 1,
       repeat: 0

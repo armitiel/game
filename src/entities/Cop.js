@@ -37,8 +37,8 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this._dirCooldown = 0;
 
     // AI State: PATROL → SUSPICIOUS → CHASE → ALERT
-    //                          ↓ lost sight     ↓ lost sight
-    //                      PATROL          INVESTIGATE → PATROL
+    //               ↕ idle              ↓ lost sight     ↓ lost sight
+    //          PATROL_IDLE          INVESTIGATE → PATROL
     this.state = 'PATROL';
     this.stateTimer = 0;
     this.lastSeenX = 0;       // last known player X position
@@ -47,6 +47,10 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this._investigateDir = 1; // direction to look during investigate
     this._investigateTurns = 0;
     this._noticePlayed = false; // true after notice anim played — reset on full return to patrol
+    this._idleDuration = 0;    // how long to idle at patrol endpoint
+    this._idleChance = 0.5;    // 50% chance to idle at each patrol turn
+    this._patrolWalkTime = 0;  // time walking since last idle
+    this._nextMidPatrolIdle = 4000 + Math.random() * 4000; // 4-8s random mid-patrol idle
 
     // Detection zone (visual)
     this.detectionCone = scene.add.graphics();
@@ -79,7 +83,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
     switch (this.state) {
       case 'PATROL':
-        this.patrol();
+        this.patrol(delta);
         this.drawDetectionZone(0xffff00, 0.08);
         // Post-catch cooldown — ignore player briefly after hitting
         if (this._postCatchCooldown > 0) {
@@ -100,12 +104,41 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
         }
         break;
 
+      case 'PATROL_IDLE':
+        // Standing still at patrol endpoint — idle animation
+        this.setVelocityX(0);
+        this.drawDetectionZone(0xffff00, 0.08);
+        this.stateTimer += delta;
+        // Reset notice flag while idling (counts as calm patrol)
+        if (this._noticePlayed) {
+          this._patrolCalmTime = (this._patrolCalmTime || 0) + delta;
+          if (this._patrolCalmTime > 3000) {
+            this._noticePlayed = false;
+            this._patrolCalmTime = 0;
+          }
+        }
+        if (canSee) {
+          this._patrolCalmTime = 0;
+          this.enterSuspicious();
+        } else if (this.stateTimer >= this._idleDuration) {
+          // Idle done — flip direction and resume patrol
+          this.direction *= -1;
+          this.setFlipX(this.direction === -1);
+          this.state = 'PATROL';
+          this.stateTimer = 0;
+          this._patrolWalkTime = 0;
+          this._nextMidPatrolIdle = 4000 + Math.random() * 4000;
+          this.play('cop_walk');
+          this.setVelocityX(COP.SPEED * this.direction);
+        }
+        break;
+
       case 'SUSPICIOUS':
         // Stop and watch — turn towards player
         this.setVelocityX(0);
-        // Don't interrupt notice animation — only switch to idle after it completes
-        if (this.anims.currentAnim?.key !== 'cop_idle' && this.anims.currentAnim?.key !== 'cop_notice') {
-          this.play('cop_idle');
+        // Don't interrupt notice animation — only switch to alert stand after it completes
+        if (this.anims.currentAnim?.key !== 'cop_stand' && this.anims.currentAnim?.key !== 'cop_notice') {
+          this.play('cop_stand');
         }
         this._facePoint(this.lastSeenX);
         this.drawDetectionZone(0xff8800, 0.12);
@@ -195,13 +228,25 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
   }
 
   // --- PATROL ---
-  patrol() {
+  patrol(delta) {
+    // Mid-patrol idle: cop sometimes stops mid-walk to look around
+    this._patrolWalkTime += delta;
+    if (this._patrolWalkTime >= this._nextMidPatrolIdle) {
+      this._patrolWalkTime = 0;
+      this._nextMidPatrolIdle = 4000 + Math.random() * 4000;
+      this.enterPatrolIdle();
+      return;
+    }
+
     let wantFlip = false;
+    let atEndpoint = false;
 
     if (this.x <= this.patrolLeft && this.direction === -1) {
       wantFlip = true;
+      atEndpoint = true;
     } else if (this.x >= this.patrolRight && this.direction === 1) {
       wantFlip = true;
+      atEndpoint = true;
     }
 
     if (!wantFlip && this.body.blocked.down) {
@@ -209,16 +254,26 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
       const probeY = this.body.bottom + 6;
       if (!this._hasGroundAt(probeX, probeY)) {
         wantFlip = true;
+        atEndpoint = true;
       }
     }
 
     if (wantFlip && this._dirCooldown <= 0) {
-      this.direction *= -1;
-      this.setFlipX(this.direction === -1);
-      this._dirCooldown = 300;
+      // Always idle at endpoint before turning
+      this.enterPatrolIdle();
+      return;
     }
 
     this.setVelocityX(COP.SPEED * this.direction);
+    if (this.anims.currentAnim?.key !== 'cop_walk') this.play('cop_walk');
+  }
+
+  enterPatrolIdle() {
+    this.state = 'PATROL_IDLE';
+    this.stateTimer = 0;
+    this._idleDuration = 1500 + Math.random() * 1500; // 1.5–3s
+    this.setVelocityX(0);
+    this.play('cop_idle');
   }
 
   // --- STATE TRANSITIONS ---
@@ -239,11 +294,11 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
       this.play('cop_notice');
       this.once('animationcomplete-cop_notice', () => {
         if (this.state === 'SUSPICIOUS') {
-          this.play('cop_idle');
+          this.play('cop_stand');
         }
       });
     } else {
-      this.play('cop_idle');
+      this.play('cop_stand');
     }
   }
 
@@ -283,7 +338,9 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     this.state = 'PATROL';
     this.stateTimer = 0;
     this.chaseSeenTime = 0;
-    this._patrolCalmTime = 0; // start counting calm time before notice can reset
+    this._patrolCalmTime = 0;
+    this._patrolWalkTime = 0;
+    this._nextMidPatrolIdle = 4000 + Math.random() * 4000;
     this.alertMark.setVisible(false);
     this.clearTint();
     this.play('cop_walk');
