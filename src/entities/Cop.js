@@ -128,16 +128,31 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
         break;
 
       case 'CHASE':
-        // Run towards player
-        this._facePoint(this.lastSeenX);
-        this._moveTowards(this.lastSeenX);
         // Switch to baton-hit animation when very close to player
         {
           const closeDist = player ? Math.abs(player.x - this.x) : 999;
           const closeY = player ? Math.abs(player.y - this.y) : 999;
           const isClose = closeDist < 55 && closeY < 50;
-          const wantAnim = isClose ? 'cop_hit' : 'cop_walk';
-          if (this.anims.currentAnim?.key !== wantAnim) this.play(wantAnim);
+
+          if (isClose && player) {
+            // Close enough to hit — stop moving, face player with dead zone to prevent flipping
+            this.setVelocityX(0);
+            // Only change direction if player is clearly to one side (>10px dead zone)
+            const hitDx = player.x - this.x;
+            if (Math.abs(hitDx) > 10) {
+              const newDir = hitDx > 0 ? 1 : -1;
+              if (newDir !== this.direction) {
+                this.direction = newDir;
+                this.setFlipX(this.direction === -1);
+              }
+            }
+            if (this.anims.currentAnim?.key !== 'cop_hit') this.play('cop_hit');
+          } else {
+            // Still chasing — run towards player
+            this._facePoint(this.lastSeenX);
+            this._moveTowards(this.lastSeenX);
+            if (this.anims.currentAnim?.key !== 'cop_walk') this.play('cop_walk');
+          }
         }
         this.drawDetectionZone(0xff3300, 0.15);
 
