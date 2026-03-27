@@ -251,7 +251,7 @@ export default class TouchControls {
       } else {
         const hex = '#' + color.toString(16).padStart(6, '0');
         el = scene.add.text(x, y, label, {
-          fontFamily: 'ChangaOne, monospace', fontSize: `${Math.floor(r * 0.56)}px`, fontStyle: 'bold',
+          fontFamily: 'Bungee, monospace', fontSize: `${Math.floor(r * 0.56)}px`, fontStyle: 'bold',
           color: hex, stroke: '#000000', strokeThickness: 4,
           padding: { x: 4, y: 4 }
         }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.55);
@@ -302,7 +302,7 @@ export default class TouchControls {
 
     // Pre-create "✕" exit labels (hidden by default) for grab and paint buttons
     const exitStyle = {
-      fontFamily: 'ChangaOne, monospace', fontStyle: 'bold',
+      fontFamily: 'Bungee, monospace', fontStyle: 'bold',
       color: '#ff4444', stroke: '#110000', strokeThickness: 4,
       padding: { x: 4, y: 4 }
     };
@@ -559,7 +559,7 @@ export default class TouchControls {
         .setInteractive();
 
       const text = scene.add.text(x, y, String(i + 1), {
-        fontFamily: 'ChangaOne, monospace', fontSize: fontSize + 'px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: fontSize + 'px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(6 * scale),
         padding: { x: 4, y: 4 }
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(has ? 0.95 : 0.2);
@@ -583,7 +583,7 @@ export default class TouchControls {
       .setStrokeStyle(3, 0xff4444, 0.85)
       .setInteractive();
     const exitText = scene.add.text(cx, cy, '✕', {
-      fontFamily: 'ChangaOne, monospace', fontSize: exitFontSize + 'px', fontStyle: 'bold',
+      fontFamily: 'Bungee, monospace', fontSize: exitFontSize + 'px', fontStyle: 'bold',
       color: '#ff4444', stroke: '#110000', strokeThickness: Math.round(7 * scale),
       padding: { x: 4, y: 4 }
     }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setAlpha(1);

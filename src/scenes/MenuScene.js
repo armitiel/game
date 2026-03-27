@@ -50,7 +50,7 @@ export default class MenuScene extends Phaser.Scene {
     const isMobile = this.sys.game.device.input.touch;
     const startText = this.add.text(cx, this.scale.height - 140,
       isMobile ? t('tapToStart') : t('spaceToStart'), {
-      fontFamily: 'Calibri, sans-serif',
+      fontFamily: 'Bungee, monospace',
       fontSize: '24px',
       fontStyle: 'bold',
       fill: '#00ff88',

@@ -59,7 +59,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
 
     // Alert/status mark
     this.alertMark = scene.add.text(x, y - 30, '?', {
-      fontFamily: 'ChangaOne',
+      fontFamily: 'Bungee',
       fontSize: '24px',
       fontStyle: 'bold',
       fill: '#ffff00',
@@ -243,12 +243,14 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    // Check patrol bounds only — no ground edge check (patrol bounds are clamped to world)
-    if (this.x <= this.patrolLeft && this.direction === -1 && this._dirCooldown <= 0) {
-      this.enterPatrolIdle(true);
-      return;
-    }
-    if (this.x >= this.patrolRight && this.direction === 1 && this._dirCooldown <= 0) {
+    // Check patrol bounds — use tolerance so physics-blocked cops still trigger idle
+    const atLeft = this.x <= this.patrolLeft + 4 && this.direction === -1;
+    const atRight = this.x >= this.patrolRight - 4 && this.direction === 1;
+    // Also detect if blocked by world bounds (walking but not moving)
+    const blocked = this.body && Math.abs(this.body.velocity.x) < 1 &&
+      this.anims.currentAnim?.key === 'cop_walk' && this._dirCooldown <= 0;
+
+    if ((atLeft || atRight || blocked) && this._dirCooldown <= 0) {
       this.enterPatrolIdle(true);
       return;
     }

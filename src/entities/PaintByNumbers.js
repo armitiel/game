@@ -118,7 +118,7 @@ export default class PaintByNumbers {
     const ctx = canvas.getContext('2d');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${fontSize}px ChangaOne, monospace`;
+    ctx.font = `bold ${fontSize}px Bungee, monospace`;
     ctx.globalAlpha = 0.45;
 
     for (let r = 0; r < this.rows; r++) {

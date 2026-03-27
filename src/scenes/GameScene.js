@@ -32,6 +32,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(GAME.BACKGROUND_COLOR);
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     this.cameras.main.setZoom(isMobile ? 2.7 : 1.95);
+    this.cameras.main.setRoundPixels(true);
     this._baseZoom = this.cameras.main.zoom;  // remember base zoom for paint restore
     this.cameras.main.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
 
@@ -1040,7 +1041,7 @@ export default class GameScene extends Phaser.Scene {
       const arrowX = x + w / 2;
       const arrowY = y + 6;
       const arrow = this.add.text(arrowX, arrowY, '\u25BC', {
-        font: 'bold 14px ChangaOne, monospace',
+        font: 'bold 14px Bungee, monospace',
         fill: '#88bbff',
       }).setOrigin(0.5, 0).setDepth((shadowDepth ?? 2) + 0.1).setAlpha(0).setVisible(false);
       this._shadowArrows.push({ arrow, x, y, w, h });
@@ -1504,7 +1505,7 @@ export default class GameScene extends Phaser.Scene {
     this._addingHud = true;
     const gw = this.scale.width;
     this._towerTimerText = this.add.text(gw / 2, 32, '', {
-      fontFamily: 'ChangaOne', fontSize: '36px', fontStyle: 'bold',
+      fontFamily: 'Bungee', fontSize: '36px', fontStyle: 'bold',
       color: '#00ff88',
       stroke: '#003322', strokeThickness: 6
     }).setOrigin(0.5, 0).setDepth(300).setScrollFactor(0);
@@ -1520,7 +1521,7 @@ export default class GameScene extends Phaser.Scene {
 
       // Message text floating above gate
       const msg = this.add.text(g.x + g.w / 2, g.y - 16, g.message || '', {
-        font: 'bold 10px ChangaOne, monospace', fill: '#ff6666',
+        font: 'bold 10px Bungee, monospace', fill: '#ff6666',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5, 1).setDepth(10.1);
       gate.msgText = msg;
@@ -1585,7 +1586,7 @@ export default class GameScene extends Phaser.Scene {
     this._addingHud = true;
     const gw = this.scale.width;
     const bonusText = this.add.text(gw / 2, 42, `+${this._towerBonus}s`, {
-      font: 'bold 18px ChangaOne, monospace', fill: '#ffdd33',
+      font: 'bold 18px Bungee, monospace', fill: '#ffdd33',
       stroke: '#332200', strokeThickness: 3
     }).setOrigin(0.5, 0).setDepth(301);
     this._addingHud = false;
@@ -1605,7 +1606,7 @@ export default class GameScene extends Phaser.Scene {
         this._addingHud = true;
         const unlockText = this.add.text(gw / 2, 70,
           `${t('newColor')}: ${unlocks[muralIdx]}!`, {
-          font: 'bold 14px ChangaOne, monospace', fill: '#33ff88',
+          font: 'bold 14px Bungee, monospace', fill: '#33ff88',
           stroke: '#000000', strokeThickness: 3
         }).setOrigin(0.5, 0).setDepth(301);
         this._addingHud = false;
@@ -1652,7 +1653,7 @@ export default class GameScene extends Phaser.Scene {
     this._addingHud = true;
     const gw = this.scale.width;
     const welcomeText = this.add.text(gw / 2, 80, t('tutWelcome'), {
-      fontFamily: 'ChangaOne', fontSize: '42px', fontStyle: 'bold',
+      fontFamily: 'Bungee', fontSize: '42px', fontStyle: 'bold',
       color: '#00ff88', stroke: '#003322', strokeThickness: 6
     }).setOrigin(0.5).setDepth(301).setScrollFactor(0).setResolution(2);
     this._addingHud = false;
@@ -1686,7 +1687,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Measure text width using offscreen canvas
     const measure = document.createElement('canvas').getContext('2d');
-    measure.font = `bold ${fontSize * RES}px ChangaOne, monospace`;
+    measure.font = `bold ${fontSize * RES}px Bungee, monospace`;
     const metrics = measure.measureText(text);
     const textW = Math.ceil(metrics.width / RES) + pad * 2;
     const textH = fontSize + pad * 2 + 4;
@@ -1723,7 +1724,7 @@ export default class GameScene extends Phaser.Scene {
     // Text with stroke
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${fontSize * RES}px ChangaOne, monospace`;
+    ctx.font = `bold ${fontSize * RES}px Bungee, monospace`;
     ctx.lineWidth = strokeW * RES;
     ctx.strokeStyle = '#332200';
     ctx.strokeText(text, canW / 2, canH / 2);
@@ -1805,7 +1806,7 @@ export default class GameScene extends Phaser.Scene {
         fontSize: '22px', color: '#ffdd33'
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       const label = this.add.text(gw / 2, joyY, t('tutMoveJoystick'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '16px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       // Animate arrows
@@ -1819,11 +1820,11 @@ export default class GameScene extends Phaser.Scene {
       const jumpCircle = this.add.circle(btnX, btnY, 34, 0x33ff88, 0.25)
         .setStrokeStyle(3, 0x33ff88, 0.9).setDepth(291).setScrollFactor(0);
       const jumpLabel = this.add.text(btnX, btnY, 'JUMP', {
-        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#33ff88', stroke: '#003322', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       const desc = this.add.text(gw / 2 - 40, btnY, t('tutJump'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '16px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       // Pulse the button
@@ -1851,7 +1852,7 @@ export default class GameScene extends Phaser.Scene {
       const eCircle = this.add.circle(eX, joyY, 26, 0xffaa33, 0.25)
         .setStrokeStyle(3, 0xffaa33, 0.9).setDepth(291).setScrollFactor(0);
       const eLabel = this.add.text(eX, joyY, 'E', {
-        fontFamily: 'ChangaOne, monospace', fontSize: '18px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '18px', fontStyle: 'bold',
         color: '#ffaa33', stroke: '#332200', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       this.tweens.add({
@@ -1860,14 +1861,14 @@ export default class GameScene extends Phaser.Scene {
       });
 
       const desc = this.add.text(gw / 2, joyY, t('tutLadderE'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(ring, arrowU, arrowD, eCircle, eLabel, desc);
     } else if (phase === 3) {
       // Phase 3: Simple text — collect paint
       const desc = this.add.text(gw / 2, panelY + panelH / 2, t('tutCollectPaint'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '16px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '16px', fontStyle: 'bold',
         color: '#ffdd33', stroke: '#332200', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
@@ -1878,7 +1879,7 @@ export default class GameScene extends Phaser.Scene {
       const actCircle = this.add.circle(btnX, btnY - 10, 30, 0x3388ff, 0.25)
         .setStrokeStyle(3, 0x3388ff, 0.9).setDepth(291).setScrollFactor(0);
       const actLabel = this.add.text(btnX, btnY - 10, 'ACT', {
-        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#3388ff', stroke: '#001133', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       this.tweens.add({
@@ -1886,7 +1887,7 @@ export default class GameScene extends Phaser.Scene {
         duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
       });
       const desc = this.add.text(gw / 2 - 40, btnY, t('tutPaintACT'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(actCircle, actLabel, desc);
@@ -1929,7 +1930,7 @@ export default class GameScene extends Phaser.Scene {
         .setStrokeStyle(2, highlight ? 0xffdd33 : 0x555555, 1)
         .setDepth(291).setScrollFactor(0);
       const txt = this.add.text(x, y, label, {
-        fontFamily: 'ChangaOne, monospace', fontSize: '12px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '12px', fontStyle: 'bold',
         color: highlight ? '#ffdd33' : '#888888',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5).setDepth(292).setScrollFactor(0).setResolution(2);
@@ -1945,7 +1946,7 @@ export default class GameScene extends Phaser.Scene {
       drawKey(baseX, cy, '←', true);
       drawKey(baseX + 40, cy, '→', true);
       const desc = this.add.text(baseX + 100, cy, t('tutMove'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
@@ -1955,7 +1956,7 @@ export default class GameScene extends Phaser.Scene {
       drawKey(baseX + 70, cy, '↑', true);
       drawKey(baseX + 130, cy, 'SPACE', true);
       const desc = this.add.text(baseX + 180, cy, t('tutJumpWord'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
@@ -1963,25 +1964,25 @@ export default class GameScene extends Phaser.Scene {
       drawKey(baseX - 20, cy, '↑', true);
       drawKey(baseX + 20, cy, '↓', true);
       const lbl1 = this.add.text(baseX + 50, cy, t('tutLadder'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '11px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
         color: '#ffaa33', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       drawKey(baseX + 120, cy, 'E', true);
       const lbl2 = this.add.text(baseX + 145, cy, t('tutPushCrate'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '11px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
         color: '#ffaa33', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(lbl1, lbl2);
     } else if (phase === 3) {
       const desc = this.add.text(gw / 2, cy, t('tutCollectPaintDesktop'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '14px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
         color: '#ffdd33', stroke: '#332200', strokeThickness: 3
       }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
     } else if (phase === 4) {
       drawKey(gw / 2 - 30, cy, 'SPACE', true);
       const desc = this.add.text(gw / 2 + 20, cy, t('tutPaintMural'), {
-        fontFamily: 'ChangaOne, monospace', fontSize: '13px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
@@ -2049,7 +2050,7 @@ export default class GameScene extends Phaser.Scene {
       const gw = this.scale.width;
       const bravoTexts = t('bravo');
       const bravoText = this.add.text(gw / 2, 120, bravoTexts[newPhase - 1] || bravoTexts[0], {
-        fontFamily: 'ChangaOne', fontSize: '28px', fontStyle: 'bold',
+        fontFamily: 'Bungee', fontSize: '28px', fontStyle: 'bold',
         color: '#00ff88', stroke: '#003322', strokeThickness: 4
       }).setOrigin(0.5).setDepth(302).setScrollFactor(0).setResolution(2);
       this._addingHud = false;
@@ -2178,7 +2179,7 @@ export default class GameScene extends Phaser.Scene {
       .setDisplaySize(wallIconSize, wallIconSize)
       .setOrigin(0.5);
     this.hudCountText = this.add.text(Math.round(wallIconSize * 0.4), 0, '', {
-      fontFamily: 'ChangaOne',
+      fontFamily: 'Bungee',
       fontSize: `${counterFontSize}px`,
       fontStyle: 'bold',
       fill: '#ffffff',
@@ -2429,11 +2430,9 @@ export default class GameScene extends Phaser.Scene {
     // Hide ALL scene objects from uiCam using cameraFilter bitmask
     const uiId = this.uiCam.id;
     this.children.list.forEach(child => {
-      child.cameraFilter |= uiId;
-    });
-    // Then reveal ONLY HUD elements on uiCam
-    hudElements.forEach(el => {
-      if (el) el.cameraFilter &= ~uiId;
+      if (!hudElements.includes(child)) {
+        child.cameraFilter |= uiId;
+      }
     });
 
     this._hudElements = new Set(hudElements);
@@ -2443,6 +2442,7 @@ export default class GameScene extends Phaser.Scene {
       // Any new non-HUD object: hide from uiCam immediately
       if (this.uiCam) {
         obj.cameraFilter |= this.uiCam.id;
+        try { this.uiCam.ignore(obj); } catch(e) {}
       }
     });
   }
@@ -2740,7 +2740,7 @@ export default class GameScene extends Phaser.Scene {
     if (!hasAny) {
       const hint = this.add.text(this.player.x, this.player.y - 40,
         t('needPaint'), {
-          font: '11px ChangaOne, monospace',
+          font: '11px Bungee, monospace',
           fill: '#ff6666',
           backgroundColor: '#000000aa',
           padding: { x: 4, y: 2 }
@@ -2975,7 +2975,7 @@ export default class GameScene extends Phaser.Scene {
     const spotX = spot.getData('spotX') || spot.x;
     const spotY = spot.getData('spotY') || spot.y;
     const splash = this.add.text(spotX, spotY, t('tagged'), {
-      font: 'bold 16px ChangaOne, monospace',
+      font: 'bold 16px Bungee, monospace',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 3
     }).setOrigin(0.5).setDepth(15);

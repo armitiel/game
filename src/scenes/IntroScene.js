@@ -42,7 +42,8 @@ export default class IntroScene extends Phaser.Scene {
       position: absolute;
       bottom: 18px; right: 20px;
       color: rgba(255,255,255,0.5);
-      font-family: ChangaOne, monospace;
+      font-family: Calibri, sans-serif;
+      font-weight: bold;
       font-size: 15px;
       pointer-events: none;
       text-shadow: 0 0 6px #000;

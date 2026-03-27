@@ -26,7 +26,7 @@ export default class BootScene extends Phaser.Scene {
     let frameImg = null;
 
     const loadingText = this.add.text(width / 2, barY - 62, t('loading'), {
-      font: '36px ChangaOne, monospace',
+      font: '36px Bungee, monospace',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 3,
       shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 4, fill: true }
@@ -100,6 +100,11 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('logo', 'assets/sprites/ST_logo.png');
     this.load.image('bckg', 'assets/sprites/bckg.png');
     this.load.image('frame', 'assets/sprites/frame.png');
+
+    // === Mode card frames ===
+    this.load.image('frame_s1', 'assets/sprites/UI/s1.png');
+    this.load.image('frame_s2', 'assets/sprites/UI/s2.png');
+    this.load.image('frame_s3', 'assets/sprites/UI/s3.png');
     this.load.spritesheet('mode_frames', 'assets/sprites/frames.png', {
       frameWidth: 512, frameHeight: 1024
     });
@@ -137,7 +142,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.svg('icon_spray', 'assets/sprites/elementy/spray.svg', { width: 64, height: 64 });
 
     // === Load cop spritesheet (1x at COP.HEIGHT, same approach as player) ===
-    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=12', {
+    this.load.spritesheet('cop_sheet', 'assets/sprites/cop_walk_sheet_1x.png?v=15', {
       frameWidth: COP.HEIGHT,
       frameHeight: COP.HEIGHT
     });
@@ -183,7 +188,7 @@ export default class BootScene extends Phaser.Scene {
     this.anims.create({
       key: 'cop_idle',
       frames: this.anims.generateFrameNumbers('cop_sheet', { start: 90, end: 114 }),
-      frameRate: 10,
+      frameRate: 16,
       repeat: -1
     });
 
@@ -575,8 +580,8 @@ export default class BootScene extends Phaser.Scene {
     // === Register palette colors from painting JSONs ===
     this.registerPaintingPalettes();
 
-    // Force-load ChangaOne font (CSS @font-face only loads when used in DOM, not Canvas)
-    document.fonts.load('bold 20px ChangaOne').then(() => {
+    // Force-load Bungee font (CSS @font-face only loads when used in DOM, not Canvas)
+    document.fonts.load('bold 20px Bungee').then(() => {
       this.scene.start('MenuScene');
     });
   }

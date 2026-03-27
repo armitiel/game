@@ -63,7 +63,7 @@ export default class PaintCan extends Phaser.Physics.Arcade.Sprite {
 
     // Floating text
     const text = this.scene.add.text(px, py - 16, `+${this.colorName}`, {
-      font: '12px ChangaOne, monospace',
+      font: '12px Bungee, monospace',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: 2
     }).setOrigin(0.5);

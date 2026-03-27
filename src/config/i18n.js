@@ -18,11 +18,11 @@ const translations = {
     // Level select
     chooseMode: 'WYBIERZ TRYB',
     chooseLevel: 'WYBIERZ LEVEL',
-    stealthName: 'STEALTH',
+    stealthName: 'SKRADANKA',
     stealthDesc: 'Uciekaj przed policja\ni maluj murale w cieniu',
     puzzleName: 'PUZZLE',
     puzzleDesc: 'Uzyj drabin i koszy\nby dotrzec do murali',
-    towerName: 'WIEZA',
+    towerName: 'WIEŻA',
     towerDesc: 'Wspinaj sie w gore\nczas ucieka!',
     levelCount: 'Level',
     tutorial: '[ TUTORIAL ]',
@@ -30,7 +30,7 @@ const translations = {
     levelSelectHint: '[ Kliknij level | ESC = tryby ]',
 
     // Intro
-    skipHint: '[ SPACJA / TAP — POMIN ]',
+    skipHint: '[ SPACJA / TAP — POMIŃ ]',
 
     // Win
     levelComplete: 'LEVEL UKONCZONY',

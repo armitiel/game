@@ -28,6 +28,7 @@ const config = {
   },
   scene: [BootScene, MenuScene, LevelSelectScene, IntroScene, GameScene, WinScene],
   pixelArt: true,
+  roundPixels: true,
   scale: {
     mode: isMobile ? Phaser.Scale.EXPAND : Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -73,8 +74,8 @@ const unlockAudioContext = () => {
 document.addEventListener('touchstart', unlockAudioContext, { once: true });
 document.addEventListener('click', unlockAudioContext, { once: true });
 
-// Force-load ChangaOne font before starting Phaser so the loading screen uses it
-const fontFace = new FontFace('ChangaOne', 'url(/assets/sprites/elementy/ChangaOne-Regular.ttf)');
+// Force-load Bungee font before starting Phaser so the loading screen uses it
+const fontFace = new FontFace('Bungee', 'url(/assets/sprites/elementy/Bungee-Regular.ttf)');
 fontFace.load().then(f => {
   document.fonts.add(f);
   new Phaser.Game(config);
@@ -179,7 +180,7 @@ function showInstallBanner(type) {
     position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
     z-index: 10001;
     display: ${isIOSGuide ? 'block' : 'flex'}; align-items: center; gap: 12px;
-    background: #111; color: #00ff88; font-family: 'ChangaOne', monospace; font-size: 14px;
+    background: #111; color: #00ff88; font-family: 'Bungee', monospace; font-size: 14px;
     padding: ${isIOSGuide ? '14px 18px' : '10px 16px'}; border-radius: 10px; border: 1px solid #00ff8855;
     box-shadow: 0 4px 20px rgba(0,255,136,0.15);
     max-width: 90vw;
