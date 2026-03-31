@@ -2353,14 +2353,11 @@ export default class GameScene extends Phaser.Scene {
 
     this.muteBtnHit.on('pointerdown', () => {
       this.musicOn = !this.musicOn;
-      const amb = this.sound.get('ambience');
       if (this.musicOn) {
         this.bgm.resume();
-        if (amb) amb.resume();
         this.muteBtn.setAlpha(1);
       } else {
         this.bgm.pause();
-        if (amb) amb.pause();
         this.muteBtn.setAlpha(0.4);
       }
     });

@@ -112,6 +112,16 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 2);
       this.setScale(1.015);
     }
+    // Footstep sound: loop while walking, stop otherwise
+    if (key === 'player_walk') {
+      if (!this._footstepSound) {
+        this._footstepSound = this.scene.sound.add('sfx_footstep', { loop: true, volume: 0.18 });
+      }
+      if (!this._footstepSound.isPlaying) this._footstepSound.play();
+    } else if (this._footstepSound?.isPlaying) {
+      this._footstepSound.stop();
+    }
+
     // Any non-idle/non-twist animation resets the idle twist timer
     if (key !== 'player_idle' && key !== 'player_twist' && key !== 'player_twist_rev') {
       this.idleTimer = 0;
