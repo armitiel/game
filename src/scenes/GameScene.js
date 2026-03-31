@@ -2199,7 +2199,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Music toggle button (speaker icon)
     this.musicOn = true;
-    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.07 });
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.0375 });
 
     // === iOS audio unlock strategy ===
     // iOS Safari blocks ALL audio until a user gesture resumes the AudioContext.

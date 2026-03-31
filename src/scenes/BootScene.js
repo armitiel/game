@@ -104,6 +104,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.audio('sfx_ugh', 'assets/sounds/ugh.mp3');
     this.load.audio('sfx_pickup', 'assets/sounds/pickup.mp3');
     this.load.audio('sfx_footstep', 'assets/sounds/footstep_scuff_run.mp3');
+    this.load.audio('sfx_logo', 'assets/sounds/logo.mp3');
 
     // === Load logo ===
     this.load.image('logo', 'assets/sprites/ST_logo.png');

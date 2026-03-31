@@ -8,10 +8,21 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    // Start ambient sound if not already playing (persists across scenes)
-    if (!this.sound.get('ambience')?.isPlaying) {
-      this.sound.add('ambience', { loop: true, volume: 0.15 }).play();
-    }
+    // Start ambience — try immediately, retry on user gesture if blocked
+    const snd = this.game.sound;
+    const tryAmbience = () => {
+      if (!snd.get('ambience')?.isPlaying) {
+        snd.add('ambience', { loop: true, volume: 0.15 }).play();
+      }
+    };
+    tryAmbience();
+    this.input.once('pointerdown', tryAmbience);
+    this.input.keyboard.once('keydown', tryAmbience);
+
+    // Logo sound with 1s delay
+    this.time.delayedCall(1000, () => {
+      this.sound.play('sfx_logo', { volume: 0.5 });
+    });
 
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
