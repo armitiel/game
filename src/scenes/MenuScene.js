@@ -8,6 +8,11 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    // Start ambient sound if not already playing (persists across scenes)
+    if (!this.sound.get('ambience')?.isPlaying) {
+      this.sound.add('ambience', { loop: true, volume: 0.15 }).play();
+    }
+
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
 

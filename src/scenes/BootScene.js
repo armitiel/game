@@ -91,6 +91,7 @@ export default class BootScene extends Phaser.Scene {
     // === Load music ===
     // Multiple formats: browser picks first supported (m4a=iOS/Safari preferred, mp3=universal, ogg=Firefox/Chrome)
     this.load.audio('bgm', ['assets/sprites/bgm.m4a', 'assets/sprites/bgm.mp3', 'assets/sprites/bgm.ogg']);
+    this.load.audio('ambience', 'assets/sounds/urban_ambience.mp3');
 
     // === Load SFX ===
     this.load.audio('sfx_spray', 'assets/sounds/spray_paint2.mp3');
