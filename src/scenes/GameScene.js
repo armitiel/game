@@ -198,7 +198,7 @@ export default class GameScene extends Phaser.Scene {
     // Paint can pickup
     this.physics.add.overlap(this.player, this.paintCans, (player, can) => {
       can.collect(player);
-      this.sfx.collectPaint();
+      this.sound.play('sfx_pickup', { volume: 0.35 });
     });
 
     // Paint spot interaction — with grace timestamp for flicker tolerance at high fps
