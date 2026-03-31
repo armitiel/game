@@ -1290,6 +1290,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.hp = Math.max(0, this.hp - amount);
     this._invincibleUntil = this.scene.time.now + PLAYER.INVINCIBLE_MS;
 
+    this.scene.sound.play('sfx_ugh', { volume: 0.4 });
     // Visual feedback — flash red + blink
     this.setTint(0xff0000);
     this.scene.cameras.main.shake(150, 0.008);

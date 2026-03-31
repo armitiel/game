@@ -251,7 +251,7 @@ export default class GameScene extends Phaser.Scene {
       }
       if (this.player.isPushingLadder) this.player.stopLadderPush();
       if (this.player.isHiding) this.player.stopHiding();
-      this.sfx.caught();
+      // ugh sound already played in takeDamage()
     });
 
     // Full death — all hearts lost → respawn at checkpoint with full HP
