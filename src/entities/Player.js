@@ -293,10 +293,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (onGround && this.wasInAir) {
       const impact = Math.min(this.fallVelocity / 400, 1); // 0-1 intensity based on fall speed
       this.spawnLandingDust(impact);
-      if (this.scene.sfx) this.scene.sfx.land(impact);
       // Play thud sound on landing
-      if (impact > 0.2) {
-        this.scene.sound.play('sfx_thud', { volume: 0.15 + impact * 0.35 });
+      if (impact > 0.15) {
+        this.scene.sound.play('sfx_thud', { volume: 0.1 + impact * 0.4 });
       }
       // Stop whee sound on landing
       if (this._wheePlaying) {
