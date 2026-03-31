@@ -93,8 +93,13 @@ export default class BootScene extends Phaser.Scene {
     this.load.audio('bgm', ['assets/sprites/bgm.m4a', 'assets/sprites/bgm.mp3', 'assets/sprites/bgm.ogg']);
 
     // === Load SFX ===
-    this.load.audio('sfx_spray', ['assets/sounds/spray.m4a', 'assets/sounds/spray.mp3', 'assets/sounds/spray.ogg']);
+    this.load.audio('sfx_spray', 'assets/sounds/spray_paint2.mp3');
     this.load.audio('sfx_canshake', ['assets/sounds/canshake.m4a', 'assets/sounds/canshake.mp3', 'assets/sounds/canshake.ogg']);
+    this.load.audio('sfx_spray_shake', 'assets/sounds/spray_shake.mp3');
+    this.load.audio('sfx_thud', 'assets/sounds/thud.mp3');
+    this.load.audio('sfx_jump', 'assets/sounds/jump_.mp3');
+    this.load.audio('sfx_guard_huh', 'assets/sounds/guard_huh.mp3');
+    this.load.audio('sfx_whee', 'assets/sounds/whee.mp3');
 
     // === Load logo ===
     this.load.image('logo', 'assets/sprites/ST_logo.png');

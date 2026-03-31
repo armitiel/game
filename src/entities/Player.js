@@ -294,11 +294,29 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       const impact = Math.min(this.fallVelocity / 400, 1); // 0-1 intensity based on fall speed
       this.spawnLandingDust(impact);
       if (this.scene.sfx) this.scene.sfx.land(impact);
+      // Play thud sound on landing
+      if (impact > 0.2) {
+        this.scene.sound.play('sfx_thud', { volume: 0.15 + impact * 0.35 });
+      }
+      // Stop whee sound on landing
+      if (this._wheePlaying) {
+        this._wheePlaying.stop();
+        this._wheePlaying = null;
+      }
+      this._fallDuration = 0;
     }
     if (!onGround && !this.isClimbing) {
       this.fallVelocity = Math.max(this.fallVelocity, this.body.velocity.y);
+      // Track how long we've been falling
+      this._fallDuration = (this._fallDuration || 0) + dt;
+      // Play whee only on long falls (>800ms, fast velocity) — not on normal jumps
+      if (this._fallDuration > 800 && this.body.velocity.y > 350 && !this._wheePlaying) {
+        this._wheePlaying = this.scene.sound.add('sfx_whee', { volume: 0.3 });
+        this._wheePlaying.play();
+      }
     } else {
       this.fallVelocity = 0;
+      this._fallDuration = 0;
     }
     this.wasInAir = !onGround && !this.isClimbing;
 
@@ -591,7 +609,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setVelocityY(PLAYER.JUMP_VELOCITY);
       this.playAnim('player_jump');
       this.spawnJumpDust();
-      if (this.scene.sfx) this.scene.sfx.jump();
+      if (!this.onLadder) this.scene.sound.play('sfx_jump', { volume: 0.35 });
       this.updateHiddenIcon();
       return;
     }

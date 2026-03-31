@@ -3931,11 +3931,21 @@ export default class GameScene extends Phaser.Scene {
           this.sfxSpray.play();
           this._sprayPlaying = true;
           this._paintIdleTimer = 0;
+          this._sprayShakeTimer = Phaser.Math.Between(800, 2500);
         } else if (!isMovingHand && this._sprayPlaying) {
           this.sfxSpray.stop();
           this._sprayPlaying = false;
           this._paintIdleTimer = 0;
           this._nextShakeDelay = Phaser.Math.Between(2000, 5000);
+        }
+      }
+
+      // --- Random spray shake sound while actively painting ---
+      if (this._sprayPlaying) {
+        this._sprayShakeTimer = (this._sprayShakeTimer || 0) - delta;
+        if (this._sprayShakeTimer <= 0) {
+          this.sound.play('sfx_spray_shake', { volume: Phaser.Math.FloatBetween(0.12, 0.25) });
+          this._sprayShakeTimer = Phaser.Math.Between(1200, 3500);
         }
       }
 

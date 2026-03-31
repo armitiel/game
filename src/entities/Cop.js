@@ -293,6 +293,7 @@ export default class Cop extends Phaser.Physics.Arcade.Sprite {
     // Play notice reaction only once per encounter
     if (!this._noticePlayed) {
       this._noticePlayed = true;
+      this.scene.sound.play('sfx_guard_huh', { volume: 0.4 });
       this.play('cop_notice');
       this.once('animationcomplete-cop_notice', () => {
         if (this.state === 'SUSPICIOUS') {
