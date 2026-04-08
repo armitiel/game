@@ -53,7 +53,14 @@ export default class GameScene extends Phaser.Scene {
     // up positioned for 1280x720 and are invisible off the actual canvas.
     this.cameras.main.setSize(this.scale.width, this.scale.height);
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    this.cameras.main.setZoom(isMobile ? 2.7 : 1.95);
+    // Zoom was originally tuned for a fixed 1280x720 virtual canvas (FIT mode).
+    // With RESIZE mode the canvas matches the device viewport, so we must
+    // scale the zoom by (canvasHeight / GAME.HEIGHT) to preserve the intended
+    // world-visible area. Otherwise a small phone canvas (~400px tall) would
+    // show only ~148 world px across and feel extremely zoomed in.
+    const designZoom = isMobile ? 2.7 : 1.95;
+    const scaleFactor = this.scale.height / GAME.HEIGHT;
+    this.cameras.main.setZoom(designZoom * scaleFactor);
     this.cameras.main.setRoundPixels(true);
     this._baseZoom = this.cameras.main.zoom;  // remember base zoom for paint restore
     this.cameras.main.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
