@@ -2166,6 +2166,23 @@ export default class GameScene extends Phaser.Scene {
   // === HUD ===
 
   createHUD() {
+    // CRITICAL: remove any stale listeners from a previous createHUD()
+    // call on this same scene instance. Phaser reuses scene instances
+    // across scene.start() — scene.events listeners added by user code
+    // PERSIST across restarts. If we don't clear the old 'addedtoscene'
+    // handler, it fires during the new HUD build, reads the FRESH
+    // this.uiCam, and applies cameraFilter |= uiCam.id to every new HUD
+    // element — making them invisible on the new uiCam. This is the
+    // root cause of "HUD vanishes on level after visiting another
+    // level first" (observed on tower, street, and rebuild flows).
+    this.events.off('addedtoscene');
+    // Also detach any stale ScaleManager resize handler so we don't
+    // end up with multiple handlers after a rebuild or scene restart.
+    if (this._resizeHandler) {
+      try { this.scale.off('resize', this._resizeHandler); } catch(e) {}
+      this._resizeHandler = null;
+    }
+
     // HUD uses a dedicated scene overlay to avoid zoom issues
     // We add a second camera just for UI, with zoom=1
     const gw = this.scale.width;
