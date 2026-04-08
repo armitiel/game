@@ -243,6 +243,55 @@ export default class LevelSelectScene extends Phaser.Scene {
     const levels = this.getLevelsForMode(modeKey);
     const modeNames = { stealth: t('stealthName'), puzzle: t('puzzleName'), tower: t('towerName') };
 
+    // === Home button (top-left) — returns to mode selection ===
+    // Without this, mobile users had no way to get back to the mode
+    // picker from the stealth level list (ESC only works on desktop).
+    const homeSize = 68;
+    const homeX = 60;
+    const homeY = 60;
+    const homeHit = this.add.rectangle(homeX, homeY, homeSize * 1.4, homeSize * 1.4, 0x000000, 0);
+    const homeIcon = this.add.image(homeX, homeY, 'icon_home').setDisplaySize(homeSize, homeSize);
+    try { homeIcon.texture.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) {}
+    homeHit._pressed = false;
+    this.time.delayedCall(300, () => {
+      if (homeHit && homeHit.scene) homeHit.setInteractive({ useHandCursor: true });
+    });
+    const _homeBaseSX = homeIcon.scaleX;
+    const _homeBaseSY = homeIcon.scaleY;
+    const _homeAnim = (target) => {
+      if (!homeIcon || !homeIcon.scene) return;
+      if (this._homeTween) this._homeTween.stop();
+      this._homeTween = this.tweens.add({
+        targets: homeIcon,
+        scaleX: _homeBaseSX * target, scaleY: _homeBaseSY * target,
+        duration: 80, ease: 'Quad.easeOut'
+      });
+    };
+    homeHit.on('pointerdown', () => { homeHit._pressed = true; _homeAnim(0.82); });
+    homeHit.on('pointerout', () => {
+      if (!homeHit._pressed) return;
+      homeHit._pressed = false; _homeAnim(1);
+    });
+    homeHit.on('pointerupoutside', () => {
+      if (!homeHit._pressed) return;
+      homeHit._pressed = false; _homeAnim(1);
+    });
+    homeHit.on('pointerup', () => {
+      if (!homeHit._pressed) return;
+      homeHit._pressed = false;
+      if (this._homeTween) this._homeTween.stop();
+      this._homeTween = this.tweens.add({
+        targets: homeIcon,
+        scaleX: _homeBaseSX * 1.08, scaleY: _homeBaseSY * 1.08,
+        duration: 90, yoyo: true, ease: 'Quad.easeOut',
+        onComplete: () => {
+          if (this.sys && this.sys.isActive()) {
+            this.scene.restart({ mode: null });  // back to mode selection
+          }
+        }
+      });
+    });
+
     // Mode title with 3D depth effect (matches mode select screen)
     const titleText = modeNames[modeKey] || modeKey.toUpperCase();
     const titleY = 70;
