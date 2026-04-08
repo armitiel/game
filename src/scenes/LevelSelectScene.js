@@ -12,6 +12,13 @@ export default class LevelSelectScene extends Phaser.Scene {
   }
 
   create() {
+    // Belt-and-suspenders: remove any leaked intro overlay
+    try {
+      document.querySelectorAll('div[data-intro-overlay]').forEach(el => {
+        try { el.remove(); } catch (e) {}
+      });
+    } catch (e) {}
+
     const cx = this.scale.width / 2;
     const gh = this.scale.height;
 

@@ -26,6 +26,15 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Belt-and-suspenders: remove any leaked intro overlay so the game
+    // canvas is never hidden behind a stray fullscreen black div on a
+    // fast scene transition.
+    try {
+      document.querySelectorAll('div[data-intro-overlay]').forEach(el => {
+        try { el.remove(); } catch (e) {}
+      });
+    } catch (e) {}
+
     this.sfx = new SynthSFX();
 
     // === SYNCHRONIZE SCALE BEFORE BUILDING ANYTHING ===

@@ -8,6 +8,13 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    // Belt-and-suspenders: remove any leaked intro overlay
+    try {
+      document.querySelectorAll('div[data-intro-overlay]').forEach(el => {
+        try { el.remove(); } catch (e) {}
+      });
+    } catch (e) {}
+
     // Start ambience — try immediately, retry on user gesture if blocked
     const snd = this.game.sound;
     // Kill any lingering bgm from GameScene so it doesn't overlap with ambience

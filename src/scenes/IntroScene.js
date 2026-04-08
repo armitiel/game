@@ -12,11 +12,17 @@ export default class IntroScene extends Phaser.Scene {
   }
 
   create() {
+    // Belt-and-suspenders: remove any leaked overlay from a previous run
+    document.querySelectorAll('div[data-intro-overlay]').forEach(el => {
+      try { el.remove(); } catch (e) {}
+    });
+
     const canvas = this.sys.game.canvas;
     const parent = canvas.parentElement || document.body;
 
     // Overlay container — fixed so it covers the full viewport without affecting canvas layout
     this._container = document.createElement('div');
+    this._container.setAttribute('data-intro-overlay', '1');
     this._container.style.cssText = `
       position: fixed;
       top: 0; left: 0;
@@ -80,12 +86,16 @@ export default class IntroScene extends Phaser.Scene {
 
   _cleanup() {
     if (this._video) {
-      this._video.pause();
-      this._video.src = '';
+      try { this._video.pause(); } catch (e) {}
+      try { this._video.src = ''; } catch (e) {}
     }
     if (this._container && this._container.parentNode) {
-      this._container.parentNode.removeChild(this._container);
+      try { this._container.parentNode.removeChild(this._container); } catch (e) {}
     }
+    // Belt-and-suspenders: remove any other lingering overlays in the DOM
+    document.querySelectorAll('div[data-intro-overlay]').forEach(el => {
+      try { el.remove(); } catch (e) {}
+    });
     this._video = null;
     this._container = null;
     this._skipHint = null;
