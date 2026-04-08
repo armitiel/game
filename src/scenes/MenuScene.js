@@ -10,8 +10,25 @@ export default class MenuScene extends Phaser.Scene {
   create() {
     // Start ambience — try immediately, retry on user gesture if blocked
     const snd = this.game.sound;
+    // Kill any lingering bgm from GameScene so it doesn't overlap with ambience
+    try {
+      const staleBgms = snd.getAll ? snd.getAll('bgm') : [];
+      staleBgms.forEach(s => { try { s.stop(); s.destroy(); } catch(e) {} });
+    } catch(e) {}
+    // Deduplicate ambience: keep at most one playing instance
+    try {
+      const allAmb = snd.getAll ? snd.getAll('ambience') : [];
+      let keptOne = false;
+      allAmb.forEach(s => {
+        if (!keptOne && s.isPlaying) { keptOne = true; return; }
+        try { s.stop(); s.destroy(); } catch(e) {}
+      });
+    } catch(e) {}
     const tryAmbience = () => {
-      if (!snd.get('ambience')?.isPlaying) {
+      const existing = snd.getAll ? snd.getAll('ambience') : [];
+      const anyPlaying = existing.some(s => s.isPlaying);
+      if (!anyPlaying) {
+        existing.forEach(s => { try { s.destroy(); } catch(e) {} });
         snd.add('ambience', { loop: true, volume: 0.15 }).play();
       }
     };
@@ -118,11 +135,18 @@ export default class MenuScene extends Phaser.Scene {
       .catch(() => {});
 
     // Input — keyboard + touch
-    this.input.keyboard.once('keydown-SPACE', () => {
-      this.scene.start('LevelSelectScene');
-    });
-    this.input.once('pointerdown', () => {
-      this.scene.start('LevelSelectScene');
+    // Delay pointer listener registration so that a lingering pointerdown
+    // from a previous scene (e.g. tapping Home in GameScene) doesn't
+    // instantly fire this handler and cascade through to LevelSelectScene.
+    this.time.delayedCall(250, () => {
+      if (!this.sys || !this.sys.isActive()) return;
+      this.input.keyboard.once('keydown-SPACE', () => {
+        this.scene.start('LevelSelectScene');
+      });
+      // Use pointerup instead of pointerdown to avoid event cascades
+      this.input.once('pointerup', () => {
+        this.scene.start('LevelSelectScene');
+      });
     });
   }
 }

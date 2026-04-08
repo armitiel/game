@@ -307,7 +307,12 @@ export default class GameScene extends Phaser.Scene {
     // Stop music when scene shuts down (prevents duplicate playback on restart)
     // Also clear references to Phaser objects so a fresh create() starts clean.
     this.events.on('shutdown', () => {
-      if (this.bgm) { try { this.bgm.stop(); } catch(e) {} this.bgm = null; }
+      if (this.bgm) { try { this.bgm.stop(); this.bgm.destroy(); } catch(e) {} this.bgm = null; }
+      // Kill any orphan bgm instances to prevent overlap on next scene
+      try {
+        const orphans = this.sound.getAll ? this.sound.getAll('bgm') : [];
+        orphans.forEach(s => { try { s.stop(); s.destroy(); } catch(e) {} });
+      } catch(e) {}
       if (this._leafTimer) { try { this._leafTimer.remove(); } catch(e) {} this._leafTimer = null; }
       if (this._hudRebuildTimer) { try { this._hudRebuildTimer.remove(); } catch(e) {} this._hudRebuildTimer = null; }
       this._hudRebuildScheduled = false;
@@ -2319,6 +2324,16 @@ export default class GameScene extends Phaser.Scene {
 
     // Music toggle button (speaker icon)
     this.musicOn = true;
+    // Kill any stale bgm instances from previous scene runs to avoid overlap
+    try {
+      const staleBgms = this.sound.getAll ? this.sound.getAll('bgm') : [];
+      staleBgms.forEach(s => { try { s.stop(); s.destroy(); } catch(e) {} });
+    } catch(e) {}
+    // Stop menu ambience while in-game so it doesn't overlap with bgm
+    try {
+      const amb = this.sound.getAll ? this.sound.getAll('ambience') : [];
+      amb.forEach(s => { try { s.stop(); } catch(e) {} });
+    } catch(e) {}
     this.bgm = this.sound.add('bgm', { loop: true, volume: 0.0375 });
 
     // === iOS audio unlock strategy ===

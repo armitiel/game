@@ -50,20 +50,33 @@
       align-items: center;
     }
     #game-container {
-      width: 100%;
-      height: 100%;
+      /* Use viewport units so the container always fills the screen,
+         regardless of flex-shrink behaviour on mobile browsers. */
+      width: 100vw;
+      height: 100dvh;
+      /* Prevent flexbox from shrinking below content */
+      flex-shrink: 0;
+      position: relative;
     }
     /* Desktop: contained window, not full screen */
     @media (pointer: fine) and (min-width: 1024px) {
       #game-container {
+        width: auto;
+        height: auto;
         max-height: 85vh;
         max-width: calc(85vh * 16 / 9);
+        aspect-ratio: 16 / 9;
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 0 40px rgba(0, 255, 136, 0.08), 0 0 80px rgba(0, 0, 0, 0.6);
       }
     }
-    canvas { display: block; }
+    canvas {
+      display: block;
+      /* Ensure canvas fills container and is centered */
+      width: 100% !important;
+      height: 100% !important;
+    }
 
     /* "Rotate your phone" overlay — visible only in portrait on touch devices */
     #rotate-overlay {

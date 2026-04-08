@@ -126,9 +126,12 @@ export default class LevelSelectScene extends Phaser.Scene {
       this.textures.get(m.frame).setFilter(Phaser.Textures.FilterMode.LINEAR);
       this.add.image(x, cardY, m.frame).setDisplaySize(frameW, frameH);
 
-      // Invisible hitbox for interaction
-      const card = this.add.rectangle(x, cardY, frameW, frameH, 0x000000, 0)
-        .setInteractive({ useHandCursor: true });
+      // Invisible hitbox for interaction — defer enabling to avoid
+      // inheriting a lingering pointerdown from the previous scene
+      const card = this.add.rectangle(x, cardY, frameW, frameH, 0x000000, 0);
+      this.time.delayedCall(250, () => {
+        if (card && card.scene) card.setInteractive({ useHandCursor: true });
+      });
 
       // Mode name — big bold white with dark stroke, italic style
       const nameY = cardY - frameH / 2 + frameH * 0.24;
@@ -158,8 +161,8 @@ export default class LevelSelectScene extends Phaser.Scene {
         wordWrap: { width: frameW - 50 }
       }).setOrigin(0.5);
 
-      // Click
-      card.on('pointerdown', () => {
+      // Click — use pointerup to avoid cascading pointerdown events
+      card.on('pointerup', () => {
         if (m.levels.length === 1) {
           // Only 1 level — go straight to game
           const idx = LEVELS.indexOf(m.levels[0]);
