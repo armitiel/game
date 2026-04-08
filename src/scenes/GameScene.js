@@ -28,6 +28,12 @@ export default class GameScene extends Phaser.Scene {
   create() {
     this.sfx = new SynthSFX();
 
+    // === SYNCHRONIZE SCALE BEFORE BUILDING ANYTHING ===
+    // Force ScaleManager to re-read canvas dimensions so cameras + HUD
+    // are built with the final, stable size. Without this, a scene started
+    // mid-resize (e.g. Home → Level, orientation change) uses stale values.
+    try { this.scale.refresh(); } catch(e) {}
+
     const ld = this.levelData;
     this.cameras.main.setBackgroundColor(GAME.BACKGROUND_COLOR);
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -35,6 +41,9 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this._baseZoom = this.cameras.main.zoom;  // remember base zoom for paint restore
     this.cameras.main.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
+    // Remember initial size so we can detect post-create scale drift
+    this._initialScaleW = this.scale.width;
+    this._initialScaleH = this.scale.height;
 
     // === World bounds ===
     this.physics.world.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
@@ -216,6 +225,28 @@ export default class GameScene extends Phaser.Scene {
     // === HUD ===
     this.createHUD();
 
+    // === Post-create scale reconciliation ===
+    // The ScaleManager can still settle AFTER create() completes (common
+    // during orientation changes or when returning from Home). Schedule a
+    // series of refresh+reconcile calls to catch any drift and rebuild
+    // the HUD if necessary. Each refresh() triggers the resize handler,
+    // which in turn triggers _rebuildHUD() when size actually changed.
+    [50, 200, 500].forEach(delay => {
+      this.time.delayedCall(delay, () => {
+        if (!this.sys || !this.sys.isActive()) return;
+        try { this.scale.refresh(); } catch(e) {}
+        // Force main-camera size in case nothing fired
+        const w = this.scale.width;
+        const h = this.scale.height;
+        if (this.cameras && this.cameras.main) {
+          this.cameras.main.setSize(w, h);
+        }
+        if (this.uiCam && this.uiCam.scene === this) {
+          this.uiCam.setSize(w, h);
+        }
+      });
+    });
+
     // === Tower mode: timer + color gates ===
     if (this.mode === 'tower') {
       this.setupTowerMode();
@@ -271,6 +302,8 @@ export default class GameScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       if (this.bgm) { try { this.bgm.stop(); } catch(e) {} this.bgm = null; }
       if (this._leafTimer) { try { this._leafTimer.remove(); } catch(e) {} this._leafTimer = null; }
+      if (this._hudRebuildTimer) { try { this._hudRebuildTimer.remove(); } catch(e) {} this._hudRebuildTimer = null; }
+      this._hudRebuildScheduled = false;
       // Clear stale refs — on restart create() will reinitialize these
       this.uiCam = null;
       this._hudElements = null;
@@ -2129,18 +2162,35 @@ export default class GameScene extends Phaser.Scene {
     // IMPORTANT: this.scale is the GLOBAL ScaleManager — listeners persist
     // across scene restarts. Must remove on shutdown to prevent stale refs.
     this._resizeHandler = (gameSize) => {
-      // Guard against stale refs from previous scene instances
-      if (!this.uiCam || this.uiCam.scene !== this) return;
+      // Ensure scene is still alive before touching anything
+      if (!this.scene || !this.sys || !this.sys.isActive()) return;
       const w = gameSize.width;
       const h = gameSize.height;
-      // Resize BOTH cameras so main camera viewport follows canvas
+      // ALWAYS resize main camera — even if uiCam isn't ready yet —
+      // otherwise the viewport stays stuck at a stale size and the world
+      // appears frozen / cropped.
       if (this.cameras && this.cameras.main) {
         this.cameras.main.setSize(w, h);
       }
-      this.uiCam.setSize(w, h);
-      // Reposition HUD elements which use absolute coordinates
-      if (typeof this._repositionHUD === 'function') {
-        this._repositionHUD(w, h);
+      // Only touch uiCam if it belongs to THIS scene instance
+      if (this.uiCam && this.uiCam.scene === this) {
+        this.uiCam.setSize(w, h);
+      }
+      // HUD uses absolute pixel positions computed from initial size.
+      // If size changed significantly we rebuild the HUD from scratch so
+      // layout math re-runs with the correct dimensions.
+      const iw = this._initialScaleW || w;
+      const ih = this._initialScaleH || h;
+      const sizeChanged = Math.abs(w - iw) > 2 || Math.abs(h - ih) > 2;
+      if (sizeChanged && !this._hudRebuildScheduled && this._hudElements) {
+        this._hudRebuildScheduled = true;
+        // Debounce — wait for resize burst to settle before rebuilding
+        if (this._hudRebuildTimer) this._hudRebuildTimer.remove();
+        this._hudRebuildTimer = this.time.delayedCall(120, () => {
+          this._hudRebuildScheduled = false;
+          this._hudRebuildTimer = null;
+          this._rebuildHUD();
+        });
       }
     };
     this.scale.on('resize', this._resizeHandler);
@@ -2481,6 +2531,71 @@ export default class GameScene extends Phaser.Scene {
         try { this.uiCam.ignore(obj); } catch(e) {}
       }
     });
+  }
+
+  /**
+   * Rebuild HUD after scale change. Destroys all HUD elements and re-runs
+   * createHUD() so positions/sizes are recomputed with current scale.width/height.
+   * Preserves the existing uiCam (just resizes it).
+   */
+  _rebuildHUD() {
+    if (!this.sys || !this.sys.isActive()) return;
+    // Don't rebuild while in paint mode — color selector state would be lost
+    if (this.player && this.player.isPainting) {
+      // Retry after paint exits
+      this._hudRebuildScheduled = true;
+      if (this._hudRebuildTimer) this._hudRebuildTimer.remove();
+      this._hudRebuildTimer = this.time.delayedCall(500, () => {
+        this._hudRebuildScheduled = false;
+        this._hudRebuildTimer = null;
+        this._rebuildHUD();
+      });
+      return;
+    }
+
+    // Destroy old HUD elements
+    if (this._hudElements) {
+      this._hudElements.forEach(el => {
+        if (el && el.destroy) {
+          try { el.destroy(); } catch(e) {}
+        }
+      });
+      this._hudElements = null;
+    }
+
+    // Destroy & recreate touch controls (joystick + action buttons)
+    if (this.touch) {
+      try { this.touch.destroy(); } catch(e) {}
+      this.touch = new TouchControls(this);
+    }
+
+    // Clear HUD refs so createHUD rebuilds fresh
+    this.hudBgBar = null; this.hudBgMute = null;
+    this.hudBgLeft = null; this.hudBgMid = null; this.hudBgRight = null;
+    this.hudCountContainer = null; this.hudCountText = null;
+    this.menuBtn = null; this.menuBtnHit = null;
+    this.muteBtn = null; this.muteBtnHit = null;
+    this.hudSlots = null;
+    this.hudHeart = null;
+
+    // Remove the old uiCam (createHUD will make a new one)
+    if (this.uiCam) {
+      try { this.cameras.remove(this.uiCam); } catch(e) {}
+      this.uiCam = null;
+    }
+
+    // Update initial size tracker so we don't immediately re-trigger
+    this._initialScaleW = this.scale.width;
+    this._initialScaleH = this.scale.height;
+
+    // Rebuild
+    try {
+      this.createHUD();
+      if (typeof this.updateHUD === 'function') this.updateHUD();
+      if (typeof this.updateHearts === 'function') this.updateHearts();
+    } catch(e) {
+      console.warn('[HUD] rebuild failed:', e);
+    }
   }
 
   updateHearts() {
