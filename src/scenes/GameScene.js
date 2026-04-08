@@ -2415,9 +2415,56 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5).setDepth(102).setScrollFactor(0);
     this.menuBtn.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
 
+    // Home button: press-in animation on pointerdown, navigate on pointerup.
+    // Using pointerup prevents the same touch from cascading into MenuScene /
+    // LevelSelectScene during a slow tap.
+    this.menuBtnHit._pressed = false;
+    const _homeBaseScaleX = this.menuBtn.scaleX;
+    const _homeBaseScaleY = this.menuBtn.scaleY;
+    const _homeAnimate = (targetScale) => {
+      if (!this.menuBtn || !this.menuBtn.scene) return;
+      if (this._homeTween) this._homeTween.stop();
+      this._homeTween = this.tweens.add({
+        targets: this.menuBtn,
+        scaleX: _homeBaseScaleX * targetScale,
+        scaleY: _homeBaseScaleY * targetScale,
+        duration: 80,
+        ease: 'Quad.easeOut'
+      });
+    };
     this.menuBtnHit.on('pointerdown', () => {
-      if (this.bgm) this.bgm.stop();
-      this.scene.start('MenuScene');
+      this.menuBtnHit._pressed = true;
+      _homeAnimate(0.82);
+    });
+    this.menuBtnHit.on('pointerout', () => {
+      if (!this.menuBtnHit._pressed) return;
+      this.menuBtnHit._pressed = false;
+      _homeAnimate(1);
+    });
+    this.menuBtnHit.on('pointerupoutside', () => {
+      if (!this.menuBtnHit._pressed) return;
+      this.menuBtnHit._pressed = false;
+      _homeAnimate(1);
+    });
+    this.menuBtnHit.on('pointerup', () => {
+      if (!this.menuBtnHit._pressed) return;
+      this.menuBtnHit._pressed = false;
+      // Bounce back with a tiny pulse, then navigate after the anim plays
+      if (this._homeTween) this._homeTween.stop();
+      this._homeTween = this.tweens.add({
+        targets: this.menuBtn,
+        scaleX: _homeBaseScaleX * 1.08,
+        scaleY: _homeBaseScaleY * 1.08,
+        duration: 90,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+        onComplete: () => {
+          if (this.bgm) { try { this.bgm.stop(); } catch (e) {} }
+          if (this.sys && this.sys.isActive()) {
+            this.scene.start('MenuScene');
+          }
+        }
+      });
     });
 
     // Hearts — after counter

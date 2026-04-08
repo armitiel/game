@@ -142,17 +142,22 @@ export default class MenuScene extends Phaser.Scene {
       .catch(() => {});
 
     // Input — keyboard + touch
-    // Delay pointer listener registration so that a lingering pointerdown
-    // from a previous scene (e.g. tapping Home in GameScene) doesn't
-    // instantly fire this handler and cascade through to LevelSelectScene.
-    this.time.delayedCall(250, () => {
+    // To prevent cascades from a prior scene's pointer event (e.g. tapping
+    // Home in GameScene and HOLDING the finger down), we require a FRESH
+    // pointerdown → pointerup pair: the user must fully release and press
+    // again before anything navigates. A simple delay is not enough because
+    // a slow tap can outlast it.
+    this.input.keyboard.once('keydown-SPACE', () => {
+      this.scene.start('LevelSelectScene');
+    });
+    this.time.delayedCall(150, () => {
       if (!this.sys || !this.sys.isActive()) return;
-      this.input.keyboard.once('keydown-SPACE', () => {
-        this.scene.start('LevelSelectScene');
-      });
-      // Use pointerup instead of pointerdown to avoid event cascades
-      this.input.once('pointerup', () => {
-        this.scene.start('LevelSelectScene');
+      this.input.once('pointerdown', () => {
+        if (!this.sys || !this.sys.isActive()) return;
+        this.input.once('pointerup', () => {
+          if (!this.sys || !this.sys.isActive()) return;
+          this.scene.start('LevelSelectScene');
+        });
       });
     });
 

@@ -148,9 +148,13 @@ export default class LevelSelectScene extends Phaser.Scene {
       this.add.image(x, cardY, m.frame).setDisplaySize(frameW, frameH);
 
       // Invisible hitbox for interaction — defer enabling to avoid
-      // inheriting a lingering pointerdown from the previous scene
+      // inheriting a lingering pointerdown from the previous scene.
+      // Additionally we require a full pointerdown→pointerup pair ON the
+      // same card to trigger: a leftover pointerup from another scene
+      // can't fire this because it never received the pointerdown.
       const card = this.add.rectangle(x, cardY, frameW, frameH, 0x000000, 0);
-      this.time.delayedCall(250, () => {
+      card._pressed = false;
+      this.time.delayedCall(300, () => {
         if (card && card.scene) card.setInteractive({ useHandCursor: true });
       });
 
@@ -182,8 +186,15 @@ export default class LevelSelectScene extends Phaser.Scene {
         wordWrap: { width: frameW - 50 }
       }).setOrigin(0.5);
 
-      // Click — use pointerup to avoid cascading pointerdown events
+      // Require a full press+release on this same card. pointerdown sets
+      // the pressed flag; pointerup only fires the action if it was set
+      // (i.e. a leftover pointerup from a previous scene can't trigger it).
+      card.on('pointerdown', () => { card._pressed = true; });
+      card.on('pointerout', () => { card._pressed = false; });
+      card.on('pointerupoutside', () => { card._pressed = false; });
       card.on('pointerup', () => {
+        if (!card._pressed) return;
+        card._pressed = false;
         if (m.levels.length === 1) {
           // Only 1 level — go straight to game
           const idx = LEVELS.indexOf(m.levels[0]);
