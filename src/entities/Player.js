@@ -657,6 +657,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.isClimbing = true;
       this.isDroppingToLadder = true;  // disable platform collision until below platform
       this.dropPlatformY = this.y;     // remember platform Y to know when we're past it
+      // SNAP onto ladder: center on ladder X and shift body down so the
+      // character visually grips the ladder (feet ~40px below platform top)
+      // instead of floating above the ladder for the first animation frames.
+      this.x = this.ladderX;
+      const targetFeetY = this.ladderTopY + 40;
+      this.y = targetFeetY - PLAYER.BODY_H - PLAYER.BODY_OFFSET_Y + PLAYER.FRAME_H / 2;
       this.climbFrameIndex = this.climbTotalFrames - 1;
       this.climbDirection = -1;  // start in reverse for descending
       this.body.allowGravity = false;
