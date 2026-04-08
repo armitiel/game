@@ -76,12 +76,56 @@ document.addEventListener('click', unlockAudioContext, { once: true });
 
 // Force-load Bungee font before starting Phaser so the loading screen uses it
 const fontFace = new FontFace('Bungee', 'url(/assets/sprites/elementy/Bungee-Regular.ttf)');
+let _phaserGame = null;
 fontFace.load().then(f => {
   document.fonts.add(f);
-  new Phaser.Game(config);
+  _phaserGame = new Phaser.Game(config);
 }).catch(() => {
-  new Phaser.Game(config); // fallback if font fails
+  _phaserGame = new Phaser.Game(config); // fallback if font fails
 });
+
+// === Robust resize / orientation handling ===
+// Browsers (esp. mobile) fire multiple resize events during orientation
+// transitions and animations; Phaser's ScaleManager can latch onto an
+// intermediate size, leaving the canvas fitted to the wrong dimensions.
+// We debounce and force scale.refresh() on multiple triggers so the
+// final window size is always caught.
+let _refreshTimer = null;
+const _scheduleScaleRefresh = (reason, delay) => {
+  if (!_phaserGame || !_phaserGame.scale) return;
+  if (_refreshTimer) clearTimeout(_refreshTimer);
+  _refreshTimer = setTimeout(() => {
+    _refreshTimer = null;
+    try {
+      if (_phaserGame && _phaserGame.scale) {
+        _phaserGame.scale.refresh();
+      }
+    } catch (e) {
+      console.warn('[SCALE] refresh failed:', e);
+    }
+  }, delay);
+};
+
+// Catch all resize triggers and schedule a refresh. Multiple refreshes
+// at different delays ensure we catch the final, stable size even when
+// the browser is still animating.
+const _onResizeBurst = () => {
+  _scheduleScaleRefresh('resize', 50);
+  // Follow-up refreshes at longer delays — orientation animations can
+  // take 300-500ms on some devices.
+  setTimeout(() => { if (_phaserGame && _phaserGame.scale) _phaserGame.scale.refresh(); }, 250);
+  setTimeout(() => { if (_phaserGame && _phaserGame.scale) _phaserGame.scale.refresh(); }, 600);
+};
+
+window.addEventListener('resize', _onResizeBurst);
+window.addEventListener('orientationchange', _onResizeBurst);
+if (screen.orientation) {
+  screen.orientation.addEventListener('change', _onResizeBurst);
+}
+// visualViewport fires during pinch-zoom / browser UI show/hide on mobile
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', _onResizeBurst);
+}
 
 // === PWA: Register service worker (skip in Vite dev mode to avoid HMR conflicts) ===
 if ('serviceWorker' in navigator && !import.meta.hot) {

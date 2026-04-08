@@ -267,9 +267,24 @@ export default class GameScene extends Phaser.Scene {
     this.playerInShadow = false;
 
     // Stop music when scene shuts down (prevents duplicate playback on restart)
+    // Also clear references to Phaser objects so a fresh create() starts clean.
     this.events.on('shutdown', () => {
-      if (this.bgm) this.bgm.stop();
-      if (this._leafTimer) this._leafTimer.remove();
+      if (this.bgm) { try { this.bgm.stop(); } catch(e) {} this.bgm = null; }
+      if (this._leafTimer) { try { this._leafTimer.remove(); } catch(e) {} this._leafTimer = null; }
+      // Clear stale refs — on restart create() will reinitialize these
+      this.uiCam = null;
+      this._hudElements = null;
+      this.cops = null;
+      this.player = null;
+      this.paintArm = null;
+      this.touch = null;
+      this._bridgeLayer = null;
+      this._bridgeBodies = null;
+      this._bridgeLines = null;
+      this.trashCans = null;
+      this.shadowZones = null;
+      this.shadowVisuals = null;
+      this._shadowArrows = null;
     });
   }
 
@@ -2110,9 +2125,30 @@ export default class GameScene extends Phaser.Scene {
     this.uiCam.setScroll(0, 0);
     this.uiCam.setName('ui');
 
-    // Keep uiCam sized to canvas when EXPAND mode resizes the game
-    this.scale.on('resize', (gameSize) => {
-      this.uiCam.setSize(gameSize.width, gameSize.height);
+    // Keep cameras sized to canvas when EXPAND mode resizes the game.
+    // IMPORTANT: this.scale is the GLOBAL ScaleManager — listeners persist
+    // across scene restarts. Must remove on shutdown to prevent stale refs.
+    this._resizeHandler = (gameSize) => {
+      // Guard against stale refs from previous scene instances
+      if (!this.uiCam || this.uiCam.scene !== this) return;
+      const w = gameSize.width;
+      const h = gameSize.height;
+      // Resize BOTH cameras so main camera viewport follows canvas
+      if (this.cameras && this.cameras.main) {
+        this.cameras.main.setSize(w, h);
+      }
+      this.uiCam.setSize(w, h);
+      // Reposition HUD elements which use absolute coordinates
+      if (typeof this._repositionHUD === 'function') {
+        this._repositionHUD(w, h);
+      }
+    };
+    this.scale.on('resize', this._resizeHandler);
+    this.events.once('shutdown', () => {
+      if (this._resizeHandler) {
+        this.scale.off('resize', this._resizeHandler);
+        this._resizeHandler = null;
+      }
     });
 
     // HUD layout: single horizontal bar at the top
