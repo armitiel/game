@@ -30,11 +30,13 @@ const config = {
   pixelArt: true,
   roundPixels: true,
   scale: {
-    // FIT preserves aspect ratio (16:9) and letterboxes the canvas inside
-    // the parent. CENTER_BOTH centers it. expandParent:false prevents
-    // Phaser from overriding our CSS-driven parent sizing on mobile.
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // SINGLE SOURCE OF TRUTH for sizing:
+    //   #game-container (CSS) = 100vw × 100dvh = the viewport
+    //   Phaser RESIZE        = canvas matches parent exactly
+    //   Scenes               = read this.scale.width/height dynamically
+    // No aspect-ratio preservation → no letterboxing → full-screen fill.
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.NO_CENTER,
     expandParent: false,
     parent: 'game-container',
     width: GAME.WIDTH,
