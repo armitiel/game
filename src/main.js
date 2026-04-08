@@ -74,15 +74,60 @@ const unlockAudioContext = () => {
 document.addEventListener('touchstart', unlockAudioContext, { once: true });
 document.addEventListener('click', unlockAudioContext, { once: true });
 
+// === Orientation gate ===
+// On touch devices, defer booting Phaser until the device is actually
+// in landscape. Otherwise the logo/intro screen renders under the rotate
+// overlay at portrait dimensions and has to survive a massive resize
+// when the user rotates.
+const _isTouchDevice = window.matchMedia('(pointer: coarse)').matches
+  || ('ontouchstart' in window)
+  || (navigator.maxTouchPoints > 0);
+function _isLandscapeNow() {
+  // Trust window dimensions — screen.orientation lies during transitions
+  return window.innerWidth >= window.innerHeight;
+}
+
 // Force-load Bungee font before starting Phaser so the loading screen uses it
 const fontFace = new FontFace('Bungee', 'url(/assets/sprites/elementy/Bungee-Regular.ttf)');
 let _phaserGame = null;
-fontFace.load().then(f => {
-  document.fonts.add(f);
-  _phaserGame = new Phaser.Game(config);
-}).catch(() => {
-  _phaserGame = new Phaser.Game(config); // fallback if font fails
-});
+let _phaserBootScheduled = false;
+
+function _bootPhaser() {
+  if (_phaserGame || _phaserBootScheduled) return;
+  _phaserBootScheduled = true;
+  fontFace.load().then(f => {
+    document.fonts.add(f);
+    _phaserGame = new Phaser.Game(config);
+  }).catch(() => {
+    _phaserGame = new Phaser.Game(config); // fallback if font fails
+  });
+}
+
+function _checkOrientationAndBoot() {
+  if (_phaserGame || _phaserBootScheduled) return;
+  if (!_isTouchDevice || _isLandscapeNow()) {
+    // Wait two frames for viewport to settle after rotation animation
+    requestAnimationFrame(() => requestAnimationFrame(_bootPhaser));
+  }
+}
+
+// Initial check — desktop boots immediately; mobile-landscape also boots
+_checkOrientationAndBoot();
+
+// If still waiting (mobile portrait), listen for rotation
+if (!_phaserBootScheduled) {
+  const _mql = window.matchMedia('(orientation: landscape)');
+  if (_mql.addEventListener) {
+    _mql.addEventListener('change', _checkOrientationAndBoot);
+  } else if (_mql.addListener) {
+    _mql.addListener(_checkOrientationAndBoot);
+  }
+  window.addEventListener('resize', _checkOrientationAndBoot);
+  window.addEventListener('orientationchange', _checkOrientationAndBoot);
+  if (window.screen && window.screen.orientation && window.screen.orientation.addEventListener) {
+    window.screen.orientation.addEventListener('change', _checkOrientationAndBoot);
+  }
+}
 
 // === Robust resize / orientation handling ===
 // Browsers (esp. mobile) fire multiple resize events during orientation
