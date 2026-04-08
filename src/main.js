@@ -30,13 +30,13 @@ const config = {
   pixelArt: true,
   roundPixels: true,
   scale: {
-    // SINGLE SOURCE OF TRUTH for sizing:
-    //   #game-container (CSS) = 100vw × 100dvh = the viewport
-    //   Phaser RESIZE        = canvas matches parent exactly
-    //   Scenes               = read this.scale.width/height dynamically
-    // No aspect-ratio preservation → no letterboxing → full-screen fill.
-    mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.NO_CENTER,
+    // FIT mode: Phaser scales the fixed 1280x720 virtual canvas to fit
+    // inside #game-container (100vw × 100dvh) while preserving aspect
+    // ratio. Letterbox bars appear on non-16:9 screens, but all game
+    // systems (HUD, touch controls, cameras) work in stable design
+    // coordinates — nothing gets cropped or mispositioned.
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
     expandParent: false,
     parent: 'game-container',
     width: GAME.WIDTH,

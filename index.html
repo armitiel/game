@@ -38,15 +38,13 @@
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     /*
-     * SIZING PRIORITY — one source of truth:
-     *   1. html/body        → locked to the viewport, no scroll
-     *   2. #game-container  → fills the viewport (100vw × 100dvh)
-     *   3. Phaser (RESIZE)  → canvas matches #game-container exactly
-     *   4. Scenes           → read this.scale.width/height dynamically
-     * No flexbox centering anywhere in the chain so nothing can shrink,
-     * offset or letterbox the canvas. On mobile the game fills the full
-     * screen; on large desktops a media query below shrinks the container
-     * into a 16:9 framed window.
+     * SIZING CHAIN:
+     *   html/body        → locked to the viewport, no scroll
+     *   #game-container  → fills the viewport (100vw × 100dvh)
+     *   Phaser (FIT)     → scales virtual 1280×720 canvas to fit
+     *                      inside container preserving aspect ratio,
+     *                      and CENTER_BOTH centers the canvas.
+     * Letterbox bars appear on non-16:9 aspects but nothing is cropped.
      */
     html, body {
       background: #0a0a0a;
@@ -65,23 +63,12 @@
       width: 100vw;
       height: 100dvh;
       overflow: hidden;
-    }
-    /* Desktop: contained 16:9 window, not full screen */
-    @media (pointer: fine) and (min-width: 1024px) {
-      #game-container {
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: min(85vw, calc(85vh * 16 / 9));
-        height: min(85vh, calc(85vw * 9 / 16));
-        border-radius: 8px;
-        box-shadow: 0 0 40px rgba(0, 255, 136, 0.08), 0 0 80px rgba(0, 0, 0, 0.6);
-      }
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     canvas {
       display: block;
-      /* Phaser's RESIZE scaler sets canvas.style.width/height to match
-         the parent — no CSS overrides needed. */
     }
 
     /* "Rotate your phone" overlay — visible only in portrait on touch devices */
