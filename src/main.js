@@ -30,9 +30,15 @@ const config = {
   pixelArt: true,
   roundPixels: true,
   scale: {
-    mode: isMobile ? Phaser.Scale.EXPAND : Phaser.Scale.FIT,
+    // FIT preserves aspect ratio (16:9) and letterboxes the canvas inside
+    // the parent. CENTER_BOTH centers it. expandParent:false prevents
+    // Phaser from overriding our CSS-driven parent sizing on mobile.
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    expandParent: true
+    expandParent: false,
+    parent: 'game-container',
+    width: GAME.WIDTH,
+    height: GAME.HEIGHT
   },
   input: {
     activePointers: 4  // multi-touch for D-pad + buttons simultaneously

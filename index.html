@@ -50,13 +50,18 @@
       align-items: center;
     }
     #game-container {
-      /* Use viewport units so the container always fills the screen,
-         regardless of flex-shrink behaviour on mobile browsers. */
+      /* Fill the entire viewport on mobile so Phaser's FIT scaler can
+         compute the largest 16:9 canvas that fits. Use viewport units
+         and flex-shrink:0 so flexbox can't collapse the height. */
       width: 100vw;
       height: 100dvh;
-      /* Prevent flexbox from shrinking below content */
       flex-shrink: 0;
       position: relative;
+      /* Center the canvas Phaser inserts inside */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
     }
     /* Desktop: contained window, not full screen */
     @media (pointer: fine) and (min-width: 1024px) {
@@ -67,15 +72,12 @@
         max-width: calc(85vh * 16 / 9);
         aspect-ratio: 16 / 9;
         border-radius: 8px;
-        overflow: hidden;
         box-shadow: 0 0 40px rgba(0, 255, 136, 0.08), 0 0 80px rgba(0, 0, 0, 0.6);
       }
     }
     canvas {
       display: block;
-      /* Ensure canvas fills container and is centered */
-      width: 100% !important;
-      height: 100% !important;
+      /* Let Phaser size the canvas via its FIT scaler — no overrides */
     }
 
     /* "Rotate your phone" overlay — visible only in portrait on touch devices */
