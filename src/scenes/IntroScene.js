@@ -71,23 +71,55 @@ export default class IntroScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-SPACE', () => this._goToGame());
     this.input.keyboard.on('keydown-ENTER', () => this._goToGame());
     this.input.keyboard.on('keydown-ESC', () => this._goToGame());
-    // Click/tap on the HTML overlay (Phaser pointerdown won't fire — overlay covers canvas)
-    this._onOverlayTap = () => this._goToGame();
+    // Click/tap on the HTML overlay (Phaser pointerdown won't fire — overlay covers canvas).
+    // Stop propagation so the touch sequence does not leak onto the canvas
+    // of the next scene and trigger an unintended pointerdown/pointerup.
+    this._onOverlayTap = (ev) => {
+      try { ev.preventDefault(); } catch (e) {}
+      try { ev.stopPropagation(); } catch (e) {}
+      this._goToGame();
+    };
     this._container.addEventListener('click', this._onOverlayTap);
-    this._container.addEventListener('touchstart', this._onOverlayTap);
+    this._container.addEventListener('touchstart', this._onOverlayTap, { passive: false });
+    this._container.addEventListener('touchend', (ev) => {
+      try { ev.preventDefault(); } catch (e) {}
+      try { ev.stopPropagation(); } catch (e) {}
+    }, { passive: false });
   }
 
   _goToGame() {
     if (this._done) return;
     this._done = true;
+    // IMMEDIATELY hide the overlay so even if DOM removal is delayed a frame,
+    // nothing is blocking the canvas. Also neutralise pointer events.
+    if (this._container) {
+      try {
+        this._container.style.display = 'none';
+        this._container.style.pointerEvents = 'none';
+        this._container.style.zIndex = '-1';
+      } catch (e) {}
+    }
     this._cleanup();
-    this.scene.start('GameScene', { levelIndex: this._levelIndex });
+    // Defer the scene.start by one frame so the current touch/click
+    // event fully propagates out of this handler before Phaser boots
+    // GameScene. Without this delay a fast tap could end with touchend
+    // firing on the freshly-started GameScene and desync its input.
+    const go = () => {
+      if (!this.sys || !this.sys.isActive()) return;
+      this.scene.start('GameScene', { levelIndex: this._levelIndex });
+    };
+    try {
+      this.time.delayedCall(16, go);
+    } catch (e) {
+      go();
+    }
   }
 
   _cleanup() {
     if (this._video) {
       try { this._video.pause(); } catch (e) {}
-      try { this._video.src = ''; } catch (e) {}
+      try { this._video.removeAttribute('src'); } catch (e) {}
+      try { this._video.load(); } catch (e) {}
     }
     if (this._container && this._container.parentNode) {
       try { this._container.parentNode.removeChild(this._container); } catch (e) {}
