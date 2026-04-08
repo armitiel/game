@@ -381,6 +381,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.isClimbing) {
       this.body.allowGravity = false;
 
+      // === Snap-in tween active: just play a slow climb animation while
+      // the tween drives position. Don't let normal climb logic fight it. ===
+      if (this._snapToLadderActive) {
+        this.setVelocity(0, 0);
+        // Advance climb animation slowly so character looks alive during snap
+        const maxFrame = this.climbTotalFrames - 1;
+        this.climbFrameIndex -= this.climbAnimSpeed * 0.8;
+        if (this.climbFrameIndex < 0) this.climbFrameIndex = maxFrame;
+        this.setFrame(PLAYER.CLIMB_FRAME_START + Math.floor(this.climbFrameIndex));
+        this.updateHiddenIcon();
+        return;
+      }
+
       // Clean up walk/push Y shifts that may linger from pre-climb state
       if (this._walkYShift) {
         this.y -= this._walkYShift;
@@ -657,21 +670,39 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.isClimbing = true;
       this.isDroppingToLadder = true;  // disable platform collision until below platform
       this.dropPlatformY = this.y;     // remember platform Y to know when we're past it
-      // SNAP onto ladder: center on ladder X and shift body down so the
-      // character visually grips the ladder (feet ~40px below platform top)
-      // instead of floating above the ladder for the first animation frames.
-      this.x = this.ladderX;
-      const targetFeetY = this.ladderTopY + 40;
-      this.y = targetFeetY - PLAYER.BODY_H - PLAYER.BODY_OFFSET_Y + PLAYER.FRAME_H / 2;
       this.climbFrameIndex = this.climbTotalFrames - 1;
       this.climbDirection = -1;  // start in reverse for descending
       this.body.allowGravity = false;
       this.setVelocityX(0);
-      this.setVelocityY(PLAYER.CLIMB_SPEED);
+      this.setVelocityY(0);             // hold still during the snap-in tween
       this.setFlipX(false);
       this.anims.stop();
       this.setFrame(PLAYER.CLIMB_FRAME_START + Math.floor(this.climbFrameIndex));
       this.currentAnim = '_climb_manual';
+      // SMOOTH SNAP onto ladder: tween from walking position to ladder
+      // entry over ~180 ms so the character visually slides onto the
+      // ladder instead of teleporting. During the tween the normal climb
+      // branch in update() is skipped via _snapToLadderActive.
+      this._snapToLadderActive = true;
+      const targetFeetY = this.ladderTopY + 40;
+      const targetY = targetFeetY - PLAYER.BODY_H - PLAYER.BODY_OFFSET_Y + PLAYER.FRAME_H / 2;
+      const targetX = this.ladderX;
+      if (this._snapTween) { try { this._snapTween.stop(); } catch (e) {} }
+      this._snapTween = this.scene.tweens.add({
+        targets: this,
+        x: targetX,
+        y: targetY,
+        duration: 180,
+        ease: 'Quad.easeOut',
+        onComplete: () => {
+          this._snapToLadderActive = false;
+          this._snapTween = null;
+          // Now start the real descent — hand over to normal climb logic.
+          if (this.isClimbing && this.body) {
+            this.setVelocityY(PLAYER.CLIMB_SPEED);
+          }
+        }
+      });
       this.updateHiddenIcon();
       return;
     }
@@ -984,6 +1015,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   exitLadder(reason) {
     this.isClimbing = false;
     this.isDroppingToLadder = false;
+    // Abort any in-progress ladder-snap tween
+    if (this._snapTween) { try { this._snapTween.stop(); } catch (e) {} this._snapTween = null; }
+    this._snapToLadderActive = false;
     this.ladderCooldown = 15;  // ignore ladder for 15 frames after dismount
     this._ladderExitGrace = 30; // suppress air animations until player lands (max 30 frames)
     this.body.allowGravity = true;
