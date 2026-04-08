@@ -57,15 +57,18 @@
       left: 0;
     }
     #game-container {
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100dvh;
       overflow: hidden;
-      /* No flex centering — Phaser's CENTER_BOTH handles canvas centering.
-         Flex would stack on top of Phaser's margin/transform and offset the
-         canvas (shifted to a corner). */
+      /* CSS-only centering (single source of truth).
+         Phaser runs with autoCenter: NO_CENTER so it will NOT add
+         any margin/transform on the canvas — flex does all the work. */
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     canvas {
       display: block;

@@ -36,7 +36,7 @@ const config = {
     // systems (HUD, touch controls, cameras) work in stable design
     // coordinates — nothing gets cropped or mispositioned.
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoCenter: Phaser.Scale.NO_CENTER,  // CSS flex centers the canvas
     expandParent: false,
     parent: 'game-container',
     width: GAME.WIDTH,
