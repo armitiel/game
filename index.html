@@ -115,6 +115,62 @@
     })();
   </script>
   <div id="game-container"></div>
-  <script type="module" src="/src/main.js"></script>
+  <script>
+    // === Orientation gate ===
+    // On touch devices, defer booting Phaser until the device is actually
+    // in landscape. The logo/intro screen should only appear once the user
+    // has rotated — otherwise the rotate overlay stacks on top of a half-
+    // initialised game that was already sized for portrait.
+    (function() {
+      var isTouch = window.matchMedia('(pointer: coarse)').matches
+                 || ('ontouchstart' in window)
+                 || (navigator.maxTouchPoints > 0);
+
+      function isLandscape() {
+        // Trust window dimensions first — they reflect the actual viewport
+        // used by the canvas (screen.orientation lies during transitions).
+        return window.innerWidth >= window.innerHeight;
+      }
+
+      var booted = false;
+      function boot() {
+        if (booted) return;
+        booted = true;
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = '/src/main.js';
+        document.body.appendChild(s);
+      }
+
+      function check() {
+        if (!isTouch || isLandscape()) {
+          // Give the browser one frame to settle the new viewport before
+          // Phaser reads width/height — avoids booting at an intermediate
+          // mid-rotation size.
+          requestAnimationFrame(function() {
+            requestAnimationFrame(boot);
+          });
+        }
+      }
+
+      // First check (may boot immediately on desktop / already-landscape)
+      check();
+
+      if (!booted) {
+        // Wait for the user to rotate
+        var mql = window.matchMedia('(orientation: landscape)');
+        if (mql.addEventListener) {
+          mql.addEventListener('change', check);
+        } else if (mql.addListener) {
+          mql.addListener(check);
+        }
+        window.addEventListener('resize', check);
+        window.addEventListener('orientationchange', check);
+        if (window.screen && window.screen.orientation && window.screen.orientation.addEventListener) {
+          window.screen.orientation.addEventListener('change', check);
+        }
+      }
+    })();
+  </script>
 </body>
 </html>
