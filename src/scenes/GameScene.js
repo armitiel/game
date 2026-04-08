@@ -59,7 +59,12 @@ export default class GameScene extends Phaser.Scene {
     // world-visible area. Otherwise a small phone canvas (~400px tall) would
     // show only ~148 world px across and feel extremely zoomed in.
     const designZoom = isMobile ? 2.7 : 1.95;
-    const scaleFactor = this.scale.height / GAME.HEIGHT;
+    // Scale zoom by WIDTH ratio (canvasW / designW) so the visible world
+    // width stays identical to the old FIT mode (where canvas was virtually
+    // 1280 wide). On a 400px-wide phone: 2.7 * (400/1280) = 0.84 → shows
+    // ~474 world px across, matching the original design. Using height
+    // instead would break on portrait phones where height can exceed 720.
+    const scaleFactor = this.scale.width / GAME.WIDTH;
     this.cameras.main.setZoom(designZoom * scaleFactor);
     this.cameras.main.setRoundPixels(true);
     this._baseZoom = this.cameras.main.zoom;  // remember base zoom for paint restore
