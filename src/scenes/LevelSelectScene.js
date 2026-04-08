@@ -40,6 +40,20 @@ export default class LevelSelectScene extends Phaser.Scene {
         this.scene.start('MenuScene');
       }
     });
+
+    // Rebuild on significant resize so cards + bg re-fit the new viewport
+    this._initW = this.scale.width;
+    this._initH = this.scale.height;
+    this._resizeHandler = (gs) => {
+      if (!this.sys || !this.sys.isActive()) return;
+      if (Math.abs(gs.width - this._initW) > 2 || Math.abs(gs.height - this._initH) > 2) {
+        this.scene.restart({ mode: this._selectedMode });
+      }
+    };
+    this.scale.on('resize', this._resizeHandler);
+    this.events.once('shutdown', () => {
+      try { this.scale.off('resize', this._resizeHandler); } catch (e) {}
+    });
   }
 
   // === MODE SELECT SCREEN ===

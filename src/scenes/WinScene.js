@@ -78,5 +78,19 @@ export default class WinScene extends Phaser.Scene {
     this.input.once('pointerdown', () => {
       this.scene.start('LevelSelectScene');
     });
+
+    // Rebuild on significant resize (URL bar hides, rotation, fullscreen)
+    this._initW = this.scale.width;
+    this._initH = this.scale.height;
+    this._resizeHandler = (gs) => {
+      if (!this.sys || !this.sys.isActive()) return;
+      if (Math.abs(gs.width - this._initW) > 2 || Math.abs(gs.height - this._initH) > 2) {
+        this.scene.restart();
+      }
+    };
+    this.scale.on('resize', this._resizeHandler);
+    this.events.once('shutdown', () => {
+      try { this.scale.off('resize', this._resizeHandler); } catch (e) {}
+    });
   }
 }
