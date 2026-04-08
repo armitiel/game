@@ -36,6 +36,13 @@ export default class GameScene extends Phaser.Scene {
 
     const ld = this.levelData;
     this.cameras.main.setBackgroundColor(GAME.BACKGROUND_COLOR);
+    // CRITICAL: explicitly size the main camera to the current canvas.
+    // When scene.start() boots GameScene from another scene, Phaser does NOT
+    // automatically resize cameras.main to match ScaleManager — it stays at
+    // the Phaser.Game config size (1280x720). TouchControls and HUD read
+    // cam.width/height to position buttons, so if we skip this, controls end
+    // up positioned for 1280x720 and are invisible off the actual canvas.
+    this.cameras.main.setSize(this.scale.width, this.scale.height);
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     this.cameras.main.setZoom(isMobile ? 2.7 : 1.95);
     this.cameras.main.setRoundPixels(true);
@@ -1549,16 +1556,8 @@ export default class GameScene extends Phaser.Scene {
     this._towerMuralsDone = 0;
     this._towerGameOver = false;
 
-    // Timer HUD text (on UI camera)
-    this._addingHud = true;
-    const gw = this.scale.width;
-    this._towerTimerText = this.add.text(gw / 2, 32, '', {
-      fontFamily: 'Bungee', fontSize: '36px', fontStyle: 'bold',
-      color: '#00ff88',
-      stroke: '#003322', strokeThickness: 6
-    }).setOrigin(0.5, 0).setDepth(300).setScrollFactor(0);
-    this._addingHud = false;
-    this.cameras.main.ignore(this._towerTimerText);
+    // Build the HUD timer text (extracted so rebuild can recreate it)
+    this._createTowerTimerHUD();
 
     // Color gates — physical barriers
     this._colorGates = [];
@@ -1590,6 +1589,24 @@ export default class GameScene extends Phaser.Scene {
 
       this._colorGates.push(gate);
     });
+  }
+
+  /**
+   * Creates ONLY the tower timer HUD text. Extracted from setupTowerMode
+   * so _rebuildHUD can recreate it on resize without rebuilding gates.
+   */
+  _createTowerTimerHUD() {
+    this._addingHud = true;
+    const gw = this.scale.width;
+    this._towerTimerText = this.add.text(gw / 2, 32, '', {
+      fontFamily: 'Bungee', fontSize: '36px', fontStyle: 'bold',
+      color: '#00ff88',
+      stroke: '#003322', strokeThickness: 6
+    }).setOrigin(0.5, 0).setDepth(300).setScrollFactor(0);
+    this._addingHud = false;
+    this.cameras.main.ignore(this._towerTimerText);
+    // Add to hudElements so it's rebuilt on resize
+    if (this._hudElements) this._hudElements.add(this._towerTimerText);
   }
 
   updateTowerTimer(delta) {
@@ -2591,6 +2608,21 @@ export default class GameScene extends Phaser.Scene {
     // Rebuild
     try {
       this.createHUD();
+      // Re-create mode-specific HUD elements (tower timer, tutorial overlays).
+      // These exist OUTSIDE the main createHUD() and must be rebuilt separately
+      // so they're positioned against the new scale.width/height and stored
+      // in the fresh _hudElements set.
+      if (this.mode === 'tower' && typeof this._createTowerTimerHUD === 'function') {
+        // Kill the stale reference (the old text was destroyed with _hudElements above)
+        this._towerTimerText = null;
+        this._createTowerTimerHUD();
+        // Force immediate update so text isn't blank
+        if (typeof this.updateTowerTimer === 'function') {
+          // Use delta of 0 so nothing ticks — just refreshes the displayed string
+          // updateTowerTimer wants a ms delta, passing 0 is safe
+          try { this.updateTowerTimer(0); } catch(e) {}
+        }
+      }
       if (typeof this.updateHUD === 'function') this.updateHUD();
       if (typeof this.updateHearts === 'function') this.updateHearts();
     } catch(e) {
