@@ -63,9 +63,9 @@
       width: 100vw;
       height: 100dvh;
       overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      /* No flex centering — Phaser's CENTER_BOTH handles canvas centering.
+         Flex would stack on top of Phaser's margin/transform and offset the
+         canvas (shifted to a corner). */
     }
     canvas {
       display: block;
