@@ -692,7 +692,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         targets: this,
         x: targetX,
         y: targetY,
-        duration: 180,
+        duration: 340,
         ease: 'Quad.easeOut',
         onComplete: () => {
           this._snapToLadderActive = false;
