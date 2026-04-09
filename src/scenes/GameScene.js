@@ -365,6 +365,27 @@ export default class GameScene extends Phaser.Scene {
       : (this.levelData.colors || ['red', 'blue', 'yellow']);
   }
 
+  /**
+   * Safe wrapper around textures.addCanvas that removes the previous texture
+   * with the same key first (if any). Without this, restarting the scene
+   * (Home → menu → same level) crashes because Phaser's TextureManager
+   * rejects duplicate keys, causing downstream getContext-on-null errors.
+   */
+  _safeAddCanvas(key, canvas) {
+    if (this.textures.exists(key)) {
+      try { this.textures.remove(key); } catch (e) {}
+    }
+    return this.textures.addCanvas(key, canvas);
+  }
+
+  /** Same guard for textures.createCanvas (used by lamps / notes). */
+  _safeCreateCanvas(key, w, h) {
+    if (this.textures.exists(key)) {
+      try { this.textures.remove(key); } catch (e) {}
+    }
+    return this._safeCreateCanvas(key, w, h);
+  }
+
   createBackground() {
     const ld = this.levelData;
     const ww = ld.worldWidth;
@@ -398,7 +419,7 @@ export default class GameScene extends Phaser.Scene {
     skyCtx.fillRect(0, 0, gw, gh);
     const skyTexKey = '__sky_grad__';
     if (this.textures.exists(skyTexKey)) this.textures.remove(skyTexKey);
-    this.textures.addCanvas(skyTexKey, skyCanvas);
+    this._safeAddCanvas(skyTexKey, skyCanvas);
     this.add.image(gw / 2, gh / 2, skyTexKey)
       .setDisplaySize(gw, gh).setDepth(0).setScrollFactor(0);
     // Graphics layer for stars & moon drawn on top
@@ -462,7 +483,7 @@ export default class GameScene extends Phaser.Scene {
           cctx.fill();
         }
         const key = `__cloud_${ci}__`;
-        this.textures.addCanvas(key, cc);
+        this._safeAddCanvas(key, cc);
       }
     }
     // Spawn initial clouds already on screen
@@ -608,7 +629,7 @@ export default class GameScene extends Phaser.Scene {
     const farBlurred = _blurCanvas(farCanvas, 4);
     const farKey = '__parallax_far';
     if (this.textures.exists(farKey)) this.textures.remove(farKey);
-    this.textures.addCanvas(farKey, farBlurred);
+    this._safeAddCanvas(farKey, farBlurred);
     this.add.image(0, wh - farH - 60, farKey)
       .setOrigin(0, 0).setDepth(0.1).setScrollFactor(0.15, 0.3);
 
@@ -632,7 +653,7 @@ export default class GameScene extends Phaser.Scene {
     const nearBlurred = _blurCanvas(nearCanvas, 1.5);
     const nearKey = '__parallax_near';
     if (this.textures.exists(nearKey)) this.textures.remove(nearKey);
-    this.textures.addCanvas(nearKey, nearBlurred);
+    this._safeAddCanvas(nearKey, nearBlurred);
     this.add.image(0, wh - nearH - 30, nearKey)
       .setOrigin(0, 0).setDepth(0.2).setScrollFactor(0.4, 0.6);
   }
@@ -674,7 +695,7 @@ export default class GameScene extends Phaser.Scene {
         ctx.drawImage(srcImg, tx, 0);
       }
 
-      this.textures.addCanvas(rtKey, canvas);
+      this._safeAddCanvas(rtKey, canvas);
 
       const tile = this.add.image(x + width / 2, y + BLOCK_H / 2, rtKey);
       tile.setDepth(depth ?? 3);
@@ -891,7 +912,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const rtKey = '__fillwall_' + wx + '_' + wy;
-    this.textures.addCanvas(rtKey, canvas);
+    this._safeAddCanvas(rtKey, canvas);
 
     const img = this.add.image(wx + w / 2, wy + h / 2, rtKey);
     // Clamp minimum depth above background parallax layers (sky=0, buildings=0.1/0.2)
@@ -967,7 +988,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const rtKey = '__muralwall_' + wx + '_' + wy;
-    this.textures.addCanvas(rtKey, canvas);
+    this._safeAddCanvas(rtKey, canvas);
 
     const img = this.add.image(wx + w / 2, wy + h / 2, rtKey);
     img.setOrigin(0.5, 0.5);
@@ -1053,7 +1074,7 @@ export default class GameScene extends Phaser.Scene {
       }
       ctx.putImageData(imgData, 0, 0);
 
-      this.textures.addCanvas(rtKey, canvas);
+      this._safeAddCanvas(rtKey, canvas);
 
       const visual = this.add.image(x, topY + height / 2, rtKey);
       visual.setDepth(ladderDepth ?? 4);
@@ -1493,7 +1514,7 @@ export default class GameScene extends Phaser.Scene {
       if (this.textures.exists(texKey)) this.textures.remove(texKey);
       const texW = botW * 2 + 4;
       const texH = Math.round(coneH) + 4;
-      const ct   = this.textures.createCanvas(texKey, texW, texH);
+      const ct   = this._safeCreateCanvas(texKey, texW, texH);
       const cc   = ct.getContext();
       const cx   = texW / 2;
 
@@ -1524,7 +1545,7 @@ export default class GameScene extends Phaser.Scene {
       const glowR  = 28;
       const glowKey = `_lamp_glow_${Math.round(bulbX)}_${Math.round(bulbY)}`;
       const glowSize = glowR * 2 + 2;
-      const gt = this.textures.createCanvas(glowKey, glowSize, glowSize);
+      const gt = this._safeCreateCanvas(glowKey, glowSize, glowSize);
       const gc = gt.getContext();
       const ggrad = gc.createRadialGradient(glowR + 1, glowR + 1, 0, glowR + 1, glowR + 1, glowR);
       ggrad.addColorStop(0,    `rgba(255,255,220,${intensity * 0.9})`);
@@ -1813,7 +1834,7 @@ export default class GameScene extends Phaser.Scene {
     ctx.fillText(text, canW / 2, canH / 2);
 
     if (this.textures.exists(texKey)) this.textures.remove(texKey);
-    this.textures.addCanvas(texKey, canvas);
+    this._safeAddCanvas(texKey, canvas);
 
     const img = this.add.image(hint.x, hint.y, texKey)
       .setDisplaySize(textW, textH)
@@ -2519,7 +2540,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Create a placeholder so the image exists immediately; replace once SVG loads
     if (!this.textures.exists(noteKey)) {
-      this.textures.createCanvas(noteKey, noteRes, noteRes).refresh();
+      this._safeCreateCanvas(noteKey, noteRes, noteRes).refresh();
     }
     this.muteBtn = this.add.image(muteX, centerY, noteKey)
       .setDisplaySize(noteSize, noteSize)
@@ -2536,7 +2557,7 @@ export default class GameScene extends Phaser.Scene {
       ctx.drawImage(svgImg, 0, 0, noteRes, noteRes);
       // Replace Phaser texture with rendered SVG canvas
       if (this.textures.exists(noteKey)) this.textures.remove(noteKey);
-      this.textures.addCanvas(noteKey, cvs);
+      this._safeAddCanvas(noteKey, cvs);
       if (this.muteBtn && this.muteBtn.active) {
         this.muteBtn.setTexture(noteKey);
         this.muteBtn.setDisplaySize(noteSize, noteSize);
