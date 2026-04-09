@@ -383,7 +383,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.textures.exists(key)) {
       try { this.textures.remove(key); } catch (e) {}
     }
-    return this._safeCreateCanvas(key, w, h);
+    return this.textures.createCanvas(key, w, h);
   }
 
   createBackground() {
