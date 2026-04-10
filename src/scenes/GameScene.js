@@ -3128,13 +3128,19 @@ export default class GameScene extends Phaser.Scene {
       if (this.pbn) {
         this.pbn.setSelectedColor(colorIdx);
         this.player.paintColor = this.pbn.getSelectedColorHex();
-        this.paintArm.setCanColor(this.pbn.getSelectedColorName());
+        if (this._paintViewMode !== 'grid' && this.paintArm) {
+          this.paintArm.setCanColor(this.pbn.getSelectedColorName());
+        }
         this.updateTouchColorHighlight();
       }
     }, this.pbn.colorMap, () => {
       if (this.player.isPainting) {
-        this.player.stopPainting();
-        this.cancelPainting();
+        if (this._paintViewMode === 'grid') {
+          this.exitGridPaintMode(false); // full exit from grid mode
+        } else {
+          this.player.stopPainting();
+          this.cancelPainting();
+        }
       }
     }, hasColorArr);
     this._addingHud = false;
@@ -3249,6 +3255,17 @@ export default class GameScene extends Phaser.Scene {
   }
 
   completePainting() {
+    // Clean up grid mode if completing from grid view
+    if (this._paintViewMode === 'grid') {
+      this._destroyGridOverlay();
+      if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
+      this.player.setVisible(true);
+      const cam = this.cameras.main;
+      cam.startFollow(this.player, true, 0.15, 0.15);
+      cam.setFollowOffset(0, 0);
+    }
+    this._paintViewMode = 'arm';
+
     const spot = this.activePaintSpot;
 
     // Paint was already consumed per-pixel in onPaintMove — no bulk deduction needed
@@ -3296,6 +3313,18 @@ export default class GameScene extends Phaser.Scene {
   }
 
   cancelPainting() {
+    // Clean up grid mode elements if active
+    if (this._paintViewMode === 'grid') {
+      this._destroyGridOverlay();
+      if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
+      this.player.setVisible(true);
+      // Restore camera follow (was stopped in grid mode)
+      const cam = this.cameras.main;
+      cam.startFollow(this.player, true, 0.15, 0.15);
+      cam.setFollowOffset(0, 0);
+    }
+    this._paintViewMode = 'arm';
+
     if (this.activePaintSpot && this.pbn) {
       // Save PBN instance on the spot — paintGfx stays visible on the wall
       this.activePaintSpot.setData('pbnInstance', this.pbn);
@@ -3375,6 +3404,187 @@ export default class GameScene extends Phaser.Scene {
       }
     }
     this.activePaintSpot = null;
+  }
+
+  // === GRID PAINT MODE (top-down paint-by-numbers) ===
+
+  /**
+   * Switch from arm paint mode to grid paint mode (top-down view).
+   * Reuses the active PaintByNumbers instance — same grid, same progress.
+   */
+  enterGridPaintMode() {
+    if (!this.pbn || !this.player.isPainting) return;
+    this._paintViewMode = 'grid';
+
+    // Stop arm mode visuals
+    this.paintArm.stop();
+    // Stop spray SFX
+    if (this.sfxSpray) {
+      this.sfxSpray.stop();
+      this._sprayPlaying = false;
+    }
+
+    // Hide player sprite during grid view
+    this.player.setVisible(false);
+
+    // Camera: stop following player, center on paint area
+    const cam = this.cameras.main;
+    const b = this.pbn.bounds;
+    cam.stopFollow();
+
+    // Calculate zoom to fit entire painting with margin
+    const marginFactor = 0.80; // 80% of screen used for painting
+    const zoomX = (cam.width * marginFactor) / b.w;
+    const zoomY = ((cam.height - 120) * marginFactor) / b.h; // reserve 120px bottom for palette
+    const targetZoom = Math.min(zoomX, zoomY);
+
+    const centerX = b.x + b.w / 2;
+    const centerY = b.y + b.h / 2;
+
+    cam.pan(centerX, centerY, 400, 'Sine.easeInOut');
+    cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
+
+    // Show grid lines overlay
+    this._createGridOverlay();
+
+    // Create hand cursor
+    this._gridCursor = this.add.circle(centerX, centerY, 4, 0xffffff, 0.85)
+      .setDepth(50).setStrokeStyle(2, 0x000000, 0.6);
+
+    // Enable drag-to-scroll state
+    this._gridDragActive = false;
+    this._gridLastPointer = null;
+    this._gridPaintedThisGesture = false;
+
+    // Bring numbers to high depth so they're clearly visible
+    if (this.pbn.numbersImage) {
+      this.pbn.numbersImage.setDepth(7.5);
+    }
+  }
+
+  /**
+   * Exit grid paint mode — either back to arm mode or fully exit painting.
+   * @param {boolean} backToArm - if true, return to arm mode; if false, fully cancel painting.
+   */
+  exitGridPaintMode(backToArm = false) {
+    this._paintViewMode = 'arm';
+
+    // Clean up grid-mode elements
+    this._destroyGridOverlay();
+    if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
+
+    // Show player again
+    this.player.setVisible(true);
+
+    if (backToArm) {
+      // Restore camera follow + arm mode
+      const cam = this.cameras.main;
+      cam.startFollow(this.player, true, 0.15, 0.15);
+      const isMobile = !!(this.touch && this.touch.enabled);
+      const targetZoom = isMobile ? 5.0 : 3.5;
+      const armOffsetY = isMobile ? 25 : 18;
+      cam.setFollowOffset(0, -armOffsetY);
+      cam.zoomTo(targetZoom, 350, 'Sine.easeInOut');
+
+      // Restart paint arm
+      const b = this.pbn.bounds;
+      const startColor = this.pbn ? this.pbn.getSelectedColorName() : null;
+      this.paintArm.start(this.player.x, this.player.y, this.player.flipX, b, startColor);
+      if (this.touch) this.touch.setPaintMode(true);
+
+      // Restart spray SFX
+      if (!this.sfxSpray) {
+        this.sfxSpray = this.sound.add('sfx_spray', { loop: true, volume: 0.135 });
+      }
+      this._sprayPlaying = false;
+    } else {
+      // Full exit — cancel painting
+      this.player.stopPainting();
+      this.cancelPainting();
+    }
+  }
+
+  /**
+   * Create semi-transparent grid lines overlay for grid paint mode.
+   */
+  _createGridOverlay() {
+    if (this._gridOverlayGfx) this._gridOverlayGfx.destroy();
+    const g = this.add.graphics().setDepth(7.1);
+    const b = this.pbn.bounds;
+
+    // Cell grid lines
+    g.lineStyle(0.5, 0xffffff, 0.25);
+    for (let c = 0; c <= this.pbn.cols; c++) {
+      const x = b.x + c * this.pbn.cellW;
+      g.moveTo(x, b.y);
+      g.lineTo(x, b.y + b.h);
+    }
+    for (let r = 0; r <= this.pbn.rows; r++) {
+      const y = b.y + r * this.pbn.cellH;
+      g.moveTo(b.x, y);
+      g.lineTo(b.x + b.w, y);
+    }
+    g.strokePath();
+
+    // Border around the entire painting
+    g.lineStyle(1.5, 0xffffff, 0.5);
+    g.strokeRect(b.x, b.y, b.w, b.h);
+
+    this._gridOverlayGfx = g;
+  }
+
+  _destroyGridOverlay() {
+    if (this._gridOverlayGfx) { this._gridOverlayGfx.destroy(); this._gridOverlayGfx = null; }
+  }
+
+  /**
+   * Handle pointer input in grid paint mode — tap/drag to paint cells.
+   * Called from update() when _paintViewMode === 'grid'.
+   */
+  _updateGridPaintInput() {
+    if (!this.pbn || this._paintViewMode !== 'grid') return;
+
+    const pointer = this.input.activePointer;
+    const cam = this.cameras.main;
+    const worldPoint = cam.getWorldPoint(pointer.x, pointer.y);
+
+    // Update cursor position
+    if (this._gridCursor) {
+      this._gridCursor.setPosition(worldPoint.x, worldPoint.y);
+
+      // Tint cursor with selected color
+      const hex = this.pbn.getSelectedColorHex();
+      this._gridCursor.setFillStyle(hex, 0.9);
+    }
+
+    if (pointer.isDown) {
+      // Paint the cell under pointer
+      const b = this.pbn.bounds;
+      const inBounds = worldPoint.x >= b.x && worldPoint.x <= b.x + b.w &&
+                       worldPoint.y >= b.y && worldPoint.y <= b.y + b.h;
+
+      if (inBounds) {
+        this.onPaintMove(worldPoint.x, worldPoint.y);
+        this._gridPaintedThisGesture = true;
+      }
+    } else {
+      this._gridPaintedThisGesture = false;
+    }
+
+    // Check completion
+    if (this.pbn && this.pbn.isComplete()) {
+      this.pbn.fillRemaining();
+      // Exit grid mode, then complete
+      this._paintViewMode = 'arm';
+      this._destroyGridOverlay();
+      if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
+      this.player.setVisible(true);
+      // Restore camera
+      const restoreCam = this.cameras.main;
+      restoreCam.startFollow(this.player, true, 0.15, 0.15);
+      restoreCam.setFollowOffset(0, 0);
+      this.player.finishPainting();
+    }
   }
 
   // === WIND LEAVES EFFECT ===
@@ -4041,7 +4251,21 @@ export default class GameScene extends Phaser.Scene {
       if (paintPressed) {
         // DON'T clear isClimbing/onLadder here — tryPaint() needs them
         // to pass its own onLadder check. tryPaint() handles the exit internally.
+        this._paintViewMode = 'arm';
         this.tryPaint();
+      }
+    }
+    // Toggle: while painting in arm mode, pressing paint button again → grid mode
+    // While in grid mode, pressing again → exit
+    if (this.player.isPainting && this.pbn) {
+      const togglePressed = Phaser.Input.Keyboard.JustDown(this.paintKeySpace) ||
+        (this.touch && this.touch.actionJustPressed);
+      if (togglePressed) {
+        if (this._paintViewMode === 'arm') {
+          this.enterGridPaintMode();
+        } else if (this._paintViewMode === 'grid') {
+          this.exitGridPaintMode(false); // full exit
+        }
       }
     }
 
@@ -4170,8 +4394,26 @@ export default class GameScene extends Phaser.Scene {
     // The old GameScene check was causing premature detachment because it didn't
     // account for isDroppingToLadder or the ladder-top platform.
 
+    // 3b-grid. Grid paint mode update — direct pointer painting
+    if (this.player.isPainting && this._paintViewMode === 'grid') {
+      // Color switching (keys 1-4) works in grid mode too
+      if (this.colorKeys && this.pbn) {
+        for (let i = 0; i < this.colorKeys.length; i++) {
+          if (Phaser.Input.Keyboard.JustDown(this.colorKeys[i])) {
+            const colorName = this.pbn.colorMap[i];
+            if (colorName && this.player.hasPaint(colorName.toLowerCase())) {
+              this.pbn.setSelectedColor(i);
+              this.player.paintColor = this.pbn.getSelectedColorHex();
+              this.updateColorSelectorHighlight();
+            }
+          }
+        }
+      }
+      this._updateGridPaintInput();
+    }
+
     // 3b. Paint arm update — drive hand movement and rope simulation
-    if (this.player.isPainting && this.paintArm.active) {
+    if (this.player.isPainting && this.paintArm.active && this._paintViewMode !== 'grid') {
       // Color selector is fixed next to paint area (set once in createColorSelector)
       // Color switching (keys 1-4)
       if (this.colorKeys && this.pbn) {
