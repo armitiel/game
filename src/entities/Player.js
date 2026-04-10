@@ -132,7 +132,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   playPushAnim() {
-    if (this.currentAnim === 'player_push') return;
+    const isPulling = !!this._isPullingTrash;
+    const wantAnim = isPulling ? 'player_push_rev' : 'player_push';
+
+    if (this.currentAnim === wantAnim) return;
+
     // Shift sprite down visually but keep physics body in place
     if (!this._pushYShift) {
       this._pushYShift = 2;
@@ -140,20 +144,30 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 2);
     }
     // Push anim is authored facing LEFT; other anims face RIGHT.
-    // Phaser flipX=true mirrors the sprite. So:
-    // - facing right (flipX=false): push anim shows left → need to flip → setFlipX(true)  NO — that flips everything
-    // Instead: temporarily invert flipX so push anim matches movement direction
+    // Temporarily invert flipX so push anim matches movement direction.
+    // When pulling, flip is opposite because the character faces AWAY from trash.
     if (this._pushFlipApplied === undefined) {
       this._prePushFlipX = this.flipX;
-      this.setFlipX(!this.flipX);
       this._pushFlipApplied = true;
-      // Pull character back slightly from the object
-      const pushDir = this._prePushFlipX ? -1 : 1; // direction character is facing
-      this._pushXShift = -pushDir * 14; // 14px back
+      const pushDir = this._prePushFlipX ? -1 : 1;
+      this._pushXShift = -pushDir * 14;
       this.x += this._pushXShift;
     }
-    this.currentAnim = 'player_push';
-    this.anims.play('player_push', true);
+    // Set facing: push = arms toward trash, pull = back toward trash
+    if (isPulling) {
+      // Pulling: face AWAY from trash → keep original flipX
+      this.setFlipX(this._prePushFlipX);
+    } else {
+      // Pushing: face TOWARD trash → invert flipX
+      this.setFlipX(!this._prePushFlipX);
+    }
+    this.currentAnim = wantAnim;
+    if (isPulling) {
+      // Play push animation in reverse for pulling
+      this.anims.playReverse('player_push', true);
+    } else {
+      this.anims.play('player_push', true);
+    }
   }
 
   playClimb2Anim(platformTopY) {

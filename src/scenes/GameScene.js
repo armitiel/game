@@ -4254,7 +4254,7 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // 3b. Move trash when player is pushing into it
+    // 3b. Move trash when player is pushing OR pulling it
     if (this.player.isPushingTrash && this.collidingTrash) {
       const t = this.collidingTrash;
       // Use input direction, not velocity (velocity is 0 because collider blocks player)
@@ -4263,8 +4263,9 @@ export default class GameScene extends Phaser.Scene {
       const right = this.player.cursors.right.isDown || this.player.wasdKeys.right.isDown || (tc && tc.right);
       const trashIsRight = t.x > this.player.x;
       const pushingToward = (trashIsRight && right) || (!trashIsRight && left);
-      if (pushingToward) {
-        const pushSpeed = 35; // px/s — slow to convey weight
+      const pullingAway   = (trashIsRight && left)  || (!trashIsRight && right);
+      if (pushingToward || pullingAway) {
+        const pushSpeed = pushingToward ? 35 : 25; // pull is slightly slower
         const dir = right ? 1 : -1;
         const dx = dir * pushSpeed * (delta / 1000);
         // Move trash — keep sprite and body in sync
@@ -4275,6 +4276,10 @@ export default class GameScene extends Phaser.Scene {
         this.player.body.position.x += dx;
         this.player.body.prev.x += dx;
       }
+      // Tell player whether pulling (for reversed push animation)
+      this.player._isPullingTrash = pullingAway && (left || right);
+    } else {
+      this.player._isPullingTrash = false;
     }
 
     // Sync trash proximity zones + detect player leaving top
