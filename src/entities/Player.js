@@ -153,17 +153,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this._pushXShift = -pushDir * 14;
       this.x += this._pushXShift;
     }
-    // Set facing: push = arms toward trash, pull = back toward trash
-    if (isPulling) {
-      // Pulling: face AWAY from trash → keep original flipX
-      this.setFlipX(this._prePushFlipX);
-    } else {
-      // Pushing: face TOWARD trash → invert flipX
-      this.setFlipX(!this._prePushFlipX);
-    }
+    // Always face TOWARD trash (same orientation for push and pull).
+    // When pulling the animation plays in reverse — character walks
+    // backward while still facing the trash can.
+    this.setFlipX(!this._prePushFlipX);
     this.currentAnim = wantAnim;
     if (isPulling) {
-      // Play push animation in reverse for pulling
       this.anims.playReverse('player_push', true);
     } else {
       this.anims.play('player_push', true);
