@@ -135,9 +135,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   playPushAnim(hasInput) {
     const isPulling = !!this._isPullingTrash;
     const wantAnim = isPulling ? 'player_push_rev' : 'player_push';
+    const totalFrames = PLAYER.TOTAL_PUSH_FRAMES; // 24
 
     // --- One-time setup when entering push mode or switching push↔pull ---
     if (this.currentAnim !== wantAnim) {
+      // Init frame index FIRST so setFrame below uses it immediately
+      if (this._pushFrameIndex == null) this._pushFrameIndex = 0;
+
       // Shift sprite down visually but keep physics body in place
       if (!this._pushYShift) {
         this._pushYShift = 2;
@@ -155,31 +159,29 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       // Always face TOWARD trash
       this.setFlipX(!this._prePushFlipX);
       this.currentAnim = wantAnim;
-      // Stop auto-play — we drive frames manually
-      this.anims.stop();
-      // Init frame index if not set
-      if (this._pushFrameIndex == null) this._pushFrameIndex = 0;
+
+      // Pause Phaser's auto-play so it doesn't fight manual frame control,
+      // then immediately set the correct push frame to avoid any flicker.
+      try { this.anims.pause(); } catch (e) {}
+      this.setFrame(PLAYER.PUSH_FRAME_START + Math.floor(this._pushFrameIndex));
+      return; // first frame is set — skip the advance below
     }
 
     // --- Per-frame: advance or freeze the animation based on input ---
-    const totalFrames = PLAYER.TOTAL_PUSH_FRAMES; // 24
     const animSpeed = 0.35; // frames per game-tick (~14fps feel at 60fps)
 
     if (hasInput) {
       if (isPulling) {
-        // Reverse direction
         this._pushFrameIndex -= animSpeed;
         if (this._pushFrameIndex < 0) this._pushFrameIndex += totalFrames;
       } else {
-        // Forward direction
         this._pushFrameIndex += animSpeed;
         if (this._pushFrameIndex >= totalFrames) this._pushFrameIndex -= totalFrames;
       }
     }
-    // else: no input → freeze on current frame (do nothing)
+    // else: no input → freeze on current frame
 
-    const frame = PLAYER.PUSH_FRAME_START + Math.floor(this._pushFrameIndex);
-    this.setFrame(frame);
+    this.setFrame(PLAYER.PUSH_FRAME_START + Math.floor(this._pushFrameIndex));
   }
 
   playClimb2Anim(platformTopY) {

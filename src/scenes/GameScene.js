@@ -4103,6 +4103,7 @@ export default class GameScene extends Phaser.Scene {
                 this._trashApproachTween = null;
                 this.player.isPushingTrash = true;
                 this._activeTrash = trash;  // remember which trash we're interacting with
+                this.player.playPushAnim(false); // set push frame immediately — no flicker
                 if (this.touch) this.touch.setActiveMode('grab', true);
               }
             });
@@ -4110,6 +4111,7 @@ export default class GameScene extends Phaser.Scene {
             // Already close enough
             this.player.isPushingTrash = true;
             this._activeTrash = trash;  // remember which trash we're interacting with
+            this.player.playPushAnim(false); // set push frame immediately — no flicker
             if (this.touch) this.touch.setActiveMode('grab', true);
           }
         }
