@@ -4277,6 +4277,20 @@ export default class GameScene extends Phaser.Scene {
         this.player.body.position.x += dx;
         this.player.body.prev.x += dx;
       }
+      // When pulling, kill normal movement velocity so the player doesn't
+      // drift away from the trash. Also clamp the gap to maxPullGap.
+      if (pullingAway && (left || right)) {
+        this.player.setVelocityX(0);
+        this.player.body.setAccelerationX(0);
+        const maxPullGap = 32;
+        const gap = Math.abs(this.player.x - t.x);
+        if (gap > maxPullGap) {
+          const sign = t.x > this.player.x ? 1 : -1;
+          this.player.x = t.x - sign * maxPullGap;
+          this.player.body.position.x = this.player.x - this.player.body.width / 2;
+          this.player.body.prev.x = this.player.body.position.x;
+        }
+      }
       // Tell player whether pulling (for reversed push animation)
       this.player._isPullingTrash = pullingAway && (left || right);
     } else {
