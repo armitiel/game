@@ -95,6 +95,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setFlipX(this._prePushFlipX);
       this._pushFlipApplied = undefined;
       this._prePushFlipX = undefined;
+      this._pushFrameIndex = null;
       if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
     }
     // Remove walk adjustments if leaving walk animation
@@ -131,43 +132,54 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.anims.play(key, true);
   }
 
-  playPushAnim() {
+  playPushAnim(hasInput) {
     const isPulling = !!this._isPullingTrash;
     const wantAnim = isPulling ? 'player_push_rev' : 'player_push';
 
-    if (this.currentAnim === wantAnim) return;
+    // --- One-time setup when entering push mode or switching push↔pull ---
+    if (this.currentAnim !== wantAnim) {
+      // Shift sprite down visually but keep physics body in place
+      if (!this._pushYShift) {
+        this._pushYShift = 2;
+        this.y += 2;
+        this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 2);
+      }
+      // Push anim is authored facing LEFT; other anims face RIGHT.
+      if (this._pushFlipApplied === undefined) {
+        this._prePushFlipX = this.flipX;
+        this._pushFlipApplied = true;
+        const pushDir = this._prePushFlipX ? -1 : 1;
+        this._pushXShift = -pushDir * 14;
+        this.x += this._pushXShift;
+      }
+      // Always face TOWARD trash
+      this.setFlipX(!this._prePushFlipX);
+      this.currentAnim = wantAnim;
+      // Stop auto-play — we drive frames manually
+      this.anims.stop();
+      // Init frame index if not set
+      if (this._pushFrameIndex == null) this._pushFrameIndex = 0;
+    }
 
-    // Shift sprite down visually but keep physics body in place
-    if (!this._pushYShift) {
-      this._pushYShift = 2;
-      this.y += 2;
-      this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 2);
+    // --- Per-frame: advance or freeze the animation based on input ---
+    const totalFrames = PLAYER.TOTAL_PUSH_FRAMES; // 24
+    const animSpeed = 0.35; // frames per game-tick (~14fps feel at 60fps)
+
+    if (hasInput) {
+      if (isPulling) {
+        // Reverse direction
+        this._pushFrameIndex -= animSpeed;
+        if (this._pushFrameIndex < 0) this._pushFrameIndex += totalFrames;
+      } else {
+        // Forward direction
+        this._pushFrameIndex += animSpeed;
+        if (this._pushFrameIndex >= totalFrames) this._pushFrameIndex -= totalFrames;
+      }
     }
-    // Push anim is authored facing LEFT; other anims face RIGHT.
-    // Temporarily invert flipX so push anim matches movement direction.
-    // When pulling, flip is opposite because the character faces AWAY from trash.
-    if (this._pushFlipApplied === undefined) {
-      this._prePushFlipX = this.flipX;
-      this._pushFlipApplied = true;
-      const pushDir = this._prePushFlipX ? -1 : 1;
-      this._pushXShift = -pushDir * 14;
-      this.x += this._pushXShift;
-    }
-    // Always face TOWARD trash (same orientation for push and pull).
-    // When pulling the animation plays in reverse — character walks
-    // backward while still facing the trash can.
-    this.setFlipX(!this._prePushFlipX);
-    this.currentAnim = wantAnim;
-    // Force-restart the animation when switching between push/pull so
-    // Phaser actually changes the playback direction (passing `true` to
-    // play/playReverse would skip the switch if the same key was active).
-    if (isPulling) {
-      this.anims.stop();
-      this.anims.playReverse('player_push');
-    } else {
-      this.anims.stop();
-      this.anims.play('player_push');
-    }
+    // else: no input → freeze on current frame (do nothing)
+
+    const frame = PLAYER.PUSH_FRAME_START + Math.floor(this._pushFrameIndex);
+    this.setFrame(frame);
   }
 
   playClimb2Anim(platformTopY) {
@@ -193,6 +205,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setFlipX(this._prePushFlipX);
       this._pushFlipApplied = undefined;
       this._prePushFlipX = undefined;
+      this._pushFrameIndex = null;
       if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
     }
     // Save start X for smooth X slide onto platform
@@ -738,7 +751,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       if (!this.isPushingTrash) this.setFlipX(true);
       if (onGround) {
         if (this.isPushingTrash) {
-          this.playPushAnim();
+          this.playPushAnim(true);
         } else if (vx > 30) {
           this.playAnim('player_idle');
         } else {
@@ -751,7 +764,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       if (!this.isPushingTrash) this.setFlipX(false);
       if (onGround) {
         if (this.isPushingTrash) {
-          this.playPushAnim();
+          this.playPushAnim(true);
         } else if (vx < -30) {
           this.playAnim('player_idle');
         } else {
@@ -769,7 +782,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           this.body.setDragX(0);
         }
         if (this.isPushingTrash) {
-          this.playPushAnim();
+          this.playPushAnim(false);
         } else if (!this.isTwisting) {
           // Increment idle timer (roughly 1 per frame ≈ 16.7ms at 60fps)
           this.idleTimer++;
@@ -1340,6 +1353,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setFlipX(this._prePushFlipX);
       this._pushFlipApplied = undefined;
       this._prePushFlipX = undefined;
+      this._pushFrameIndex = null;
       if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
     }
     this.body.allowGravity = true;
