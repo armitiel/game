@@ -315,6 +315,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // === Landing detection (dust effect) ===
     if (onGround && this.wasInAir) {
+      this._hasJumped = false;  // clear jump flag on landing
       const impact = Math.min(this.fallVelocity / 400, 1); // 0-1 intensity based on fall speed
       this.spawnLandingDust(impact);
       // Play thud sound on landing
@@ -343,13 +344,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
     this.wasInAir = !onGround && !this.isClimbing;
 
-    // === Climb2: ledge grab — head hits side of platform while jumping UP ===
-    // Only triggers when player is ascending (velocity.y <= 0) or near the apex
-    // of a jump. If the player is falling (velocity.y > small threshold) the
-    // ledge grab does NOT engage — this prevents accidental grabs when falling
-    // past platform edges.
-    const isAscending = this.body.velocity.y <= 30; // small margin for jump apex
-    if (isAscending && !onGround && !this.isClimbing && !this.isPushingTrash && !this.isClimbing2 && this.ladderCooldown <= 0 && (this._climb2Cooldown || 0) <= 0) {
+    // === Climb2: ledge grab — head hits side of platform during a JUMP ===
+    // _hasJumped is set when the player presses jump, cleared on landing.
+    // This means climb2 activates during the FULL arc of a jump (including
+    // the descending part), but does NOT activate when the player walks off
+    // a platform edge and falls without jumping.
+    if (this._hasJumped && !onGround && !this.isClimbing && !this.isPushingTrash && !this.isClimbing2 && this.ladderCooldown <= 0 && (this._climb2Cooldown || 0) <= 0) {
       const playerHeadY = this.body.y;                   // top of player body
       const playerLeft = this.body.x;
       const playerRight = this.body.x + this.body.width;
@@ -646,6 +646,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // === Jump has HIGHEST priority — works regardless of d-pad direction ===
     if (jump && onGround) {
       this._ladderDownHoldFrames = 0;  // reset ladder hold counter
+      this._hasJumped = true;  // flag: player initiated a jump (for climb2 check)
       this.setVelocityY(PLAYER.JUMP_VELOCITY);
       this.playAnim('player_jump');
       this.spawnJumpDust();
