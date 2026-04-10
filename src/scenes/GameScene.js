@@ -3445,6 +3445,7 @@ export default class GameScene extends Phaser.Scene {
     this.player.isPushingTrash = false;
     this.player._isPullingTrash = false;
     this._activeTrash = null;
+    this._pullSnapGap = null;
     if (this.touch) this.touch.setActiveMode('grab', false);
     this.trashCans.forEach(t => {
       if (!t.body) return;
@@ -4266,7 +4267,7 @@ export default class GameScene extends Phaser.Scene {
       const pushingToward = (trashIsRight && right) || (!trashIsRight && left);
       const pullingAway   = (trashIsRight && left)  || (!trashIsRight && right);
       if (pushingToward || pullingAway) {
-        const pushSpeed = pushingToward ? 35 : 25; // pull is slightly slower
+        const pushSpeed = 35; // same speed for push & pull
         const dir = right ? 1 : -1;
         const dx = dir * pushSpeed * (delta / 1000);
         // Move trash — keep sprite and body in sync
@@ -4277,19 +4278,25 @@ export default class GameScene extends Phaser.Scene {
         this.player.body.position.x += dx;
         this.player.body.prev.x += dx;
       }
-      // When pulling, kill normal movement velocity so the player doesn't
-      // drift away from the trash. Also clamp the gap to maxPullGap.
+      // When pulling, snap player to a fixed offset from the trash so they
+      // move as a unit (same approach as push, where the collider keeps them
+      // together). Kill velocity so normal movement doesn't fight the snap.
       if (pullingAway && (left || right)) {
         this.player.setVelocityX(0);
         this.player.body.setAccelerationX(0);
-        const maxPullGap = 32;
-        const gap = Math.abs(this.player.x - t.x);
-        if (gap > maxPullGap) {
-          const sign = t.x > this.player.x ? 1 : -1;
-          this.player.x = t.x - sign * maxPullGap;
-          this.player.body.position.x = this.player.x - this.player.body.width / 2;
-          this.player.body.prev.x = this.player.body.position.x;
+        // Record initial gap when pull starts; reuse it for the whole pull
+        if (!this._pullSnapGap) {
+          this._pullSnapGap = Math.abs(this.player.x - t.x);
+          if (this._pullSnapGap < 20) this._pullSnapGap = 20;
+          if (this._pullSnapGap > 40) this._pullSnapGap = 40;
         }
+        const sign = t.x > this.player.x ? 1 : -1; // +1 = trash is to the right
+        const targetX = t.x - sign * this._pullSnapGap;
+        this.player.x = targetX;
+        this.player.body.position.x = this.player.x - this.player.body.width / 2;
+        this.player.body.prev.x = this.player.body.position.x;
+      } else {
+        this._pullSnapGap = null; // reset when not pulling
       }
       // Tell player whether pulling (for reversed push animation)
       this.player._isPullingTrash = pullingAway && (left || right);
