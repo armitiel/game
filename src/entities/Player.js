@@ -329,9 +329,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
     this.wasInAir = !onGround && !this.isClimbing;
 
-    // === Climb2: ledge grab — head hits side of platform while jumping ===
-    // Player is in the air BESIDE a platform, head reaches platform level → grab edge
-    if (!onGround && !this.isClimbing && !this.isPushingTrash && !this.isClimbing2 && this.ladderCooldown <= 0 && (this._climb2Cooldown || 0) <= 0) {
+    // === Climb2: ledge grab — head hits side of platform while jumping UP ===
+    // Only triggers when player is ascending (velocity.y <= 0) or near the apex
+    // of a jump. If the player is falling (velocity.y > small threshold) the
+    // ledge grab does NOT engage — this prevents accidental grabs when falling
+    // past platform edges.
+    const isAscending = this.body.velocity.y <= 30; // small margin for jump apex
+    if (isAscending && !onGround && !this.isClimbing && !this.isPushingTrash && !this.isClimbing2 && this.ladderCooldown <= 0 && (this._climb2Cooldown || 0) <= 0) {
       const playerHeadY = this.body.y;                   // top of player body
       const playerLeft = this.body.x;
       const playerRight = this.body.x + this.body.width;
