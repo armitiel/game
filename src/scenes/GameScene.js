@@ -3443,6 +3443,8 @@ export default class GameScene extends Phaser.Scene {
 
   exitTrashPush() {
     this.player.isPushingTrash = false;
+    this.player._isPullingTrash = false;
+    this._activeTrash = null;
     if (this.touch) this.touch.setActiveMode('grab', false);
     this.trashCans.forEach(t => {
       if (!t.body) return;
@@ -4099,12 +4101,14 @@ export default class GameScene extends Phaser.Scene {
               onComplete: () => {
                 this._trashApproachTween = null;
                 this.player.isPushingTrash = true;
+                this._activeTrash = trash;  // remember which trash we're interacting with
                 if (this.touch) this.touch.setActiveMode('grab', true);
               }
             });
           } else {
             // Already close enough
             this.player.isPushingTrash = true;
+            this._activeTrash = trash;  // remember which trash we're interacting with
             if (this.touch) this.touch.setActiveMode('grab', true);
           }
         }
@@ -4119,31 +4123,22 @@ export default class GameScene extends Phaser.Scene {
         this._trashApproachTween = null;
       }
     }
-    // Auto-exit push mode only when player walks AWAY from the trash
+    // Auto-exit push mode when player gets too far from the active trash
     if (this.player.isPushingTrash) {
-      const touching = this.collidingTrash || this.nearbyTrash;
-      if (!touching) {
-        // Not touching or overlapping any trash — check if moving away
-        // Find closest trash to determine direction
-        let closest = null;
-        let closestDist = Infinity;
-        this.trashCans.forEach(t => {
-          const dist = Math.abs(this.player.x - t.x);
-          if (dist < closestDist) { closestDist = dist; closest = t; }
-        });
-        if (closest) {
-          // Only auto-exit when truly walking away, NOT when actively
-          // pulling the trash (pulling also moves away from it).
-          const isPulling = !!this.player._isPullingTrash;
-          const trashIsRight = closest.x > this.player.x;
-          const playerMovingAway = (trashIsRight && this.player.body.velocity.x < -10)
-            || (!trashIsRight && this.player.body.velocity.x > 10);
-          if ((!isPulling && playerMovingAway) || closestDist > 80) {
-            this.exitTrashPush();
-          }
-        } else {
+      const ref = this._activeTrash;
+      if (ref) {
+        const dist = Math.abs(this.player.x - ref.x);
+        // Only auto-exit when truly too far away AND not pulling
+        const isPulling = !!this.player._isPullingTrash;
+        if (!isPulling && dist > 80) {
+          this.exitTrashPush();
+        } else if (dist > 120) {
+          // Even while pulling, if player drifts very far, exit
           this.exitTrashPush();
         }
+      } else {
+        // No active trash reference — shouldn't happen, but safety exit
+        this.exitTrashPush();
       }
     }
 
@@ -4258,8 +4253,11 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // 3b. Move trash when player is pushing OR pulling it
-    if (this.player.isPushingTrash && this.collidingTrash) {
-      const t = this.collidingTrash;
+    // Use _activeTrash (set when entering push mode) instead of collidingTrash,
+    // because when pulling the player moves away and loses collision contact.
+    const activeT = this._activeTrash || this.collidingTrash;
+    if (this.player.isPushingTrash && activeT) {
+      const t = activeT;
       // Use input direction, not velocity (velocity is 0 because collider blocks player)
       const tc = this.touch;
       const left = this.player.cursors.left.isDown || this.player.wasdKeys.left.isDown || (tc && tc.left);
