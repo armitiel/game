@@ -4132,10 +4132,13 @@ export default class GameScene extends Phaser.Scene {
           if (dist < closestDist) { closestDist = dist; closest = t; }
         });
         if (closest) {
+          // Only auto-exit when truly walking away, NOT when actively
+          // pulling the trash (pulling also moves away from it).
+          const isPulling = !!this.player._isPullingTrash;
           const trashIsRight = closest.x > this.player.x;
           const playerMovingAway = (trashIsRight && this.player.body.velocity.x < -10)
             || (!trashIsRight && this.player.body.velocity.x > 10);
-          if (playerMovingAway || closestDist > 60) {
+          if ((!isPulling && playerMovingAway) || closestDist > 80) {
             this.exitTrashPush();
           }
         } else {
