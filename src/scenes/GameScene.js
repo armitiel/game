@@ -3255,17 +3255,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   completePainting() {
-    // Clean up grid mode if completing from grid view
-    if (this._paintViewMode === 'grid') {
-      this._destroyGridOverlay();
-      if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
-      this.player.setVisible(true);
-      const cam = this.cameras.main;
-      cam.startFollow(this.player, true, 0.15, 0.15);
-      cam.setFollowOffset(0, 0);
-    }
-    this._paintViewMode = 'arm';
-
     const spot = this.activePaintSpot;
 
     // Paint was already consumed per-pixel in onPaintMove — no bulk deduction needed
@@ -3313,18 +3302,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   cancelPainting() {
-    // Clean up grid mode elements if active
-    if (this._paintViewMode === 'grid') {
-      this._destroyGridOverlay();
-      if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
-      this.player.setVisible(true);
-      // Restore camera follow (was stopped in grid mode)
-      const cam = this.cameras.main;
-      cam.startFollow(this.player, true, 0.15, 0.15);
-      cam.setFollowOffset(0, 0);
-    }
-    this._paintViewMode = 'arm';
-
     if (this.activePaintSpot && this.pbn) {
       // Save PBN instance on the spot — paintGfx stays visible on the wall
       this.activePaintSpot.setData('pbnInstance', this.pbn);
@@ -3348,12 +3325,21 @@ export default class GameScene extends Phaser.Scene {
     if (this.pbn) {
       this._lastPaintColorIndex = this.pbn.selectedColorIndex;
     }
-    // --- Camera zoom out (camera still follows player, just restore zoom) ---
+
+    // Clean up any grid-mode elements that may still exist
+    this._destroyGridOverlay();
+    if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
+    this.player.setVisible(true);
+    this._paintViewMode = 'arm';
+
+    // --- Camera: always ensure following player + restore zoom ---
+    const cam = this.cameras.main;
+    cam.startFollow(this.player, true, 0.15, 0.15);
+    cam.setFollowOffset(0, 0);
     if (this._preZoom != null) {
       // Always restore to the reliable base zoom, not a possibly mid-animation value
       const restoreZoom = this._baseZoom || this._preZoom;
-      this.cameras.main.zoomTo(restoreZoom, 350, 'Sine.easeInOut');
-      this.cameras.main.setFollowOffset(0, 0);
+      cam.zoomTo(restoreZoom, 350, 'Sine.easeInOut');
       this._preZoom = null;
     }
 
@@ -3467,14 +3453,11 @@ export default class GameScene extends Phaser.Scene {
    * @param {boolean} backToArm - if true, return to arm mode; if false, fully cancel painting.
    */
   exitGridPaintMode(backToArm = false) {
-    this._paintViewMode = 'arm';
-
     // Clean up grid-mode elements
     this._destroyGridOverlay();
     if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
-
-    // Show player again
     this.player.setVisible(true);
+    this._paintViewMode = 'arm';
 
     if (backToArm) {
       // Restore camera follow + arm mode
@@ -3571,18 +3554,9 @@ export default class GameScene extends Phaser.Scene {
       this._gridPaintedThisGesture = false;
     }
 
-    // Check completion
+    // Check completion — finishPainting triggers completePainting which handles cleanup
     if (this.pbn && this.pbn.isComplete()) {
       this.pbn.fillRemaining();
-      // Exit grid mode, then complete
-      this._paintViewMode = 'arm';
-      this._destroyGridOverlay();
-      if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
-      this.player.setVisible(true);
-      // Restore camera
-      const restoreCam = this.cameras.main;
-      restoreCam.startFollow(this.player, true, 0.15, 0.15);
-      restoreCam.setFollowOffset(0, 0);
       this.player.finishPainting();
     }
   }
