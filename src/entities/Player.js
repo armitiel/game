@@ -158,10 +158,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // backward while still facing the trash can.
     this.setFlipX(!this._prePushFlipX);
     this.currentAnim = wantAnim;
+    // Force-restart the animation when switching between push/pull so
+    // Phaser actually changes the playback direction (passing `true` to
+    // play/playReverse would skip the switch if the same key was active).
     if (isPulling) {
-      this.anims.playReverse('player_push', true);
+      this.anims.stop();
+      this.anims.playReverse('player_push');
     } else {
-      this.anims.play('player_push', true);
+      this.anims.stop();
+      this.anims.play('player_push');
     }
   }
 
