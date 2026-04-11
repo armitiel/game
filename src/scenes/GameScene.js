@@ -3426,7 +3426,9 @@ export default class GameScene extends Phaser.Scene {
     const centerX = b.x + b.w / 2;
     const centerY = b.y + b.h / 2;
 
-    cam.pan(centerX, centerY, 400, 'Sine.easeInOut');
+    // Set camera position directly (no pan animation) so scrollX/scrollY
+    // aren't locked by an internal pan target that blocks manual scrolling.
+    cam.centerOn(centerX, centerY);
     cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
 
     // Save paint bounds for scroll clamping
@@ -3550,7 +3552,7 @@ export default class GameScene extends Phaser.Scene {
     const panDown  = cursors.down.isDown  || wasd.down.isDown  || (t && t.down);
 
     if (panLeft || panRight || panUp || panDown) {
-      const panSpeed = 1.5 / cam.zoom; // world-pixels per frame
+      const panSpeed = 80 / cam.zoom; // world-pixels per frame, scales with zoom
       let dx = 0, dy = 0;
       if (panLeft)  dx -= panSpeed;
       if (panRight) dx += panSpeed;
