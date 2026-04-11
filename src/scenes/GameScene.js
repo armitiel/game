@@ -3418,17 +3418,19 @@ export default class GameScene extends Phaser.Scene {
     const b = this.pbn.bounds;
     cam.stopFollow();
 
-    // Calculate zoom to fit entire painting with margin
-    const marginFactor = 0.80; // 80% of screen used for painting
-    const zoomX = (cam.width * marginFactor) / b.w;
-    const zoomY = ((cam.height - 120) * marginFactor) / b.h; // reserve 120px bottom for palette
-    const targetZoom = Math.min(zoomX, zoomY);
+    // Use the same zoom level as arm mode so cells are big and crisp.
+    // The player can scroll/pan to see the rest of the painting.
+    const isMobile = !!(this.touch && this.touch.enabled);
+    const targetZoom = isMobile ? 5.0 : 3.5;
 
     const centerX = b.x + b.w / 2;
     const centerY = b.y + b.h / 2;
 
     cam.pan(centerX, centerY, 400, 'Sine.easeInOut');
     cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
+
+    // Save paint bounds for scroll clamping
+    this._gridBounds = b;
 
     // Show grid lines overlay
     this._createGridOverlay();
@@ -3534,14 +3536,32 @@ export default class GameScene extends Phaser.Scene {
     // Update cursor position
     if (this._gridCursor) {
       this._gridCursor.setPosition(worldPoint.x, worldPoint.y);
-
-      // Tint cursor with selected color
       const hex = this.pbn.getSelectedColorHex();
       this._gridCursor.setFillStyle(hex, 0.9);
     }
 
+    // --- Scroll/pan with joystick (mobile) or arrow keys (desktop) ---
+    const t = this.touch;
+    const cursors = this.player.cursors;
+    const wasd = this.player.wasdKeys;
+    const panLeft  = cursors.left.isDown  || wasd.left.isDown  || (t && t.left);
+    const panRight = cursors.right.isDown || wasd.right.isDown || (t && t.right);
+    const panUp    = cursors.up.isDown    || wasd.up.isDown    || (t && t.up);
+    const panDown  = cursors.down.isDown  || wasd.down.isDown  || (t && t.down);
+
+    if (panLeft || panRight || panUp || panDown) {
+      const panSpeed = 1.5 / cam.zoom; // world-pixels per frame
+      let dx = 0, dy = 0;
+      if (panLeft)  dx -= panSpeed;
+      if (panRight) dx += panSpeed;
+      if (panUp)    dy -= panSpeed;
+      if (panDown)  dy += panSpeed;
+      cam.scrollX += dx;
+      cam.scrollY += dy;
+    }
+
+    // --- Paint on tap/drag ---
     if (pointer.isDown) {
-      // Paint the cell under pointer
       const b = this.pbn.bounds;
       const inBounds = worldPoint.x >= b.x && worldPoint.x <= b.x + b.w &&
                        worldPoint.y >= b.y && worldPoint.y <= b.y + b.h;
@@ -3554,7 +3574,7 @@ export default class GameScene extends Phaser.Scene {
       this._gridPaintedThisGesture = false;
     }
 
-    // Check completion — finishPainting triggers completePainting which handles cleanup
+    // Check completion
     if (this.pbn && this.pbn.isComplete()) {
       this.pbn.fillRemaining();
       this.player.finishPainting();
