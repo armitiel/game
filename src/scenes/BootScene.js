@@ -178,6 +178,12 @@ export default class BootScene extends Phaser.Scene {
     this.load.json('painting_star', 'assets/paintings/star_mural.json');
     this.load.json('painting_mural_big', 'assets/paintings/pikachu_mural.json');
     this.load.json('painting_Nowy', 'assets/paintings/Nowy_mural.json');
+    this.load.json('painting_flower', 'assets/paintings/flower_mural.json');
+    this.load.json('painting_fish', 'assets/paintings/fish_mural.json');
+    this.load.json('painting_butterfly', 'assets/paintings/butterfly_mural.json');
+    this.load.json('painting_moon', 'assets/paintings/moon_mural.json');
+    this.load.json('painting_tree', 'assets/paintings/tree_mural.json');
+    this.load.json('painting_cat', 'assets/paintings/cat_mural.json');
 
     // === Generate non-cop textures procedurally (cop needs loaded assets → done in create()) ===
     this.generateOtherTextures();
@@ -742,7 +748,11 @@ export default class BootScene extends Phaser.Scene {
    * Auto-register new colors in PAINT.COLORS and generate textures.
    */
   registerPaintingPalettes() {
-    const paintingKeys = ['painting_heart', 'painting_star', 'painting_mural_big', 'painting_Nowy'];
+    const paintingKeys = [
+      'painting_heart', 'painting_star', 'painting_mural_big', 'painting_Nowy',
+      'painting_flower', 'painting_fish', 'painting_butterfly',
+      'painting_moon', 'painting_tree', 'painting_cat'
+    ];
 
     for (const key of paintingKeys) {
       const data = this.cache.json.get(key);

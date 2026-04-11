@@ -18,8 +18,8 @@ const HAND_SPEED = 200;          // pixels per second hand moves (keyboard)
 const HAND_SPEED_TOUCH = 150;    // mobile touch joystick max speed (scaled by joystick intensity)
 const ROPE_STIFFNESS = 0.7;     // high = stiff, nearly straight
 const GRAVITY_SAG = 1.5;        // minimal curve even at full extension
-const MAX_ARM_LENGTH = 55;      // max distance from shoulder to hand in pixels
-const MAX_ARM_LEFT = 38;        // max pixels hand can reach past shoulder to the left (behind body)
+const MAX_ARM_LENGTH = 90;      // max distance from shoulder to hand in pixels
+const MAX_ARM_LEFT = 70;        // max pixels hand can reach past shoulder to the left (behind body)
 const MIN_SAG_DIST = 15;        // below this distance, sag is reduced to zero
 
 export default class PaintArm {

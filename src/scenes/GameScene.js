@@ -1204,16 +1204,22 @@ export default class GameScene extends Phaser.Scene {
       if (ps.paintingKey && !ps.painted) neededPaintings.add(ps.paintingKey);
     });
 
-    // Collect unique colors across all needed paintings
-    const uniqueColors = new Set();
+    // Count how many murals use each color — need 1 can per mural per color
+    const colorCanCount = new Map();
     neededPaintings.forEach(key => {
       const data = this.cache.json.get(key);
       if (!data || !data.colors) return;
-      data.colors.forEach(c => uniqueColors.add(c.toLowerCase()));
+      data.colors.forEach(c => {
+        const lc = c.toLowerCase();
+        colorCanCount.set(lc, (colorCanCount.get(lc) || 0) + 1);
+      });
     });
 
-    // 1 can per unique color
-    const canList = [...uniqueColors];
+    // Build canList with N entries per color (N = number of murals using it)
+    const canList = [];
+    colorCanCount.forEach((count, color) => {
+      for (let i = 0; i < count; i++) canList.push(color);
+    });
 
     // Shuffle to mix colors
     for (let i = canList.length - 1; i > 0; i--) {
@@ -3128,19 +3134,17 @@ export default class GameScene extends Phaser.Scene {
       if (this.pbn) {
         this.pbn.setSelectedColor(colorIdx);
         this.player.paintColor = this.pbn.getSelectedColorHex();
-        if (this._paintViewMode !== 'grid' && this.paintArm) {
+        if (this.paintArm) {
           this.paintArm.setCanColor(this.pbn.getSelectedColorName());
         }
+        // Force flood preview refresh when color changes
+        this._armFloodLastCell = null;
         this.updateTouchColorHighlight();
       }
     }, this.pbn.colorMap, () => {
       if (this.player.isPainting) {
-        if (this._paintViewMode === 'grid') {
-          this.exitGridPaintMode(false); // full exit from grid mode
-        } else {
-          this.player.stopPainting();
-          this.cancelPainting();
-        }
+        this.player.stopPainting();
+        this.cancelPainting();
       }
     }, hasColorArr);
     this._addingHud = false;
@@ -3220,37 +3224,69 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Called each frame while arm is over the mural.
+   * Shows flood-fill preview of the connected region under the hand.
+   * Actual fill is triggered separately by tryFloodFill() on tap/click.
+   */
   onPaintMove(handX, handY) {
     if (!this.pbn) return;
+    if (this._floodAnimating) return;
 
-    // Block painting if player doesn't have the selected color
     const selectedColorName = this.pbn.getSelectedColorName().toLowerCase();
     if (!this.player.hasPaint(selectedColorName)) return;
 
-    // Check if player has enough paint for one cell
-    const cellCost = this.pbn.getCellCost();
-    if (this.player.getPaintCount(selectedColorName) < cellCost - 0.001) return;
-
-    const result = this.pbn.tryFillCell(handX, handY);
-
-    if (result === true) {
-      // Correctly painted — consume paint per pixel
-      this.player.usePaint(selectedColorName, cellCost);
-      this.player.paintColor = this.pbn.getSelectedColorHex();
-      // Update HUD bars in real-time
-      this.updateHUD();
+    const cell = this.pbn.getCellAt(handX, handY);
+    if (!cell) {
+      // Arm moved outside the grid — clear preview
+      if (this._armFloodLastCell !== null) {
+        this._armFloodLastCell = null;
+        this._armFloodRegion = null;
+        this._destroyFloodPreview();
+      }
+      return;
     }
 
-    // Update progress on mural counter
-    const progress = this.pbn.getProgress();
-    if (this.hudCountText && this._savedMuralCountText != null) {
-      this.hudCountText.setText(`${Math.round(progress * 100)}%`);
-    }
+    const cellKey = `${cell.row},${cell.col}`;
 
-    // Check if threshold reached
-    if (this.pbn.isComplete()) {
-      this.pbn.fillRemaining();
-      this.player.finishPainting();
+    // Update preview only when hovering a new cell
+    if (cellKey !== this._armFloodLastCell) {
+      this._armFloodLastCell = cellKey;
+      this._destroyFloodPreview();
+
+      const region = this.pbn.getFloodRegion(cell.row, cell.col);
+      if (region) {
+        const isCorrectColor = this.pbn.selectedColorIndex === region.colorIndex;
+        this._showFloodPreview(region);
+        this._armFloodRegion = isCorrectColor ? region : null;
+      } else {
+        this._armFloodRegion = null;
+      }
+    }
+  }
+
+  /**
+   * Execute flood fill on the currently previewed region.
+   * Called when the user explicitly taps/clicks (action button or pointer).
+   */
+  tryFloodFill() {
+    if (!this.pbn || this._floodAnimating) return;
+    if (!this._armFloodRegion) return;
+
+    const region = this._armFloodRegion;
+    const colorName = this.pbn.colorMap[region.colorIndex];
+    const totalCost = this.pbn.getFloodCost(region);
+    const currentPaint = this.player.getPaintCount(colorName.toLowerCase());
+
+    if (currentPaint >= totalCost - 0.001) {
+      this._armFloodRegion = null;
+      this._armFloodLastCell = null;
+      this._executeFloodFill(region);
+    } else {
+      // Not enough paint — flash red
+      this._flashFloodInsufficient(region);
+      this._armFloodRegion = null;
+      this._armFloodLastCell = null;
     }
   }
 
@@ -3326,9 +3362,11 @@ export default class GameScene extends Phaser.Scene {
       this._lastPaintColorIndex = this.pbn.selectedColorIndex;
     }
 
-    // Clean up any grid-mode elements that may still exist
-    this._destroyGridOverlay();
-    if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
+    // Clean up flood-fill state
+    this._destroyFloodPreview();
+    this._floodAnimating = false;
+    this._armFloodLastCell = null;
+    this._armFloodRegion = null;
     this.player.setVisible(true);
     this._paintViewMode = 'arm';
 
@@ -3392,195 +3430,133 @@ export default class GameScene extends Phaser.Scene {
     this.activePaintSpot = null;
   }
 
-  // === GRID PAINT MODE (top-down paint-by-numbers) ===
+  // === FLOOD FILL HELPERS (used by arm paint mode) ===
 
   /**
-   * Switch from arm paint mode to grid paint mode (top-down view).
-   * Reuses the active PaintByNumbers instance — same grid, same progress.
+   * Destroy flood preview highlight graphics.
    */
-  enterGridPaintMode() {
-    if (!this.pbn || !this.player.isPainting) return;
-    this._paintViewMode = 'grid';
-
-    // Stop arm mode visuals
-    this.paintArm.stop();
-    // Stop spray SFX
-    if (this.sfxSpray) {
-      this.sfxSpray.stop();
-      this._sprayPlaying = false;
+  _destroyFloodPreview() {
+    if (this._floodPreview) {
+      this._floodPreview.destroy();
+      this._floodPreview = null;
     }
+  }
 
-    // Hide player sprite during grid view
-    this.player.setVisible(false);
+  /**
+   * Show a semi-transparent preview of the flood region under the pointer.
+   */
+  _showFloodPreview(region) {
+    this._destroyFloodPreview();
+    if (!region || !this.pbn) return;
 
-    // Camera: stop following player, center on paint area
-    const cam = this.cameras.main;
+    const g = this.add.graphics().setDepth(8);
+
     const b = this.pbn.bounds;
-    cam.stopFollow();
+    const hex = this.pbn.getSelectedColorHex();
+    // Check if selected color matches the region's target color
+    const isCorrectColor = this.pbn.selectedColorIndex === region.colorIndex;
+    const previewHex = isCorrectColor ? hex : 0xff0000;
+    const alpha = isCorrectColor ? 0.3 : 0.15;
 
-    // Use the same zoom level as arm mode so cells are big and crisp.
-    // The player can scroll/pan to see the rest of the painting.
-    const isMobile = !!(this.touch && this.touch.enabled);
-    const targetZoom = isMobile ? 5.0 : 3.5;
-
-    const centerX = b.x + b.w / 2;
-    const centerY = b.y + b.h / 2;
-
-    // Set camera position directly (no pan animation) so scrollX/scrollY
-    // aren't locked by an internal pan target that blocks manual scrolling.
-    cam.centerOn(centerX, centerY);
-    cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
-
-    // Save paint bounds for scroll clamping
-    this._gridBounds = b;
-
-    // Show grid lines overlay
-    this._createGridOverlay();
-
-    // Create hand cursor
-    this._gridCursor = this.add.circle(centerX, centerY, 4, 0xffffff, 0.85)
-      .setDepth(50).setStrokeStyle(2, 0x000000, 0.6);
-
-    // Enable drag-to-scroll state
-    this._gridDragActive = false;
-    this._gridLastPointer = null;
-    this._gridPaintedThisGesture = false;
-
-    // Bring numbers to high depth so they're clearly visible
-    if (this.pbn.numbersImage) {
-      this.pbn.numbersImage.setDepth(7.5);
-    }
-  }
-
-  /**
-   * Exit grid paint mode — either back to arm mode or fully exit painting.
-   * @param {boolean} backToArm - if true, return to arm mode; if false, fully cancel painting.
-   */
-  exitGridPaintMode(backToArm = false) {
-    // Clean up grid-mode elements
-    this._destroyGridOverlay();
-    if (this._gridCursor) { this._gridCursor.destroy(); this._gridCursor = null; }
-    this.player.setVisible(true);
-    this._paintViewMode = 'arm';
-
-    if (backToArm) {
-      // Restore camera follow + arm mode
-      const cam = this.cameras.main;
-      cam.startFollow(this.player, true, 0.15, 0.15);
-      const isMobile = !!(this.touch && this.touch.enabled);
-      const targetZoom = isMobile ? 5.0 : 3.5;
-      const armOffsetY = isMobile ? 25 : 18;
-      cam.setFollowOffset(0, -armOffsetY);
-      cam.zoomTo(targetZoom, 350, 'Sine.easeInOut');
-
-      // Restart paint arm
-      const b = this.pbn.bounds;
-      const startColor = this.pbn ? this.pbn.getSelectedColorName() : null;
-      this.paintArm.start(this.player.x, this.player.y, this.player.flipX, b, startColor);
-      if (this.touch) this.touch.setPaintMode(true);
-
-      // Restart spray SFX
-      if (!this.sfxSpray) {
-        this.sfxSpray = this.sound.add('sfx_spray', { loop: true, volume: 0.135 });
+    g.fillStyle(previewHex, alpha);
+    for (const layer of region.layers) {
+      for (const { r, c } of layer) {
+        const cx = b.x + c * this.pbn.cellW;
+        const cy = b.y + r * this.pbn.cellH;
+        g.fillRect(cx, cy, this.pbn.cellW, this.pbn.cellH);
       }
-      this._sprayPlaying = false;
-    } else {
-      // Full exit — cancel painting
-      this.player.stopPainting();
-      this.cancelPainting();
     }
+
+    this._floodPreview = g;
   }
 
   /**
-   * Create semi-transparent grid lines overlay for grid paint mode.
+   * Execute flood fill with animated BFS wave.
+   * Each BFS layer fills after a staggered delay for a ripple effect.
    */
-  _createGridOverlay() {
-    if (this._gridOverlayGfx) this._gridOverlayGfx.destroy();
-    const g = this.add.graphics().setDepth(7.1);
+  _executeFloodFill(region) {
+    if (!region || !this.pbn || this._floodAnimating) return;
+
+    // Check paint inventory — need enough for entire flood
+    const colorName = this.pbn.colorMap[region.colorIndex];
+    const totalCost = this.pbn.getFloodCost(region);
+    const currentPaint = this.player.getPaintCount(colorName.toLowerCase());
+    if (currentPaint < totalCost) {
+      // Not enough paint — flash the region red
+      this._flashFloodInsufficient(region);
+      return;
+    }
+
+    this._floodAnimating = true;
+    this._destroyFloodPreview();
+
+    const delayPerLayer = 45; // ms between BFS layers
+    let layerIndex = 0;
+    let cellsFilled = 0;
+
+    const fillNextLayer = () => {
+      if (layerIndex >= region.layers.length || !this.pbn) {
+        this._floodAnimating = false;
+        // Update HUD progress
+        if (this.pbn) {
+          const progress = this.pbn.getProgress();
+          if (this.hudCountText) this.hudCountText.setText(`${Math.round(progress * 100)}%`);
+          // Check completion
+          if (this.pbn.isComplete()) {
+            this.pbn.fillRemaining();
+            this.player.finishPainting();
+          }
+        }
+        return;
+      }
+
+      const layer = region.layers[layerIndex];
+      for (const { r, c } of layer) {
+        if (this.pbn.fillCellDirect(r, c)) {
+          cellsFilled++;
+          // Deduct paint cost per cell
+          const cost = this.pbn.costPerCell[region.colorIndex] || 1;
+          this.player.usePaint(colorName.toLowerCase(), cost);
+        }
+      }
+
+      // Update HUD each layer (progress % + paint bars)
+      if (this.pbn && this.hudCountText) {
+        const progress = this.pbn.getProgress();
+        this.hudCountText.setText(`${Math.round(progress * 100)}%`);
+      }
+      this.updateHUD();
+
+      layerIndex++;
+      this.time.delayedCall(delayPerLayer, fillNextLayer);
+    };
+
+    fillNextLayer();
+  }
+
+  /**
+   * Flash the region red when insufficient paint.
+   */
+  _flashFloodInsufficient(region) {
+    if (!this.pbn) return;
+    const g = this.add.graphics().setDepth(9);
     const b = this.pbn.bounds;
 
-    // Cell grid lines
-    g.lineStyle(0.5, 0xffffff, 0.25);
-    for (let c = 0; c <= this.pbn.cols; c++) {
-      const x = b.x + c * this.pbn.cellW;
-      g.moveTo(x, b.y);
-      g.lineTo(x, b.y + b.h);
-    }
-    for (let r = 0; r <= this.pbn.rows; r++) {
-      const y = b.y + r * this.pbn.cellH;
-      g.moveTo(b.x, y);
-      g.lineTo(b.x + b.w, y);
-    }
-    g.strokePath();
-
-    // Border around the entire painting
-    g.lineStyle(1.5, 0xffffff, 0.5);
-    g.strokeRect(b.x, b.y, b.w, b.h);
-
-    this._gridOverlayGfx = g;
-  }
-
-  _destroyGridOverlay() {
-    if (this._gridOverlayGfx) { this._gridOverlayGfx.destroy(); this._gridOverlayGfx = null; }
-  }
-
-  /**
-   * Handle pointer input in grid paint mode — tap/drag to paint cells.
-   * Called from update() when _paintViewMode === 'grid'.
-   */
-  _updateGridPaintInput() {
-    if (!this.pbn || this._paintViewMode !== 'grid') return;
-
-    const pointer = this.input.activePointer;
-    const cam = this.cameras.main;
-    const worldPoint = cam.getWorldPoint(pointer.x, pointer.y);
-
-    // Update cursor position
-    if (this._gridCursor) {
-      this._gridCursor.setPosition(worldPoint.x, worldPoint.y);
-      const hex = this.pbn.getSelectedColorHex();
-      this._gridCursor.setFillStyle(hex, 0.9);
-    }
-
-    // --- Scroll/pan with joystick (mobile) or arrow keys (desktop) ---
-    const t = this.touch;
-    const cursors = this.player.cursors;
-    const wasd = this.player.wasdKeys;
-    const panLeft  = cursors.left.isDown  || wasd.left.isDown  || (t && t.left);
-    const panRight = cursors.right.isDown || wasd.right.isDown || (t && t.right);
-    const panUp    = cursors.up.isDown    || wasd.up.isDown    || (t && t.up);
-    const panDown  = cursors.down.isDown  || wasd.down.isDown  || (t && t.down);
-
-    if (panLeft || panRight || panUp || panDown) {
-      const panSpeed = 80 / cam.zoom; // world-pixels per frame, scales with zoom
-      let dx = 0, dy = 0;
-      if (panLeft)  dx -= panSpeed;
-      if (panRight) dx += panSpeed;
-      if (panUp)    dy -= panSpeed;
-      if (panDown)  dy += panSpeed;
-      cam.scrollX += dx;
-      cam.scrollY += dy;
-    }
-
-    // --- Paint on tap/drag ---
-    if (pointer.isDown) {
-      const b = this.pbn.bounds;
-      const inBounds = worldPoint.x >= b.x && worldPoint.x <= b.x + b.w &&
-                       worldPoint.y >= b.y && worldPoint.y <= b.y + b.h;
-
-      if (inBounds) {
-        this.onPaintMove(worldPoint.x, worldPoint.y);
-        this._gridPaintedThisGesture = true;
+    g.fillStyle(0xff0000, 0.35);
+    for (const layer of region.layers) {
+      for (const { r, c } of layer) {
+        const cx = b.x + c * this.pbn.cellW;
+        const cy = b.y + r * this.pbn.cellH;
+        g.fillRect(cx, cy, this.pbn.cellW, this.pbn.cellH);
       }
-    } else {
-      this._gridPaintedThisGesture = false;
     }
 
-    // Check completion
-    if (this.pbn && this.pbn.isComplete()) {
-      this.pbn.fillRemaining();
-      this.player.finishPainting();
-    }
+    this.tweens.add({
+      targets: g,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => g.destroy()
+    });
   }
 
   // === WIND LEAVES EFFECT ===
@@ -4251,17 +4227,13 @@ export default class GameScene extends Phaser.Scene {
         this.tryPaint();
       }
     }
-    // Toggle: while painting in arm mode, pressing paint button again → grid mode
-    // While in grid mode, pressing again → exit
+    // While painting, pressing paint button again → exit painting
     if (this.player.isPainting && this.pbn) {
       const togglePressed = Phaser.Input.Keyboard.JustDown(this.paintKeySpace) ||
         (this.touch && this.touch.actionJustPressed);
-      if (togglePressed) {
-        if (this._paintViewMode === 'arm') {
-          this.enterGridPaintMode();
-        } else if (this._paintViewMode === 'grid') {
-          this.exitGridPaintMode(false); // full exit
-        }
+      if (togglePressed && !this._floodAnimating) {
+        this.player.stopPainting();
+        this.cancelPainting();
       }
     }
 
@@ -4390,26 +4362,8 @@ export default class GameScene extends Phaser.Scene {
     // The old GameScene check was causing premature detachment because it didn't
     // account for isDroppingToLadder or the ladder-top platform.
 
-    // 3b-grid. Grid paint mode update — direct pointer painting
-    if (this.player.isPainting && this._paintViewMode === 'grid') {
-      // Color switching (keys 1-4) works in grid mode too
-      if (this.colorKeys && this.pbn) {
-        for (let i = 0; i < this.colorKeys.length; i++) {
-          if (Phaser.Input.Keyboard.JustDown(this.colorKeys[i])) {
-            const colorName = this.pbn.colorMap[i];
-            if (colorName && this.player.hasPaint(colorName.toLowerCase())) {
-              this.pbn.setSelectedColor(i);
-              this.player.paintColor = this.pbn.getSelectedColorHex();
-              this.updateColorSelectorHighlight();
-            }
-          }
-        }
-      }
-      this._updateGridPaintInput();
-    }
-
-    // 3b. Paint arm update — drive hand movement and rope simulation
-    if (this.player.isPainting && this.paintArm.active && this._paintViewMode !== 'grid') {
+    // 3b. Paint arm update — drive hand movement, rope simulation, flood fill
+    if (this.player.isPainting && this.paintArm.active) {
       // Color selector is fixed next to paint area (set once in createColorSelector)
       // Color switching (keys 1-4)
       if (this.colorKeys && this.pbn) {
@@ -4421,6 +4375,7 @@ export default class GameScene extends Phaser.Scene {
               this.player.paintColor = this.pbn.getSelectedColorHex();
               this.paintArm.setCanColor(this.pbn.getSelectedColorName());
               this.updateColorSelectorHighlight();
+              this._armFloodLastCell = null; // force flood preview refresh
             }
           }
         }
@@ -4441,22 +4396,38 @@ export default class GameScene extends Phaser.Scene {
       };
       const isTouch = !!(t && t.enabled);
 
-      // Mouse painting on desktop: drive hand to mouse when button held
+      // Desktop: arm always follows mouse cursor (not just on click)
       let mouseWorld = null;
       if (!isTouch) {
-        const pointer = this.input.activePointer;
-        if (pointer.isDown) {
-          const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-          mouseWorld = { x: worldPoint.x, y: worldPoint.y };
-        }
+        const worldPoint = this.cameras.main.getWorldPoint(
+          this.input.activePointer.x, this.input.activePointer.y
+        );
+        mouseWorld = { x: worldPoint.x, y: worldPoint.y };
       }
 
       const handPos = this.paintArm.update(delta, input, this.player.x, this.player.y, isTouch, mouseWorld);
-      const isMovingHand = !!(mouseWorld || input.left || input.right || input.up || input.down);
+      // On desktop arm always tracks mouse — treat as "moving" only when pointer moves or keys pressed
+      const isMovingHand = !!(input.left || input.right || input.up || input.down) ||
+        (!isTouch && this.input.activePointer.isDown);
       if (handPos) {
         this.onPaintMove(handPos.x, handPos.y);
         this.player.spawnPaintSpray(handPos.x, handPos.y);
       }
+
+      // --- Flood fill trigger: tap/click on previewed region ---
+      const floodPtr = this.input.activePointer;
+      if (floodPtr.isDown && !this._floodPointerWasDown && !this._floodAnimating) {
+        if (handPos && this.pbn) {
+          const b = this.pbn.bounds;
+          const wp = this.cameras.main.getWorldPoint(floodPtr.x, floodPtr.y);
+          const inBounds = wp.x >= b.x && wp.x <= b.x + b.w &&
+                           wp.y >= b.y && wp.y <= b.y + b.h;
+          if (inBounds) {
+            this.tryFloodFill();
+          }
+        }
+      }
+      this._floodPointerWasDown = floodPtr.isDown;
 
       // --- Spray SFX: play while hand is moving ---
       if (this.sfxSpray) {

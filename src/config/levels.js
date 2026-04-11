@@ -88,7 +88,7 @@ export const LEVEL_1 = {
   worldWidth: W,
   worldHeight: H,
   checkpoint: { x: 60, y: H - 101 },
-  paintings: ['painting_heart', 'painting_star', 'painting_Nowy'],
+  paintings: ['painting_flower', 'painting_fish'],
 
   platforms: [
     { x: 0, y: H - 156, w: 256 },
@@ -121,8 +121,8 @@ export const LEVEL_1 = {
   paintCans: [
   ],
   paintSpots: [
-    { x: 440, y: H - 140, w: 250, h: 210, paintingKey: 'painting_star' },
-    { x: 1140, y: H - 560, w: 95, h: 110, paintingKey: 'painting_Nowy' },
+    { x: 440, y: H - 140, w: 250, h: 210, paintingKey: 'painting_flower' },
+    { x: 1140, y: H - 560, w: 95, h: 110, paintingKey: 'painting_fish' },
   ],
   trashCans: [
     { x: 350, y: H - 53 },
@@ -161,7 +161,7 @@ export const LEVEL_2 = {
   worldWidth: L2_W,
   worldHeight: L2_H,
   checkpoint: { x: 60, y: L2_H - 101 },
-  paintings: ['painting_mural_big'],
+  paintings: ['painting_butterfly'],
 
   platforms: [
     { x: 0, y: L2_H - 250, w: 280 },
@@ -197,7 +197,7 @@ export const LEVEL_2 = {
   paintCans: [
   ],
   paintSpots: [
-    { x: 390, y: L2_H - 540, w: 480, h: 576, paintingKey: 'painting_mural_big' },
+    { x: 390, y: L2_H - 540, w: 480, h: 576, paintingKey: 'painting_butterfly' },
   ],
   trashCans: [
     { x: 620, y: L2_H - 55 },
@@ -237,7 +237,7 @@ export const LEVEL_3 = {
   worldWidth: W,
   worldHeight: H,
   checkpoint: { x: 60, y: H - 101 },
-  paintings: ['painting_heart', 'painting_star'],
+  paintings: ['painting_moon', 'painting_tree'],
 
   platforms: [
     { x: 0, y: H - 200, w: 250 },
@@ -273,8 +273,8 @@ export const LEVEL_3 = {
   paintCans: [
   ],
   paintSpots: [
-    { x: 540, y: H - 470, w: 120, h: 150, paintingKey: 'painting_heart' },
-    { x: 1100, y: H - 390, w: 120, h: 150, paintingKey: 'painting_star' },
+    { x: 540, y: H - 470, w: 120, h: 150, paintingKey: 'painting_moon' },
+    { x: 1100, y: H - 390, w: 120, h: 150, paintingKey: 'painting_tree' },
   ],
   trashCans: [
     { x: 30, y: H - 220 },
@@ -314,7 +314,7 @@ export const LEVEL_4 = {
   worldWidth: L4_W,
   worldHeight: L4_H,
   checkpoint: { x: 60, y: L4_H - 101 },
-  paintings: ['painting_heart', 'painting_star'],
+  paintings: ['painting_star', 'painting_cat'],
 
   platforms: [
     { x: 0, y: L4_H - 200, w: 300 },
@@ -356,8 +356,8 @@ export const LEVEL_4 = {
   paintCans: [
   ],
   paintSpots: [
-    { x: 170, y: L4_H - 530, w: 140, h: 200, paintingKey: 'painting_heart' },
-    { x: 520, y: L4_H - 790, w: 140, h: 200, paintingKey: 'painting_star' },
+    { x: 170, y: L4_H - 530, w: 140, h: 200, paintingKey: 'painting_star' },
+    { x: 520, y: L4_H - 790, w: 140, h: 200, paintingKey: 'painting_cat' },
   ],
   trashCans: [
     { x: 500, y: L4_H - 45 },
