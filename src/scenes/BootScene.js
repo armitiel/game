@@ -121,9 +121,9 @@ export default class BootScene extends Phaser.Scene {
 
     // === New menu UI assets (Cartoon Mobile Juicy style) ===
     this.load.image('bg_menu', 'assets/sprites/UI/bg_menu.jpg');
-    this.load.image('icon_stealth', 'assets/sprites/UI/icon_stealth.png');
-    this.load.image('icon_puzzle', 'assets/sprites/UI/icon_puzzle.png');
-    this.load.image('icon_tower', 'assets/sprites/UI/icon_tower.png');
+    this.load.image('icon_stealth', 'assets/sprites/UI/shado.png');
+    this.load.image('icon_puzzle', 'assets/sprites/UI/puzle.png');
+    this.load.image('icon_tower', 'assets/sprites/UI/tower.png');
 
     // === 9-slice card frame (blue base, tintable) ===
     this.load.image('frame_tl', 'assets/sprites/UI/frame/frame_tl.png');
