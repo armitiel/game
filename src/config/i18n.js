@@ -45,6 +45,7 @@ const translations = {
     // Game — tower
     timeUp: 'CZAS MINAL!',
     newColor: 'NOWY KOLOR',
+    gateYellow: 'Pomaluj mural by odblokowac!',
 
     // Game — tutorial
     tutWelcome: 'TUTORIAL',
@@ -81,16 +82,16 @@ const translations = {
     tagged: 'TAGGED!',
 
     // Levels
-    lvlTutorial: 'Tutorial',
-    lvlTutorialDesc: 'Naucz sie podstaw gry',
-    lvlStreet: 'Ulica',
-    lvlStreetDesc: 'Pomaluj dwa murale w miescie',
-    lvlSkyscraper: 'Wiezowiec',
-    lvlSkyscraperDesc: 'Pokoloruj wielki mural na scianie wiezowca',
-    lvlPuzzle: 'Lamiglowka',
-    lvlPuzzleDesc: 'Przesuwaj kosze, buduj mosty i znajdz droge do murali',
-    lvlTower: 'Wieza',
-    lvlTowerDesc: 'Wspinaj sie i maluj — czas ucieka!',
+    lvlTutorial: 'Pierwsze Tagi',
+    lvlTutorialDesc: 'Naucz sie chodzic, skakac, wspinac i malowac',
+    lvlDarkAlley: 'Ciemna Alejka',
+    lvlDarkAlleyDesc: 'Jeden straznik, dwa murale — ucz sie skradac w cieniach',
+    lvlStairwell: 'Klatka Schodowa',
+    lvlStairwellDesc: 'Wspinaj sie obok trzech straznikow na szczyt wiezowca',
+    lvlYard: 'Podworko Zagadek',
+    lvlYardDesc: 'Przesuwaj kosze by zbudowac droge do ukrytych murali',
+    lvlClockTower: 'Wieza Zegarowa',
+    lvlClockTowerDesc: 'Maluj by odblokowac bramki — kazda sekunda sie liczy!',
 
     // Tutorial hints (levels.js)
     tutHintMove: 'Uzyj ← → by sie poruszac',
@@ -159,6 +160,7 @@ const translations = {
     // Game — tower
     timeUp: 'TIME\'S UP!',
     newColor: 'NEW COLOR',
+    gateYellow: 'Paint a mural to unlock!',
 
     // Game — tutorial
     tutWelcome: 'TUTORIAL',
@@ -195,16 +197,16 @@ const translations = {
     tagged: 'TAGGED!',
 
     // Levels
-    lvlTutorial: 'Tutorial',
-    lvlTutorialDesc: 'Learn the basics',
-    lvlStreet: 'Street',
-    lvlStreetDesc: 'Paint two murals in the city',
-    lvlSkyscraper: 'Skyscraper',
-    lvlSkyscraperDesc: 'Paint a large mural on the skyscraper wall',
-    lvlPuzzle: 'Puzzle',
-    lvlPuzzleDesc: 'Move crates, build bridges and find your way to the murals',
-    lvlTower: 'Tower',
-    lvlTowerDesc: 'Climb and paint — time is running out!',
+    lvlTutorial: 'First Tags',
+    lvlTutorialDesc: 'Learn to walk, jump, climb and paint',
+    lvlDarkAlley: 'Dark Alley',
+    lvlDarkAlleyDesc: 'One guard, two murals — learn to sneak in the shadows',
+    lvlStairwell: 'The Stairwell',
+    lvlStairwellDesc: 'Climb past three guards to reach the top of the tower',
+    lvlYard: 'Puzzle Yard',
+    lvlYardDesc: 'Push crates to build a path to the hidden murals',
+    lvlClockTower: 'Clock Tower',
+    lvlClockTowerDesc: 'Paint to unlock gates — every second counts!',
 
     // Tutorial hints (levels.js)
     tutHintMove: 'Use ← → to move',

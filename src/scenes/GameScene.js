@@ -74,6 +74,15 @@ export default class GameScene extends Phaser.Scene {
     this.totalSpots = 0;
     this.paintedSpots = 0;
 
+    // Flood fill state — initialize explicitly to avoid undefined access
+    this._floodAnimating = false;
+    this._floodHeld = false;
+    this._floodPointerWasDown = false;
+    this._armFloodLastCell = null;
+    this._armFloodRegion = null;
+    this.pbn = null;
+    this.activePaintSpot = null;
+
     // === Derive colors from paintings ===
     this.deriveLevelColors();
 
@@ -1300,7 +1309,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createHeartPickups() {
-    this.heartPickups = this.physics.add.group();
+    this.heartPickups = this.physics.add.staticGroup();
     const hearts = this.levelData.hearts || [];
     hearts.forEach(h => {
       // Draw a heart using graphics — small red heart with glow
@@ -1396,7 +1405,19 @@ export default class GameScene extends Phaser.Scene {
       this._muralGlows.push({ zone, glowG, stars, sprayIcon, glowT: 0, rx: x - w / 2, ry: y - h / 2, rw: w, rh: h });
     };
 
-    this.levelData.paintSpots.forEach(s => addSpot(s.x, s.y, s.w, s.h, s.paintingKey, s.depth));
+    this.levelData.paintSpots.forEach(s => {
+      // Auto-generate a fill wall behind each paint spot so murals always
+      // appear on a brick wall background, even if no explicit fillWall
+      // covers this area.
+      const margin = 20; // extra padding around mural
+      const wallX = s.x - s.w / 2 - margin;
+      const wallY = s.y - s.h / 2 - margin;
+      const wallW = s.w + margin * 2;
+      const wallH = s.h + margin * 2;
+      this._createFillWall(wallX, wallY, wallW, wallH, (s.depth ?? 2) - 0.5);
+
+      addSpot(s.x, s.y, s.w, s.h, s.paintingKey, s.depth);
+    });
   }
 
   _perimeterPos(t, rx, ry, rw, rh) {
@@ -1610,7 +1631,7 @@ export default class GameScene extends Phaser.Scene {
       this.physics.add.existing(gate, true); // static
 
       // Message text floating above gate
-      const msg = this.add.text(g.x + g.w / 2, g.y - 16, g.message || '', {
+      const msg = this.add.text(g.x + g.w / 2, g.y - 16, t(g.message) || g.message || '', {
         font: 'bold 10px Bungee, monospace', fill: '#ff6666',
         stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5, 1).setDepth(10.1);
@@ -3365,6 +3386,7 @@ export default class GameScene extends Phaser.Scene {
     // Clean up flood-fill state
     this._destroyFloodPreview();
     this._floodAnimating = false;
+    this._floodHeld = false;
     this._armFloodLastCell = null;
     this._armFloodRegion = null;
     this.player.setVisible(true);
@@ -3482,26 +3504,25 @@ export default class GameScene extends Phaser.Scene {
     const totalCost = this.pbn.getFloodCost(region);
     const currentPaint = this.player.getPaintCount(colorName.toLowerCase());
     if (currentPaint < totalCost) {
-      // Not enough paint — flash the region red
       this._flashFloodInsufficient(region);
       return;
     }
 
     this._floodAnimating = true;
+    this._floodHeld = true; // tracks if player is holding button
     this._destroyFloodPreview();
 
-    const delayPerLayer = 45; // ms between BFS layers
+    const delayPerLayer = 45;
     let layerIndex = 0;
     let cellsFilled = 0;
 
     const fillNextLayer = () => {
       if (layerIndex >= region.layers.length || !this.pbn) {
         this._floodAnimating = false;
-        // Update HUD progress
+        this._floodHeld = false;
         if (this.pbn) {
           const progress = this.pbn.getProgress();
           if (this.hudCountText) this.hudCountText.setText(`${Math.round(progress * 100)}%`);
-          // Check completion
           if (this.pbn.isComplete()) {
             this.pbn.fillRemaining();
             this.player.finishPainting();
@@ -3510,17 +3531,21 @@ export default class GameScene extends Phaser.Scene {
         return;
       }
 
+      // PAUSE if player released the button — wait and check again
+      if (!this._floodHeld) {
+        this.time.delayedCall(60, fillNextLayer);
+        return;
+      }
+
       const layer = region.layers[layerIndex];
       for (const { r, c } of layer) {
         if (this.pbn.fillCellDirect(r, c)) {
           cellsFilled++;
-          // Deduct paint cost per cell
           const cost = this.pbn.costPerCell[region.colorIndex] || 1;
           this.player.usePaint(colorName.toLowerCase(), cost);
         }
       }
 
-      // Update HUD each layer (progress % + paint bars)
       if (this.pbn && this.hudCountText) {
         const progress = this.pbn.getProgress();
         this.hudCountText.setText(`${Math.round(progress * 100)}%`);
@@ -4414,8 +4439,15 @@ export default class GameScene extends Phaser.Scene {
         this.player.spawnPaintSpray(handPos.x, handPos.y);
       }
 
-      // --- Flood fill trigger: tap/click on previewed region ---
+      // --- Flood fill trigger + hold-to-fill ---
       const floodPtr = this.input.activePointer;
+
+      // Track hold state for active flood animation
+      if (this._floodAnimating) {
+        this._floodHeld = floodPtr.isDown;
+      }
+
+      // Start new flood on click (not during active animation)
       if (floodPtr.isDown && !this._floodPointerWasDown && !this._floodAnimating) {
         if (handPos && this.pbn) {
           const b = this.pbn.bounds;

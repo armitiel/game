@@ -111,13 +111,41 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('bckg', 'assets/sprites/bckg.png');
     this.load.image('frame', 'assets/sprites/frame.png');
 
-    // === Mode card frames ===
+    // === Mode card frames (legacy) ===
     this.load.image('frame_s1', 'assets/sprites/UI/s1.png');
     this.load.image('frame_s2', 'assets/sprites/UI/s2.png');
     this.load.image('frame_s3', 'assets/sprites/UI/s3.png');
     this.load.spritesheet('mode_frames', 'assets/sprites/frames.png', {
       frameWidth: 512, frameHeight: 1024
     });
+
+    // === New menu UI assets (Cartoon Mobile Juicy style) ===
+    this.load.image('bg_menu', 'assets/sprites/UI/bg_menu.jpg');
+    this.load.image('icon_stealth', 'assets/sprites/UI/icon_stealth.png');
+    this.load.image('icon_puzzle', 'assets/sprites/UI/icon_puzzle.png');
+    this.load.image('icon_tower', 'assets/sprites/UI/icon_tower.png');
+
+    // === 9-slice card frame (blue base, tintable) ===
+    this.load.image('frame_tl', 'assets/sprites/UI/frame/frame_tl.png');
+    this.load.image('frame_t',  'assets/sprites/UI/frame/frame_t.png');
+    this.load.image('frame_tr', 'assets/sprites/UI/frame/frame_tr.png');
+    this.load.image('frame_l',  'assets/sprites/UI/frame/frame_l.png');
+    this.load.image('frame_c',  'assets/sprites/UI/frame/frame_c.png');
+    this.load.image('frame_r',  'assets/sprites/UI/frame/frame_r.png');
+    this.load.image('frame_bl', 'assets/sprites/UI/frame/frame_bl.png');
+    this.load.image('frame_b',  'assets/sprites/UI/frame/frame_b.png');
+    this.load.image('frame_br', 'assets/sprites/UI/frame/frame_br.png');
+
+    // === 9-slice label pill (orange base, for "X LEVELS" chip) ===
+    this.load.image('label_tl', 'assets/sprites/UI/label/label_tl.png');
+    this.load.image('label_t',  'assets/sprites/UI/label/label_t.png');
+    this.load.image('label_tr', 'assets/sprites/UI/label/label_tr.png');
+    this.load.image('label_l',  'assets/sprites/UI/label/label_l.png');
+    this.load.image('label_c',  'assets/sprites/UI/label/label_c.png');
+    this.load.image('label_r',  'assets/sprites/UI/label/label_r.png');
+    this.load.image('label_bl', 'assets/sprites/UI/label/label_bl.png');
+    this.load.image('label_b',  'assets/sprites/UI/label/label_b.png');
+    this.load.image('label_br', 'assets/sprites/UI/label/label_br.png');
 
     // === Load platform/environment textures ===
     this.load.image('platform_block', 'assets/sprites/elementy/p1.png');

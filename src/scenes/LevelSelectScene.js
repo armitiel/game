@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { LEVELS, STEALTH_LEVELS, PUZZLE_LEVELS, TOWER_LEVELS, LEVEL_TUTORIAL } from '../config/levels.js';
 import { t } from '../config/i18n.js';
+import { COLORS, MODE_COLORS, FONTS, SIZES, DEPTH, hex } from '../config/theme.js';
+import UIPanel from '../utils/UIPanel.js';
+import UIPill from '../utils/UIPill.js';
 
 export default class LevelSelectScene extends Phaser.Scene {
   constructor() {
@@ -12,38 +15,37 @@ export default class LevelSelectScene extends Phaser.Scene {
   }
 
   create() {
-    // Belt-and-suspenders: remove any leaked intro overlay
     try {
       document.querySelectorAll('div[data-intro-overlay]').forEach(el => {
         try { el.remove(); } catch (e) {}
       });
     } catch (e) {}
 
-    const cx = this.scale.width / 2;
-    const gh = this.scale.height;
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const cx = W / 2;
 
-    // Background image stretched to fill
-    const bg = this.add.image(cx, gh / 2, 'bckg');
-    bg.setDisplaySize(this.scale.width, gh);
+    // Background — cartoon city night
+    const bgKey = this.textures.exists('bg_menu') ? 'bg_menu' : 'bckg';
+    const bg = this.add.image(cx, H / 2, bgKey);
+    const scale = Math.max(W / bg.width, H / bg.height);
+    bg.setScale(scale).setDepth(DEPTH.bg);
+
+    // Soft dark vignette for contrast
+    this.add.rectangle(cx, H / 2, W, H, COLORS.bgDeep, 0.35).setDepth(DEPTH.bgFx);
 
     if (!this._selectedMode) {
-      this.showModeSelect(cx, gh);
+      this.showModeSelect(W, H);
     } else {
-      this.showLevelCards(cx, gh, this._selectedMode);
+      this.showLevelCards(W, H, this._selectedMode);
     }
 
-    // ESC to go back
     this.input.keyboard.on('keydown-ESC', () => {
-      if (this._selectedMode) {
-        this.scene.restart({ mode: null });
-      } else {
-        this.scene.start('MenuScene');
-      }
+      if (this._selectedMode) this.scene.restart({ mode: null });
+      else this.scene.start('MenuScene');
     });
 
-    // Rebuild on significant resize so cards + bg re-fit the new viewport
-    this._initW = this.scale.width;
-    this._initH = this.scale.height;
+    this._initW = W; this._initH = H;
     this._resizeHandler = (gs) => {
       if (!this.sys || !this.sys.isActive()) return;
       if (Math.abs(gs.width - this._initW) > 2 || Math.abs(gs.height - this._initH) > 2) {
@@ -56,8 +58,6 @@ export default class LevelSelectScene extends Phaser.Scene {
     });
   }
 
-  // === MODE SELECT SCREEN ===
-
   getLevelsForMode(modeKey) {
     if (modeKey === 'stealth') return STEALTH_LEVELS;
     if (modeKey === 'puzzle') return PUZZLE_LEVELS;
@@ -65,380 +65,323 @@ export default class LevelSelectScene extends Phaser.Scene {
     return LEVELS.filter(l => (l.mode || 'stealth') === modeKey);
   }
 
-  showModeSelect(cx, gh) {
-    // Title with 3D depth effect
-    const titleY = 60;
-    const titleStyle = {
-      fontFamily: 'Bungee',
-      fontSize: '58px',
-      fontStyle: 'bold',
-    };
-    // 3D layers (bottom to top)
-    for (let d = 4; d >= 1; d--) {
-      this.add.text(cx, titleY + d * 2, t('chooseMode'), {
-        ...titleStyle, color: '#003311', stroke: '#001a08', strokeThickness: 7
-      }).setOrigin(0.5).setAlpha(0.6);
-    }
+  // === MODE SELECT ===
+
+  showModeSelect(W, H) {
+    const cx = W / 2;
+    const isPortrait = H > W;
+
+    // Title — bold Bungee with white→accent gradient + dark stroke
+    const titleY = Math.max(60, H * 0.085);
+    const titleSize = Math.min(60, W * 0.07);
     this.add.text(cx, titleY, t('chooseMode'), {
-      ...titleStyle, color: '#ffffff', stroke: '#003322', strokeThickness: 7,
-      shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 12, fill: true, stroke: true }
-    }).setOrigin(0.5).setTint(0x66ffcc, 0x66ffcc, 0x00aa44, 0x00aa44);
+      fontFamily: FONTS.display,
+      fontSize: `${titleSize}px`,
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: hex(COLORS.borderDeep),
+      strokeThickness: 7,
+      shadow: { offsetX: 3, offsetY: 4, color: '#000000', blur: 12, fill: true, stroke: true },
+    }).setOrigin(0.5).setDepth(DEPTH.content)
+      .setTint(0xffffff, 0xffffff, COLORS.accent, COLORS.accent);
 
     const modes = [
-      {
-        key: 'stealth', name: t('stealthName'),
-        desc: t('stealthDesc'),
-        frame: 'frame_s1', fillColor: '#4488ff', strokeColor: '#1a3399', tintTop: 0xaaccff, tintBot: 0x2255cc,
-        levels: this.getLevelsForMode('stealth')
-      },
-      {
-        key: 'puzzle', name: t('puzzleName'),
-        desc: t('puzzleDesc'),
-        frame: 'frame_s2', fillColor: '#ffaa33', strokeColor: '#994400', tintTop: 0xffdd88, tintBot: 0xcc7700,
-        levels: this.getLevelsForMode('puzzle')
-      },
-      {
-        key: 'tower', name: t('towerName'),
-        desc: t('towerDesc'),
-        frame: 'frame_s3', fillColor: '#ee55aa', strokeColor: '#881144', tintTop: 0xffaadd, tintBot: 0xbb2266,
-        levels: this.getLevelsForMode('tower')
-      }
+      { key: 'stealth', name: t('stealthName'), icon: 'icon_stealth', ...MODE_COLORS.stealth, levels: this.getLevelsForMode('stealth') },
+      { key: 'puzzle',  name: t('puzzleName'),  icon: 'icon_puzzle',  ...MODE_COLORS.puzzle,  levels: this.getLevelsForMode('puzzle')  },
+      { key: 'tower',   name: t('towerName'),   icon: 'icon_tower',   ...MODE_COLORS.tower,   levels: this.getLevelsForMode('tower')   },
     ];
 
-    const frameW = 336;
-    const frameH = 336;
-    const gap = 14;
-    const totalW = modes.length * frameW + (modes.length - 1) * gap;
-    const startX = cx - totalW / 2 + frameW / 2;
-    const cardY = gh / 2 + 20;
+    // Layout
+    const tutH = 60;
+    const availH = H - titleY - tutH - 80;
+    const availW = W - 40;
 
-    // Glow particle texture (reuse if MenuScene already made it)
-    if (!this.textures.exists('_glow_particle')) {
-      const gfx = this.make.graphics({ add: false });
-      gfx.fillStyle(0xffffff);
-      gfx.fillCircle(16, 16, 16);
-      gfx.generateTexture('_glow_particle', 32, 32);
-      gfx.destroy();
+    let cardW, cardH, layout;
+    if (isPortrait) {
+      layout = 'column';
+      cardW = Math.min(380, availW);
+      cardH = Math.min(180, (availH - 2 * SIZES.cardGap) / 3);
+    } else {
+      layout = 'row';
+      const totalGap = 2 * SIZES.cardGap;
+      cardW = Math.min(SIZES.cardW, (availW - totalGap) / 3);
+      cardH = Math.min(SIZES.cardH, availH);
     }
 
-    // Background glow particles
-    this.add.particles(cx, cardY, '_glow_particle', {
-      speed: { min: 5, max: 30 },
-      scale: { start: 0.4, end: 0 },
-      alpha: { start: 0.5, end: 0 },
-      lifespan: { min: 2000, max: 5000 },
-      frequency: 80,
-      quantity: 1,
-      blendMode: 'ADD',
-      tint: [0x3366ff, 0x4488ff, 0xff9933, 0xffaa44, 0xff3366, 0xee55aa],
-      emitZone: {
-        type: 'random',
-        source: new Phaser.Geom.Rectangle(-totalW / 2 - 20, -frameH / 2 - 20, totalW + 40, frameH + 40)
-      }
-    }).setDepth(0);
+    const startY = titleY + 70 + cardH / 2;
+    const startX = layout === 'row'
+      ? cx - (3 * cardW + 2 * SIZES.cardGap) / 2 + cardW / 2
+      : cx;
 
     modes.forEach((m, i) => {
-      const x = startX + i * (frameW + gap);
+      const x = layout === 'row' ? startX + i * (cardW + SIZES.cardGap) : cx;
+      const y = layout === 'row' ? startY : startY + i * (cardH + SIZES.cardGap);
+      this._buildModeCard(x, y, cardW, cardH, m, layout);
 
-      // Drop shadow behind card
-      this.add.image(x + 6, cardY + 6, m.frame).setDisplaySize(frameW, frameH).setTint(0x000000).setAlpha(0.35);
+      this.input.keyboard.on(`keydown-${i + 1}`, () => this._selectMode(m));
+    });
 
-      // Frame image scaled to card size (linear filter for smooth gradients)
-      this.textures.get(m.frame).setFilter(Phaser.Textures.FilterMode.LINEAR);
-      this.add.image(x, cardY, m.frame).setDisplaySize(frameW, frameH);
-
-      // Invisible hitbox for interaction — defer enabling to avoid
-      // inheriting a lingering pointerdown from the previous scene.
-      // Additionally we require a full pointerdown→pointerup pair ON the
-      // same card to trigger: a leftover pointerup from another scene
-      // can't fire this because it never received the pointerdown.
-      const card = this.add.rectangle(x, cardY, frameW, frameH, 0x000000, 0);
-      card._pressed = false;
-      this.time.delayedCall(300, () => {
-        if (card && card.scene) card.setInteractive({ useHandCursor: true });
-      });
-
-      // Mode name — big bold white with dark stroke, italic style
-      const nameY = cardY - frameH / 2 + frameH * 0.24;
-      const nameStyle = {
-        fontFamily: 'Bungee', fontSize: '44px', fontStyle: 'bold',
-      };
-      // 3D shadow layers
-      for (let d = 4; d >= 1; d--) {
-        this.add.text(x, nameY + d * 2, m.name, {
-          ...nameStyle, color: m.strokeColor, stroke: '#000000', strokeThickness: 6
-        }).setOrigin(0.5).setAlpha(0.45);
-      }
-      this.add.text(x, nameY, m.name, {
-        ...nameStyle, color: '#ffffff', stroke: m.strokeColor, strokeThickness: 6,
-        shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 10, fill: true, stroke: true }
-      }).setOrigin(0.5).setTint(m.tintTop, m.tintTop, m.tintBot, m.tintBot);
-
-      // Description — white text with dark stroke for readability
-      const descY = cardY + frameH * 0.15;
-      this.add.text(x, descY, m.desc, {
-        fontFamily: 'Calibri, Arial, sans-serif',
+    // Tutorial — small ghost link at the bottom
+    const tutIdx = LEVELS.indexOf(LEVEL_TUTORIAL);
+    if (tutIdx >= 0) {
+      const tutY = H - 50;
+      const tutBtn = this.add.text(cx, tutY, t('tutorial'), {
+        fontFamily: FONTS.display,
         fontSize: '24px',
         fontStyle: 'bold',
         color: '#ffffff',
-        stroke: '#000000', strokeThickness: 1.5,
-        align: 'center', lineSpacing: 8,
-        wordWrap: { width: frameW - 50 }
-      }).setOrigin(0.5);
+        stroke: '#000000',
+        strokeThickness: 5,
+        shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, fill: true },
+      }).setOrigin(0.5).setDepth(DEPTH.content)
+        .setInteractive({ useHandCursor: true });
 
-      // Require a full press+release on this same card. pointerdown sets
-      // the pressed flag; pointerup only fires the action if it was set
-      // (i.e. a leftover pointerup from a previous scene can't trigger it).
-      card.on('pointerdown', () => { card._pressed = true; });
-      card.on('pointerout', () => { card._pressed = false; });
-      card.on('pointerupoutside', () => { card._pressed = false; });
-      card.on('pointerup', () => {
-        if (!card._pressed) return;
-        card._pressed = false;
-        if (m.levels.length === 1) {
-          // Only 1 level — go straight to game
-          const idx = LEVELS.indexOf(m.levels[0]);
-          this.scene.start('IntroScene', { levelIndex: idx });
-        } else {
-          this.scene.restart({ mode: m.key });
-        }
-      });
+      tutBtn.on('pointerover', () => this.tweens.add({ targets: tutBtn, scale: 1.08, duration: 120 }));
+      tutBtn.on('pointerout',  () => this.tweens.add({ targets: tutBtn, scale: 1, duration: 120 }));
+      tutBtn.on('pointerup',   () => this.scene.start('GameScene', { levelIndex: tutIdx }));
 
-      // Keyboard shortcut
-      this.input.keyboard.on(`keydown-${i + 1}`, () => {
-        if (m.levels.length === 1) {
-          const idx = LEVELS.indexOf(m.levels[0]);
-          this.scene.start('IntroScene', { levelIndex: idx });
-        } else {
-          this.scene.restart({ mode: m.key });
-        }
+      this.input.keyboard.on('keydown-T', () => this.scene.start('GameScene', { levelIndex: tutIdx }));
+    }
+  }
+
+  _buildModeCard(x, y, w, h, m, layout) {
+    // Build panel + children at local (0,0), then flatten to a single RenderTexture.
+    // Scaling one sprite on hover avoids subpixel seams between 9-slice pieces.
+    const panel = UIPanel.create(this, {
+      x: 0, y: 0, width: w, height: h,
+      tint: m.tint,
+    });
+
+    const isRow = (layout === 'row');
+    const iconSize = isRow ? Math.min(h * 0.45, w * 0.55) : Math.min(h * 0.7, w * 0.32);
+    const iconX = isRow ? 0 : -w / 2 + iconSize * 0.7 + 14;
+    const iconY = isRow ? -h * 0.18 : 0;
+
+    if (this.textures.exists(m.icon)) {
+      const icon = this.add.image(iconX, iconY, m.icon).setDisplaySize(iconSize, iconSize);
+      panel.add(icon);
+    }
+
+    const pillsX = isRow ? 0 : -w / 2 + iconSize + 32 + (w - iconSize - 50) / 2;
+    const titlePillY = isRow ? h * 0.18 : -h * 0.16;
+
+    const titlePill = UIPill.create(this, {
+      x: pillsX, y: titlePillY,
+      label: m.name,
+      labelSize: isRow ? 22 : 24,
+      fill: m.pillFill,
+      textColor: m.pillText,
+      textStroke: '#000000',
+      textStrokeWidth: 4,
+      stroke: COLORS.border,
+      borderWidth: 4,
+      height: SIZES.pillH,
+      paddingX: 24,
+    });
+    panel.add(titlePill);
+
+    const lvlCount = m.levels.length;
+    const countText = `${lvlCount} ${lvlCount === 1 ? 'LEVEL' : 'LEVELS'}`;
+    const countY = isRow ? h * 0.36 : h * 0.16;
+
+    const countPillW = Math.min(w * 0.62, 160);
+    const countPillH = 42;
+    const countPill = UIPanel.create(this, {
+      x: pillsX, y: countY,
+      width: countPillW, height: countPillH,
+      slicePrefix: 'label',
+      nativeCorner: 31,
+      tint: 0xffffff,
+    });
+    panel.add(countPill);
+
+    const countLabel = this.add.text(pillsX, countY, countText, {
+      fontFamily: FONTS.display,
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: hex(COLORS.accentStroke),
+      strokeThickness: 4,
+      shadow: { offsetX: 1, offsetY: 2, color: '#000000', blur: 4, fill: true },
+    }).setOrigin(0.5);
+    panel.add(countLabel);
+
+    // Flatten to single sprite positioned at (x, y)
+    const card = panel.bake(x, y);
+    card.setDepth(DEPTH.panel);
+    card._pressed = false;
+
+    // Hit area as sibling at fixed size — hover stays stable
+    const hit = this.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(DEPTH.panel + 1);
+
+    this.time.delayedCall(300, () => {
+      if (hit && hit.scene) hit.setInteractive({ useHandCursor: true });
+    });
+
+    const animTo = (s) => this.tweens.add({ targets: card, scaleX: s, scaleY: s, duration: 100, ease: 'Quad.easeOut' });
+
+    hit.on('pointerover', () => animTo(1.04));
+    hit.on('pointerout', () => { card._pressed = false; animTo(1); });
+    hit.on('pointerdown', () => { card._pressed = true; animTo(0.96); });
+    hit.on('pointerupoutside', () => { card._pressed = false; animTo(1); });
+    hit.on('pointerup', () => {
+      if (!card._pressed) return;
+      card._pressed = false;
+      this.tweens.add({
+        targets: card, scaleX: 1.08, scaleY: 1.08,
+        duration: 90, yoyo: true,
+        onComplete: () => this._selectMode(m),
       });
     });
 
-    // Tutorial button — small link at bottom
-    const tutIdx = LEVELS.indexOf(LEVEL_TUTORIAL);
-    if (tutIdx >= 0) {
-      const tutBtn = this.add.text(cx, gh - 70, t('tutorial'), {
-        fontFamily: 'Bungee', fontSize: '28px', fontStyle: 'bold',
-        color: '#88aacc', stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-      tutBtn.on('pointerover', () => tutBtn.setStyle({ color: '#00ff88' }));
-      tutBtn.on('pointerout', () => tutBtn.setStyle({ color: '#88aacc' }));
-      tutBtn.on('pointerdown', () => {
-        this.scene.start('GameScene', { levelIndex: tutIdx });
-      });
-
-      // T key shortcut
-      this.input.keyboard.on('keydown-T', () => {
-        this.scene.start('GameScene', { levelIndex: tutIdx });
-      });
-    }
-
+    return card;
   }
 
-  // === LEVEL CARDS FOR SELECTED MODE ===
+  _selectMode(m) {
+    if (m.levels.length === 1) {
+      const idx = LEVELS.indexOf(m.levels[0]);
+      this.scene.start('IntroScene', { levelIndex: idx });
+    } else {
+      this.scene.restart({ mode: m.key });
+    }
+  }
 
-  showLevelCards(cx, gh, modeKey) {
+  // === LEVEL CARDS ===
+
+  showLevelCards(W, H, modeKey) {
+    const cx = W / 2;
+    const isPortrait = H > W;
     const levels = this.getLevelsForMode(modeKey);
     const modeNames = { stealth: t('stealthName'), puzzle: t('puzzleName'), tower: t('towerName') };
+    const mc = MODE_COLORS[modeKey] || MODE_COLORS.stealth;
 
-    // === Home button (top-left) — returns to mode selection ===
-    // Without this, mobile users had no way to get back to the mode
-    // picker from the stealth level list (ESC only works on desktop).
-    const homeSize = 68;
-    const homeX = 60;
-    const homeY = 60;
-    const homeHit = this.add.rectangle(homeX, homeY, homeSize * 1.4, homeSize * 1.4, 0x000000, 0);
-    const homeIcon = this.add.image(homeX, homeY, 'icon_home').setDisplaySize(homeSize, homeSize);
-    try { homeIcon.texture.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) {}
-    homeHit._pressed = false;
+    // Home (back) button — top-left
+    const homePill = UIPill.create(this, {
+      x: 70, y: 60,
+      label: '< BACK',
+      labelSize: 18,
+      fill: COLORS.pillDark,
+      textColor: '#ffffff',
+      stroke: COLORS.border,
+      borderWidth: 4,
+      height: 44,
+      paddingX: 18,
+    });
+    homePill.setDepth(DEPTH.content);
+
+    const homeHit = this.add.rectangle(70, 60, homePill._w + 20, homePill._h + 20, 0x000000, 0)
+      .setDepth(DEPTH.content);
     this.time.delayedCall(300, () => {
       if (homeHit && homeHit.scene) homeHit.setInteractive({ useHandCursor: true });
     });
-    const _homeBaseSX = homeIcon.scaleX;
-    const _homeBaseSY = homeIcon.scaleY;
-    const _homeAnim = (target) => {
-      if (!homeIcon || !homeIcon.scene) return;
-      if (this._homeTween) this._homeTween.stop();
-      this._homeTween = this.tweens.add({
-        targets: homeIcon,
-        scaleX: _homeBaseSX * target, scaleY: _homeBaseSY * target,
-        duration: 80, ease: 'Quad.easeOut'
-      });
-    };
-    homeHit.on('pointerdown', () => { homeHit._pressed = true; _homeAnim(0.82); });
-    homeHit.on('pointerout', () => {
-      if (!homeHit._pressed) return;
-      homeHit._pressed = false; _homeAnim(1);
-    });
-    homeHit.on('pointerupoutside', () => {
-      if (!homeHit._pressed) return;
-      homeHit._pressed = false; _homeAnim(1);
-    });
+    let _homePressed = false;
+    homeHit.on('pointerdown', () => { _homePressed = true; this.tweens.add({ targets: homePill, scale: 0.94, duration: 80 }); });
+    homeHit.on('pointerout',  () => { _homePressed = false; this.tweens.add({ targets: homePill, scale: 1, duration: 80 }); });
+    homeHit.on('pointerupoutside', () => { _homePressed = false; this.tweens.add({ targets: homePill, scale: 1, duration: 80 }); });
     homeHit.on('pointerup', () => {
-      if (!homeHit._pressed) return;
-      homeHit._pressed = false;
-      if (this._homeTween) this._homeTween.stop();
-      this._homeTween = this.tweens.add({
-        targets: homeIcon,
-        scaleX: _homeBaseSX * 1.08, scaleY: _homeBaseSY * 1.08,
-        duration: 90, yoyo: true, ease: 'Quad.easeOut',
-        onComplete: () => {
-          if (this.sys && this.sys.isActive()) {
-            this.scene.restart({ mode: null });  // back to mode selection
-          }
-        }
-      });
+      if (!_homePressed) return;
+      this.scene.restart({ mode: null });
     });
 
-    // Mode title with 3D depth effect (matches mode select screen)
-    const titleText = modeNames[modeKey] || modeKey.toUpperCase();
-    const titleY = 70;
-    const titleStyle = {
-      fontFamily: 'Bungee',
-      fontSize: '48px',
-      fontStyle: 'bold'
-    };
-    for (let d = 4; d >= 1; d--) {
-      this.add.text(cx, titleY + d * 2, titleText, {
-        ...titleStyle,
-        color: '#003311',
-        stroke: '#001a08',
-        strokeThickness: 7
-      }).setOrigin(0.5).setAlpha(0.6);
+    // Title
+    const titleY = Math.max(70, H * 0.09);
+    this.add.text(cx, titleY, modeNames[modeKey] || modeKey.toUpperCase(), {
+      fontFamily: FONTS.display,
+      fontSize: `${Math.min(54, W * 0.06)}px`,
+      fontStyle: 'bold',
+      color: mc.cssText,
+      stroke: hex(COLORS.borderDeep),
+      strokeThickness: 7,
+      shadow: { offsetX: 3, offsetY: 4, color: '#000000', blur: 10, fill: true, stroke: true },
+    }).setOrigin(0.5).setDepth(DEPTH.content);
+
+    // Layout
+    const availH = H - titleY - 120;
+    const availW = W - 80;
+
+    let cols, cardW, cardH;
+    if (isPortrait) {
+      cols = Math.min(2, levels.length);
+      cardW = Math.min(220, (availW - (cols - 1) * SIZES.cardGap) / cols);
+      cardH = cardW * 1.15;
+    } else {
+      cols = Math.min(levels.length, 4);
+      cardW = Math.min(220, (availW - (cols - 1) * SIZES.cardGap) / cols);
+      cardH = Math.min(260, availH * 0.7);
     }
-    this.add.text(cx, titleY, titleText, {
-      ...titleStyle,
-      color: '#00ff88',
-      stroke: '#003322',
-      strokeThickness: 7
-    }).setOrigin(0.5);
 
-    const cardW = 220;
-    const cardH = 260;
-    const gap = 40;
-    const totalW = levels.length * cardW + (levels.length - 1) * gap;
-    const startX = cx - totalW / 2 + cardW / 2;
-    const cardY = gh / 2;
+    const startY = titleY + 80 + cardH / 2;
+    const totalRowW = cols * cardW + (cols - 1) * SIZES.cardGap;
+    const startX = cx - totalRowW / 2 + cardW / 2;
 
-    const useFrame = (modeKey === 'stealth');
-
-    for (let i = 0; i < levels.length; i++) {
-      const level = levels[i];
+    levels.forEach((level, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = startX + col * (cardW + SIZES.cardGap);
+      const y = startY + row * (cardH + SIZES.cardGap);
       const globalIdx = LEVELS.indexOf(level);
-      const x = startX + i * (cardW + gap);
 
-      // Stealth levels get a decorative frame background (frame.png)
-      if (useFrame) {
-        this.add.image(x, cardY, 'frame')
-          .setDisplaySize(cardW + 24, cardH + 24)
-          .setOrigin(0.5)
-          .setDepth(0)
-          .setAlpha(0.95);
+      this._buildLevelCard(x, y, cardW, cardH, level, globalIdx, mc);
+
+      if (i < 9) {
+        this.input.keyboard.on(`keydown-${i + 1}`, () => {
+          this.scene.start('IntroScene', { levelIndex: globalIdx });
+        });
       }
-
-      // Invisible hitbox for interaction (no visible rectangle)
-      const card = this.add.rectangle(x, cardY, cardW, cardH, 0x000000, 0)
-        .setInteractive({ useHandCursor: true });
-
-      // Level name
-      const nameStyle = {
-        fontFamily: 'Bungee',
-        fontSize: '36px',
-        fontStyle: 'bold',
-        color: useFrame ? '#a6ffef' : '#00ff88',
-        stroke: '#003322',
-        strokeThickness: 5,
-        shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, stroke: true, fill: true }
-      };
-      this.add.text(x, cardY - 40, t(level.name), nameStyle).setOrigin(0.5);
-
-      // Level description — readable sans-serif font (same as mode select)
-      const descStyle = {
-        fontFamily: 'Arial, Helvetica, sans-serif',
-        fontSize: '16px',
-        fontStyle: 'bold',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-        wordWrap: { width: cardW - 20 },
-        align: 'center',
-        lineSpacing: 6
-      };
-      this.add.text(x, cardY + 40, t(level.description), descStyle).setOrigin(0.5);
-
-      card.on('pointerdown', () => {
-        this.scene.start('IntroScene', { levelIndex: globalIdx });
-      });
-
-      this.input.keyboard.on(`keydown-${i + 1}`, () => {
-        this.scene.start('IntroScene', { levelIndex: globalIdx });
-      });
-    }
-
+    });
   }
 
-  /**
-   * Build a 9-slice panel from a single frame texture, sliced at runtime via canvas.
-   * Corners stay fixed, edges and center stretch to fill target size.
-   * Source images are 377×403; slice insets: 80px each side.
-   */
-  _buildNineSlice(textureKey, px, py, w, h) {
-    const src = this.textures.get(textureKey).getSourceImage();
-    const sw = src.width;   // 377
-    const sh = src.height;  // 403
-    const inset = 110;      // px from each edge — must cover full rounded corner + shadow
+  _buildLevelCard(x, y, w, h, level, globalIdx, mc) {
+    const panel = UIPanel.create(this, {
+      x: 0, y: 0, width: w, height: h,
+      tint: mc.tint,
+    });
 
-    // Slice regions: [srcX, srcY, srcW, srcH]
-    const slices = [
-      // top row
-      [0, 0, inset, inset],                           // TL
-      [inset, 0, sw - inset * 2, inset],               // T
-      [sw - inset, 0, inset, inset],                   // TR
-      // middle row
-      [0, inset, inset, sh - inset * 2],               // CL
-      [inset, inset, sw - inset * 2, sh - inset * 2],  // C
-      [sw - inset, inset, inset, sh - inset * 2],      // CR
-      // bottom row
-      [0, sh - inset, inset, inset],                   // BL
-      [inset, sh - inset, sw - inset * 2, inset],      // BR
-      [sw - inset, sh - inset, inset, inset],          // BR corner
-    ];
+    const name = this.add.text(0, -h * 0.15, t(level.name), {
+      fontFamily: FONTS.display,
+      fontSize: `${Math.min(28, w * 0.13)}px`,
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: hex(COLORS.borderDeep),
+      strokeThickness: 5,
+      shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 5, fill: true },
+      align: 'center',
+      wordWrap: { width: w - 24 },
+    }).setOrigin(0.5);
+    panel.add(name);
 
-    // Generate sub-textures if not cached
-    const prefix = `${textureKey}_9s_`;
-    if (!this.textures.exists(`${prefix}0`)) {
-      slices.forEach((s, idx) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = s[2];
-        canvas.height = s[3];
-        canvas.getContext('2d').drawImage(src, s[0], s[1], s[2], s[3], 0, 0, s[2], s[3]);
-        this.textures.addCanvas(`${prefix}${idx}`, canvas);
-      });
-    }
+    const desc = this.add.text(0, h * 0.18, t(level.description), {
+      fontFamily: FONTS.body,
+      fontSize: '14px',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+      align: 'center',
+      lineSpacing: 4,
+      wordWrap: { width: w - 24 },
+    }).setOrigin(0.5).setAlpha(0.92);
+    panel.add(desc);
 
-    // Destination sizes — corners stay at inset size, mid stretches
-    const cw = inset;                // corner width
-    const ch = inset;                // corner height
-    const midW = w - cw * 2;        // stretched middle width
-    const midH = h - ch * 2;        // stretched middle height
+    const card = panel.bake(x, y);
+    card.setDepth(DEPTH.panel);
+    card._pressed = false;
 
-    const place = (idx, dx, dy, dw, dh) => {
-      this.add.image(dx, dy, `${prefix}${idx}`).setOrigin(0, 0).setDisplaySize(dw, dh);
-    };
+    const hit = this.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(DEPTH.panel + 1);
 
-    // Top row
-    place(0, px, py, cw, ch);
-    place(1, px + cw, py, midW, ch);
-    place(2, px + cw + midW, py, cw, ch);
-    // Middle row
-    place(3, px, py + ch, cw, midH);
-    place(4, px + cw, py + ch, midW, midH);
-    place(5, px + cw + midW, py + ch, cw, midH);
-    // Bottom row
-    place(6, px, py + ch + midH, cw, ch);
-    place(7, px + cw, py + ch + midH, midW, ch);
-    place(8, px + cw + midW, py + ch + midH, cw, ch);
+    this.time.delayedCall(300, () => {
+      if (hit && hit.scene) hit.setInteractive({ useHandCursor: true });
+    });
+
+    const animTo = (s) => this.tweens.add({ targets: card, scaleX: s, scaleY: s, duration: 100, ease: 'Quad.easeOut' });
+    hit.on('pointerover', () => animTo(1.05));
+    hit.on('pointerout', () => { card._pressed = false; animTo(1); });
+    hit.on('pointerdown', () => { card._pressed = true; animTo(0.95); });
+    hit.on('pointerupoutside', () => { card._pressed = false; animTo(1); });
+    hit.on('pointerup', () => {
+      if (!card._pressed) return;
+      card._pressed = false;
+      this.scene.start('IntroScene', { levelIndex: globalIdx });
+    });
   }
 }
