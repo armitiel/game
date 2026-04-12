@@ -3121,7 +3121,11 @@ export default class GameScene extends Phaser.Scene {
       this.paintArm.setGridCells(pbn.cellW, pbn.cellH, (col, row) => {
         if (row < 0 || row >= pbn.rows || col < 0 || col >= pbn.cols) return false;
         return pbn.filledGrid[row][col];
+      }, (col, row) => {
+        if (row < 0 || row >= pbn.rows || col < 0 || col >= pbn.cols) return -1;
+        return pbn.targetGrid[row][col];
       });
+      this.paintArm._selectedColorIndex = pbn.selectedColorIndex;
     }
 
     // Restore last selected color if player still has it, otherwise pick first available
@@ -4433,6 +4437,9 @@ export default class GameScene extends Phaser.Scene {
       };
       const isTouch = !!(t && t.enabled);
 
+      // Keep paint arm in sync with selected color for snapping
+      if (this.pbn) this.paintArm._selectedColorIndex = this.pbn.selectedColorIndex;
+
       // Desktop: arm always follows mouse cursor (not just on click)
       // Camera follows fixed anchor during painting, so world mapping is stable
       let mouseWorld = null;
@@ -4472,9 +4479,12 @@ export default class GameScene extends Phaser.Scene {
       // Start new flood on click/tap (not during active animation)
       if (!this._floodAnimating) {
         if (isTouch) {
-          // Mobile: PAINT button triggers flood fill on the arm's current region
-          if (touchFillPressed && handPos && this.pbn) {
-            this.tryFloodFill();
+          // Mobile: auto-paint when hand moves over a region of the selected color
+          if (handPos && this.pbn && this._armFloodRegion && isMovingHand) {
+            const reg = this._armFloodRegion;
+            if (reg.colorIndex === this.pbn.selectedColorIndex) {
+              this.tryFloodFill();
+            }
           }
         } else {
           // Desktop: mouse click inside mural bounds

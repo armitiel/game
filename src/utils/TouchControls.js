@@ -610,53 +610,8 @@ export default class TouchControls {
 
     this.colorButtons.push({ bg: exitBg, text: exitText });
 
-    // --- PAINT / FILL button (mobile only) ---
-    // Big button in bottom-right (where JUMP normally lives) to trigger flood fill.
-    // Hold to continue the wave animation.
-    if (isMobile) {
-      const paintBtnR = Math.round(58 * scale);
-      const paintBtnX = cam.width - 85;
-      const paintBtnY = cam.height - 95;
-
-      const paintBg = scene.add.circle(paintBtnX, paintBtnY, paintBtnR, 0x33ff88, 0.55)
-        .setScrollFactor(0).setDepth(200)
-        .setStrokeStyle(3, 0x33ff88, 0.8)
-        .setInteractive();
-
-      // Spray icon or text label
-      let paintIcon;
-      if (scene.textures.exists('icon_spray')) {
-        paintIcon = scene.add.image(paintBtnX, paintBtnY, 'icon_spray')
-          .setDisplaySize(paintBtnR * 1.1, paintBtnR * 1.1)
-          .setScrollFactor(0).setDepth(201).setAlpha(0.9).setTint(0x33ff88);
-      } else {
-        paintIcon = scene.add.text(paintBtnX, paintBtnY, 'FILL', {
-          fontFamily: 'Bungee, monospace', fontSize: `${Math.floor(paintBtnR * 0.45)}px`,
-          fontStyle: 'bold', color: '#33ff88', stroke: '#000000', strokeThickness: 4,
-          padding: { x: 4, y: 4 }
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.9);
-      }
-
-      paintBg.on('pointerdown', () => {
-        this._paintFillJustPressed = true;
-        this._paintFillHeld = true;
-        paintBg.setAlpha(0.85).setStrokeStyle(4, 0xffffff, 1.0);
-        paintIcon.setAlpha(1.0);
-      });
-      paintBg.on('pointerup', () => {
-        this._paintFillHeld = false;
-        paintBg.setAlpha(0.55).setStrokeStyle(3, 0x33ff88, 0.8);
-        paintIcon.setAlpha(0.9);
-      });
-      paintBg.on('pointerout', () => {
-        this._paintFillHeld = false;
-        paintBg.setAlpha(0.55).setStrokeStyle(3, 0x33ff88, 0.8);
-        paintIcon.setAlpha(0.9);
-      });
-
-      this.colorButtons.push({ bg: paintBg, text: paintIcon });
-      this._paintFillBtn = paintBg;
-    }
+    // PAINT / FILL button removed — mobile now auto-paints when hand moves over
+    // matching color regions. No manual fill button needed.
   }
 
   destroyColorButtons() {
