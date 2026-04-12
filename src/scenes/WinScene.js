@@ -28,34 +28,39 @@ export default class WinScene extends Phaser.Scene {
       );
     }
 
-    // Win text
-    this.add.text(cx, cy - 60, t('levelComplete'), {
-      font: 'bold 48px Bungee, monospace',
+    // Win text — responsive sizes analogous to level select
+    const titleSize = Math.min(64, gw * 0.12);
+    const subSize = Math.min(28, gw * 0.06);
+    const replaySize = Math.min(24, gw * 0.05);
+    const menuSize = Math.min(20, gw * 0.04);
+
+    this.add.text(cx, cy - 70, t('levelComplete'), {
+      font: `bold ${titleSize}px Bungee, monospace`,
       fill: '#00ff88',
       stroke: '#003322',
-      strokeThickness: 6
+      strokeThickness: 8
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 10, t('winSubtitle'), {
-      font: '18px Bungee, monospace',
+    this.add.text(cx, cy + 20, t('winSubtitle'), {
+      font: `${subSize}px Bungee, monospace`,
       fill: '#667788',
-      stroke: '#000000', strokeThickness: 3
+      stroke: '#000000', strokeThickness: 4
     }).setOrigin(0.5);
 
     // Restart prompt
     const isMobile = this.sys.game.device.input.touch;
-    const restartText = this.add.text(cx, cy + 80,
+    const restartText = this.add.text(cx, cy + 100,
       isMobile ? t('tapReplay') : t('spaceReplay'), {
-      font: '16px Bungee, monospace',
+      font: `${replaySize}px Bungee, monospace`,
       fill: '#ffdd33',
-      stroke: '#332200', strokeThickness: 3
+      stroke: '#332200', strokeThickness: 4
     }).setOrigin(0.5);
 
     if (!isMobile) {
-      this.add.text(cx, cy + 110, t('mainMenu'), {
-        font: '14px Bungee, monospace',
+      this.add.text(cx, cy + 140, t('mainMenu'), {
+        font: `${menuSize}px Bungee, monospace`,
         fill: '#556677',
-        stroke: '#000000', strokeThickness: 2
+        stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5);
     }
 
