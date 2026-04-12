@@ -1406,16 +1406,6 @@ export default class GameScene extends Phaser.Scene {
     };
 
     this.levelData.paintSpots.forEach(s => {
-      // Auto-generate a fill wall behind each paint spot so murals always
-      // appear on a brick wall background, even if no explicit fillWall
-      // covers this area.
-      const margin = 20; // extra padding around mural
-      const wallX = s.x - s.w / 2 - margin;
-      const wallY = s.y - s.h / 2 - margin;
-      const wallW = s.w + margin * 2;
-      const wallH = s.h + margin * 2;
-      this._createFillWall(wallX, wallY, wallW, wallH, (s.depth ?? 2) - 0.5);
-
       addSpot(s.x, s.y, s.w, s.h, s.paintingKey, s.depth);
     });
   }

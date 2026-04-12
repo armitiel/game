@@ -66,8 +66,8 @@ export const LEVEL_TUTORIAL = {
     { x: 1430, phase: 4 },
   ],
   tutorialHints: [
-    { phase: 0, x: 200, y: TH - 100, desktop: 'tutHintMove', mobile: 'tutHintMoveMobile' },
-    { phase: 1, x: 470, y: TH - 140, desktop: 'tutHintJump', mobile: 'tutHintJumpMobile' },
+    { phase: 0, x: 200, y: TH - 100, desktop: 'Move', mobile: 'Mobile' },
+    { phase: 1, x: 470, y: TH - 140, desktop: 'Jump', mobile: 'Jump' },
     { phase: 2, x: 980, y: TH - 120, desktop: 'tutHintLadder', mobile: 'tutHintLadderMobile' },
     { phase: 3, x: 1250, y: TH - 340, desktop: 'tutHintCollect', mobile: 'tutHintCollect' },
     { phase: 4, x: 1600, y: TH - 520, desktop: 'tutHintPaint', mobile: 'tutHintPaintMobile' },
@@ -93,7 +93,7 @@ export const LEVEL_1 = {
     { x: 0, y: H - 32, w: W },
   ],
   ladders: [
-    { x: 80, topY: H - 230, bottomY: H - 32, minX: 0, maxX: 160 },
+    { x: 117, topY: H - 230, bottomY: H - 32, minX: 37, maxX: 197 },
     { x: 1050, topY: H - 280, bottomY: H - 32, minX: 950, maxX: 1150 },
   ],
   shadows: [
@@ -103,12 +103,13 @@ export const LEVEL_1 = {
   fillWalls: [
     { x: 600, y: H - 440, w: 500, h: 408 },
     { x: 0, y: H - 198, w: 150, h: 166 },
+    { x: 270, y: H - 180, w: 160, h: 150 },
   ],
   paintCans: [
   ],
   paintSpots: [
     { x: 350, y: H - 107, w: 140, h: 120, paintingKey: 'painting_flower' },
-    { x: 800, y: H - 350, w: 130, h: 120, paintingKey: 'painting_fish' },
+    { x: 760, y: H - 360, w: 130, h: 120, paintingKey: 'painting_fish' },
   ],
   trashCans: [
     { x: 800, y: H - 53 },
@@ -117,7 +118,7 @@ export const LEVEL_1 = {
     { x: 600, y: H - 100, minX: 180, maxX: 1220 },
   ],
   lamps: [
-    { x: 100, y: H - 23, radius: 100, intensity: 0.5 },
+    { x: 521, y: H - 27, radius: 100, intensity: 0.5 },
     { x: 980, y: H - 274, radius: 130, intensity: 0.6 },
     { x: 1150, y: H - 25, radius: 100, intensity: 0.5 },
   ],
@@ -175,7 +176,7 @@ export const LEVEL_2 = {
   paintCans: [
   ],
   paintSpots: [
-    { x: 450, y: L2_H - 1145, w: 160, h: 120, paintingKey: 'painting_butterfly' },
+    { x: 450, y: L2_H - 1150, w: 300, h: 120, paintingKey: 'painting_butterfly' },
   ],
   trashCans: [
     { x: 400, y: L2_H - 55 },
@@ -222,7 +223,7 @@ export const LEVEL_3 = {
     { x: 850, y: H - 330, w: 300 },
   ],
   ground: [
-    { x: 0, y: H - 32, w: 450 },
+    { x: -38, y: H - 32, w: 700 },
     { x: 650, y: H - 32, w: 630 },
   ],
   ladders: [
@@ -239,11 +240,10 @@ export const LEVEL_3 = {
   ],
   paintSpots: [
     { x: 100, y: H - 220, w: 120, h: 110, paintingKey: 'painting_moon' },
-    { x: 1000, y: H - 405, w: 130, h: 120, paintingKey: 'painting_tree' },
+    { x: 990, y: H - 400, w: 130, h: 120, paintingKey: 'painting_tree' },
   ],
   trashCans: [
     { x: 300, y: H - 53 },
-    { x: 350, y: H - 53 },
     { x: 800, y: H - 53 },
   ],
   cops: [
@@ -300,13 +300,13 @@ export const LEVEL_4 = {
   shadows: [
   ],
   fillWalls: [
-    { x: 0, y: L4_H - 1548, w: 900, h: 1516 },
+    { x: 0, y: L4_H - 1550, w: 900, h: 1516 },
   ],
   paintCans: [
   ],
   paintSpots: [
-    { x: 450, y: L4_H - 605, w: 150, h: 120, paintingKey: 'painting_star' },
-    { x: 450, y: L4_H - 1155, w: 150, h: 120, paintingKey: 'painting_cat' },
+    { x: 410, y: L4_H - 640, w: 200, h: 200, paintingKey: 'painting_star' },
+    { x: 450, y: L4_H - 1150, w: 150, h: 120, paintingKey: 'painting_cat' },
   ],
   trashCans: [
     { x: 750, y: L4_H - 55 },
