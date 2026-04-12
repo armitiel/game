@@ -302,12 +302,12 @@ export default class LevelSelectScene extends Phaser.Scene {
     let cols, cardW, cardH;
     if (isPortrait) {
       cols = Math.min(2, levels.length);
-      cardW = Math.min(220, (availW - (cols - 1) * SIZES.cardGap) / cols);
-      cardH = cardW * 1.15;
+      cardW = Math.min(360, (availW - (cols - 1) * SIZES.cardGap) / cols);
+      cardH = cardW * 1.2;
     } else {
       cols = Math.min(levels.length, 4);
-      cardW = Math.min(220, (availW - (cols - 1) * SIZES.cardGap) / cols);
-      cardH = Math.min(260, availH * 0.7);
+      cardW = Math.min(SIZES.cardW, (availW - (cols - 1) * SIZES.cardGap) / cols);
+      cardH = Math.min(SIZES.cardH, availH * 0.85);
     }
 
     const startY = titleY + 80 + cardH / 2;
@@ -339,27 +339,27 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     const name = this.add.text(0, -h * 0.15, t(level.name), {
       fontFamily: FONTS.display,
-      fontSize: `${Math.min(28, w * 0.13)}px`,
+      fontSize: `${Math.min(36, w * 0.14)}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: hex(COLORS.borderDeep),
-      strokeThickness: 5,
-      shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 5, fill: true },
+      strokeThickness: 6,
+      shadow: { offsetX: 2, offsetY: 3, color: '#000000', blur: 6, fill: true },
       align: 'center',
-      wordWrap: { width: w - 24 },
+      wordWrap: { width: w - 30 },
     }).setOrigin(0.5);
     panel.add(name);
 
     const desc = this.add.text(0, h * 0.18, t(level.description), {
       fontFamily: FONTS.body,
-      fontSize: '14px',
+      fontSize: `${Math.min(18, w * 0.07)}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 2,
+      strokeThickness: 3,
       align: 'center',
-      lineSpacing: 4,
-      wordWrap: { width: w - 24 },
+      lineSpacing: 5,
+      wordWrap: { width: w - 30 },
     }).setOrigin(0.5).setAlpha(0.92);
     panel.add(desc);
 
