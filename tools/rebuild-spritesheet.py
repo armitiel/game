@@ -3,8 +3,10 @@ Rebuild player_combined_sheet.png from original 1080x1080 animation frames.
 Frames are scaled proportionally to fit 96x144, bottom-aligned.
 Twist frames get an additional 1.3x scale (bottom-aligned).
 """
-from PIL import Image
+from PIL import Image, ImageFile
 import os, glob
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 BASE = 'public/assets/sprites'
 OUT = f'{BASE}/player_combined_sheet.png'
@@ -16,15 +18,21 @@ TWIST_SCALE = 1.3
 GLOBAL_Y_OFFSET = 15  # shift all content down to align feet with physics body
 
 # Animation folders in order (matching gameConfig frame ranges)
+# idle: 0-17, walk: 18-53, jump: 54-73, push: 74-97, climb: 98-116,
+# climb2: 117-136, paint: 137-161, twist: 162-189, side: 190-217,
+# hide: 218-234, run: 235-258
 ANIMS = [
     ('idle',   18),   # 0-17
-    ('walk',   24),   # 18-41
-    ('jump',   20),   # 42-61
-    ('push',   24),   # 62-85
-    ('climb',  19),   # 86-104
-    ('climb2', 20),   # 105-124
-    ('paint',  25),   # 125-149
-    ('Twist',  28),   # 150-177
+    ('walk',   36),   # 18-53
+    ('jump',   20),   # 54-73
+    ('push',   24),   # 74-97
+    ('climb',  19),   # 98-116
+    ('climb2', 20),   # 117-136
+    ('paint',  25),   # 137-161
+    ('Twist',  28),   # 162-189
+    ('Side',   28),   # 190-217
+    ('Hide',   17),   # 218-234
+    ('run',    24),   # 235-258
 ]
 
 

@@ -247,6 +247,8 @@ export default class GameScene extends Phaser.Scene {
         this._paintSpotOverlapTs = this.time.now;
         this._lastPaintSpot = spot;
       }
+      // Dismiss beacon on first visit
+      this._dismissBeacon(spot);
     });
 
     // === HUD ===
@@ -1403,10 +1405,63 @@ export default class GameScene extends Phaser.Scene {
       this.totalSpots++;
 
       this._muralGlows.push({ zone, glowG, stars, sprayIcon, glowT: 0, rx: x - w / 2, ry: y - h / 2, rw: w, rh: h });
+
+      // --- Beacon: blinking indicator above paint spot ---
+      const beaconY = y - h / 2 - 20;
+      const beacon = this.add.image(x, beaconY, 'icon_spray')
+        .setDisplaySize(16, 16)
+        .setDepth((spotDepth ?? 2) + 0.5)
+        .setTint(0xffe090)
+        .setAlpha(0);
+
+      // Pulse tween — blink loop
+      const beaconTween = this.tweens.add({
+        targets: beacon,
+        alpha: { from: 0.9, to: 0.15 },
+        yoyo: true,
+        repeat: -1,
+        duration: 600,
+        ease: 'Sine.easeInOut',
+        delay: Math.random() * 400
+      });
+
+      // Bob up/down
+      this.tweens.add({
+        targets: beacon,
+        y: beaconY - 4,
+        yoyo: true,
+        repeat: -1,
+        duration: 1200,
+        ease: 'Sine.easeInOut'
+      });
+
+      zone.setData('beacon', beacon);
+      zone.setData('beaconTween', beaconTween);
     };
+
+    // Track discovered beacons per level session
+    this._discoveredBeacons = new Set();
 
     this.levelData.paintSpots.forEach(s => {
       addSpot(s.x, s.y, s.w, s.h, s.paintingKey, s.depth);
+    });
+  }
+
+  _dismissBeacon(spot) {
+    const key = spot.getData('paintingKey');
+    if (!this._discoveredBeacons || this._discoveredBeacons.has(key)) return;
+    const beacon = spot.getData('beacon');
+    if (!beacon || beacon.alpha <= 0) return;
+    this._discoveredBeacons.add(key);
+    // Stop pulse tween and fade out permanently
+    const tw = spot.getData('beaconTween');
+    if (tw) tw.stop();
+    this.tweens.add({
+      targets: beacon,
+      alpha: 0,
+      duration: 300,
+      ease: 'Quad.easeOut',
+      onComplete: () => beacon.setVisible(false)
     });
   }
 

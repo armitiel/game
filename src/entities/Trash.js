@@ -15,7 +15,7 @@ export default class Trash extends Phaser.Physics.Arcade.Sprite {
     // Scale: 290x366 → ~48x60 in-game (+20%)
     const dw = 48, dh = 60;
     this.setDisplaySize(dw, dh);
-    this.setDepth(4.5);  // in front of ladders (depth 4)
+    this.setDepth(5.5);  // in front of player (depth 5) and ladders (depth 4)
 
     // Physics body — setSize works in source pixels, so scale accordingly
     const scaleX = dw / 290;  // ~0.138

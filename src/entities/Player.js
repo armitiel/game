@@ -57,6 +57,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._walkStartTime = 0;    // timestamp when current walk began
     this._walkDir = 0;          // -1 left, +1 right, 0 none
     this.isRunning = false;
+    this._runBlend = 0;         // 0 = walk, 1 = full run (smooth transition)
 
     // Climb manual frame control (ping-pong: 0→18→0→18...)
     this.climbFrameIndex = 0;        // float — fractional frame position
@@ -762,31 +763,47 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       // Allow brief air time (small bumps) without resetting run
       if (!this.isRunning && onGround && (now - this._walkStartTime) >= (PLAYER.RUN_DELAY || 500)) {
         this.isRunning = true;
+        // Dust burst when breaking into run
+        this.spawnRunDust();
       }
     } else if (moveDir !== 0 && !this.isPushingTrash) {
       // Direction changed or just started walking
       this._walkDir = moveDir;
       this._walkStartTime = now;
       this.isRunning = false;
+      this._runBlend = 0;
     } else if (moveDir === 0) {
       // Stopped
       this._walkDir = 0;
       this._walkStartTime = 0;
       this.isRunning = false;
+      this._runBlend = 0;
     }
     // Reset run on push/climb/falling
     if (this.isPushingTrash || this.isClimbing) {
       this.isRunning = false;
+      this._runBlend = 0;
       this._walkDir = 0;
       this._walkStartTime = 0;
     }
     // Reset run when actually falling (velocity.y > threshold = not just a tiny bump)
     if (!onGround && this.body && this.body.velocity.y > 80) {
       this.isRunning = false;
+      this._runBlend = 0;
     }
 
-    const accel = this.isPushingTrash ? 600 : (this.isRunning ? 1600 : 1200);
-    const maxSpd = this.isPushingTrash ? PLAYER.SPEED * 0.4 : (this.isRunning ? PLAYER.RUN_SPEED : PLAYER.SPEED);
+    // Smooth run blend (ramp up over ~0.3s, ramp down over ~0.15s)
+    const blendTarget = this.isRunning ? 1 : 0;
+    const blendSpeed = this.isRunning ? 3.5 : 7; // faster ramp-down
+    this._runBlend += (blendTarget - this._runBlend) * Math.min(1, blendSpeed * dt / 1000);
+    if (Math.abs(this._runBlend - blendTarget) < 0.01) this._runBlend = blendTarget;
+
+    const walkAccel = 1200, runAccel = 1600;
+    const walkSpd = PLAYER.SPEED, runSpd = PLAYER.RUN_SPEED;
+    const blendedAccel = walkAccel + (runAccel - walkAccel) * this._runBlend;
+    const blendedMaxSpd = walkSpd + (runSpd - walkSpd) * this._runBlend;
+    const accel = this.isPushingTrash ? 600 : blendedAccel;
+    const maxSpd = this.isPushingTrash ? PLAYER.SPEED * 0.4 : blendedMaxSpd;
     const friction = 800;
     const vx = this.body.velocity.x;
 
@@ -799,7 +816,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           this.playPushAnim(true);
         } else if (vx > 30) {
           this.playAnim('player_idle');
-        } else if (this.isRunning) {
+        } else if (this._runBlend > 0.4) {
           this.playAnim('player_run');
         } else {
           this.playAnim('player_walk');
@@ -814,7 +831,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           this.playPushAnim(true);
         } else if (vx < -30) {
           this.playAnim('player_idle');
-        } else if (this.isRunning) {
+        } else if (this._runBlend > 0.4) {
           this.playAnim('player_run');
         } else {
           this.playAnim('player_walk');
@@ -871,7 +888,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
     // Force walk/run anim if moving on bridge but current anim got interrupted
     if (onBridge && !this.body.blocked.down && (left || right)) {
-      const expectedAnim = this.isRunning ? 'player_run' : 'player_walk';
+      const expectedAnim = this._runBlend > 0.4 ? 'player_run' : 'player_walk';
       if (this.currentAnim !== expectedAnim) {
         this.playAnim(expectedAnim);
       }
@@ -938,6 +955,36 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         scaleX: 0.2,
         scaleY: 0.2,
         duration: 400 + impact * 300,
+        onComplete: () => dust.destroy()
+      });
+    }
+  }
+
+  spawnRunDust() {
+    const feetY = this.body.y + this.body.height;
+    const dir = this.flipX ? 1 : -1; // dust kicks behind the runner
+    const count = 18;
+    for (let i = 0; i < count; i++) {
+      const size = Phaser.Math.Between(3, 10);
+      const delay = Math.random() * 120; // stagger spawns for more natural burst
+      const dust = this.scene.add.circle(
+        this.x + dir * Phaser.Math.Between(0, 28) + Phaser.Math.Between(-6, 6),
+        feetY - Phaser.Math.Between(0, 5),
+        size,
+        Phaser.Utils.Array.GetRandom([0x998877, 0xaa9988, 0x887766, 0xbbaa99]),
+        0.5 + Math.random() * 0.4
+      ).setDepth(4);
+
+      this.scene.tweens.add({
+        targets: dust,
+        y: dust.y - Phaser.Math.Between(6, 28),
+        x: dust.x + dir * Phaser.Math.Between(8, 40),
+        alpha: 0,
+        scaleX: 0.1,
+        scaleY: 0.1,
+        duration: 400 + Math.random() * 350,
+        delay,
+        ease: 'Quad.easeOut',
         onComplete: () => dust.destroy()
       });
     }
