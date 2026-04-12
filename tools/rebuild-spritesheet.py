@@ -19,8 +19,9 @@ TWIST_SCALE = 1.3
 GLOBAL_Y_OFFSET = 15  # shift all content down to align feet with physics body
 
 # Animation folders in order (matching gameConfig frame ranges)
-# Tuple: (folder, count, extra_scale, content_fit)
+# Tuple: (folder, count, extra_scale, content_fit[, y_offset])
 # content_fit: if True, scale based on alpha bbox so character fills frame properly
+# y_offset: optional extra pixel shift (negative = up, positive = down)
 ANIMS = [
     ('idle',   18, 1.0,         False),  # 0-17
     ('walk',   36, 1.0,         False),  # 18-53
@@ -32,7 +33,7 @@ ANIMS = [
     ('Twist',  28, TWIST_SCALE, False),  # 162-189
     ('Side',   28, 1.0,         False),  # 190-217
     ('Hide',   17, 1.0,         False),  # 218-234
-    ('run',    18, 1.0,         True),   # 235-252  (no flip needed)
+    ('run',    18, 1.0,         True, -3),   # 235-252  (no flip needed) — y_offset -3 = 3px up
 ]
 
 # Reference: walk frame content height for scaling content-fit anims
@@ -78,7 +79,7 @@ def fit_frame(src, tw, th, extra_scale=1.0):
     return canvas
 
 
-def fit_frame_content(src, tw, th, ref_frames):
+def fit_frame_content(src, tw, th, ref_frames, y_offset=0):
     """
     Content-aware fit for frames where character is NOT bottom-aligned.
     Uses the tallest frame in the batch as reference to keep all frames
@@ -137,7 +138,7 @@ def fit_frame_content(src, tw, th, ref_frames):
     target_feet_y = int((ref['src_h'] - ref['avg_feet_offset']) * base_scale) + GLOBAL_Y_OFFSET
     # Position the whole image so that avg_feet line lands at target
     avg_feet_scaled = int(avg_feet * total_scale)
-    paste_y = target_feet_y - avg_feet_scaled
+    paste_y = target_feet_y - avg_feet_scaled + y_offset
 
     # Center horizontally using source frame center (not per-frame content center)
     paste_x = (tw - new_w) // 2
@@ -195,14 +196,16 @@ print("Loading walk reference frames...")
 walk_ref = load_frames('walk', 5)
 
 all_frames = []
-for anim_name, count, extra_scale, content_fit in ANIMS:
-    print(f"Loading {anim_name}: {count} frames...")
+for anim_entry in ANIMS:
+    anim_name, count, extra_scale, content_fit = anim_entry[:4]
+    y_offset = anim_entry[4] if len(anim_entry) > 4 else 0
+    print(f"Loading {anim_name}: {count} frames (y_offset={y_offset})...")
     frames = load_frames(anim_name, count)
     if content_fit:
         precompute_content_batch_scale(frames, FRAME_W, FRAME_H, walk_ref)
     for f in frames:
         if content_fit:
-            fitted = fit_frame_content(f, FRAME_W, FRAME_H, walk_ref)
+            fitted = fit_frame_content(f, FRAME_W, FRAME_H, walk_ref, y_offset=y_offset)
         else:
             fitted = fit_frame(f, FRAME_W, FRAME_H, extra_scale=extra_scale)
         all_frames.append(fitted)
