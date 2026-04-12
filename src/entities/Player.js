@@ -58,6 +58,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._walkDir = 0;          // -1 left, +1 right, 0 none
     this.isRunning = false;
     this._runBlend = 0;         // 0 = walk, 1 = full run (smooth transition)
+    this._runStopping = false;  // true during runstop deceleration anim
+    this._runStopDir = 0;       // direction we were running when runstop started
+    this._runStopNextDir = 0;   // queued direction for after runstop completes
+    this._slideStartVx = 0;     // initial velocity when slide starts
+    this._slideTime = 0;        // elapsed slide time (ms)
+    this._slideDuration = 350;  // total slide duration (ms)
 
     // Climb manual frame control (ping-pong: 0→18→0→18...)
     this.climbFrameIndex = 0;        // float — fractional frame position
@@ -111,7 +117,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
     }
     // Remove walk/run adjustments if leaving locomotion animations
-    const isLocomotion = key === 'player_walk' || key === 'player_run';
+    const isLocomotion = key === 'player_walk' || key === 'player_run' || key === 'player_runstop';
     if (this._walkYShift && !isLocomotion) {
       this.y -= this._walkYShift;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
@@ -758,31 +764,55 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // Run detection: track how long direction is held
     const now = this.scene.time.now;
     const moveDir = left ? -1 : right ? 1 : 0;
-    if (moveDir !== 0 && moveDir === this._walkDir && !this.isPushingTrash) {
+    // Snapshot running state BEFORE any resets
+    const wasRunning = this.isRunning;
+
+    // During runstop — let anim play, queue new direction
+    if (this._runStopping) {
+      this.isRunning = false;
+      if (moveDir !== 0 && moveDir === this._runStopDir) {
+        // Pressing same direction as skid — cancel and resume walk
+        this._runStopping = false;
+        this._runBlend = 0;
+        this._walkDir = moveDir;
+        this._walkStartTime = now;
+      } else if (moveDir !== 0) {
+        // Pressing opposite/new direction — queue for after runstop
+        this._runStopNextDir = moveDir;
+      }
+    } else if (moveDir !== 0 && moveDir === this._walkDir && !this.isPushingTrash) {
       // Same direction still held — check if we should transition to run
-      // Allow brief air time (small bumps) without resetting run
       if (!this.isRunning && onGround && (now - this._walkStartTime) >= (PLAYER.RUN_DELAY || 500)) {
         this.isRunning = true;
-        // Dust burst when breaking into run
         this.spawnRunDust();
       }
     } else if (moveDir !== 0 && !this.isPushingTrash) {
-      // Direction changed or just started walking
-      this._walkDir = moveDir;
-      this._walkStartTime = now;
+      // Direction changed
       this.isRunning = false;
-      this._runBlend = 0;
+      if (wasRunning && onGround) {
+        this._startRunStop();
+        this._runStopNextDir = moveDir; // queue new direction for after runstop
+      } else {
+        this._walkDir = moveDir;
+        this._walkStartTime = now;
+        this._runBlend = 0;
+      }
     } else if (moveDir === 0) {
       // Stopped
-      this._walkDir = 0;
-      this._walkStartTime = 0;
       this.isRunning = false;
-      this._runBlend = 0;
+      if (wasRunning && onGround) {
+        this._startRunStop();
+      } else if (!this._runStopping) {
+        this._walkDir = 0;
+        this._walkStartTime = 0;
+        this._runBlend = 0;
+      }
     }
     // Reset run on push/climb/falling
     if (this.isPushingTrash || this.isClimbing) {
       this.isRunning = false;
       this._runBlend = 0;
+      this._runStopping = false;
       this._walkDir = 0;
       this._walkStartTime = 0;
     }
@@ -790,6 +820,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (!onGround && this.body && this.body.velocity.y > 80) {
       this.isRunning = false;
       this._runBlend = 0;
+      this._runStopping = false;
     }
 
     // Smooth run blend (ramp up over ~0.3s, ramp down over ~0.15s)
@@ -807,7 +838,21 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const friction = 800;
     const vx = this.body.velocity.x;
 
-    if (left) {
+    if (this._runStopping) {
+      // Custom slide: decelerate from run speed to 0 over slideDuration
+      this.body.setAccelerationX(0);
+      this.body.setDragX(0);
+      this._slideTime += dt;
+      const t = Math.min(this._slideTime / this._slideDuration, 1);
+      // Ease-out curve: fast at start, slow at end
+      const ease = 1 - t * t;
+      const slideVx = this._slideStartVx * ease * this._runStopDir;
+      this.body.setVelocityX(slideVx);
+      if (t >= 1) {
+        this.setVelocityX(0);
+      }
+      // runstop anim plays, don't override
+    } else if (left) {
       this.body.setAccelerationX(-accel);
       this.body.setMaxVelocityX(maxSpd);
       if (!this.isPushingTrash) this.setFlipX(true);
@@ -988,6 +1033,35 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         onComplete: () => dust.destroy()
       });
     }
+  }
+
+  _startRunStop() {
+    this._runStopping = true;
+    this._runStopDir = this._walkDir;
+    this._runStopNextDir = 0;
+    this._runBlend = 0.3;
+    this._walkDir = 0;
+    this._walkStartTime = 0;
+    // Capture initial slide velocity — start from current speed
+    this._slideStartVx = Math.abs(this.body.velocity.x);
+    this._slideTime = 0;
+    this._slideDuration = 350; // ms — how long the slide lasts
+    this.playAnim('player_runstop', false);
+    this.spawnRunDust();
+    this.once('animationcomplete-player_runstop', () => {
+      if (this._runStopping) {
+        this._runStopping = false;
+        this._runBlend = 0;
+        this.setVelocityX(0);
+        if (this._runStopNextDir !== 0) {
+          this._walkDir = this._runStopNextDir;
+          this._walkStartTime = this.scene.time.now;
+          this._runStopNextDir = 0;
+        } else {
+          this.playAnim('player_idle');
+        }
+      }
+    });
   }
 
   // === ACTIVE PAINT SYSTEM ===

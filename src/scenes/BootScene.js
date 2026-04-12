@@ -510,6 +510,24 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
+    // --- RUNSTOP: skid/deceleration from run to idle (last few run frames slowing down + first idle frame)
+    {
+      const stopFrames = [];
+      // Use last 6 run frames as the skid
+      const skidStart = RN_START + RN_COUNT - 6;
+      for (let i = skidStart; i < RN_START + RN_COUNT; i++) {
+        stopFrames.push({ key: 'player_sheet', frame: i });
+      }
+      // End on first idle frame for smooth blend into idle
+      stopFrames.push({ key: 'player_sheet', frame: I });
+      this.anims.create({
+        key: 'player_runstop',
+        frames: stopFrames,
+        frameRate: 16, // slower than run for deceleration feel
+        repeat: 0
+      });
+    }
+
     // --- JUMP: launch phase (first half of jump frames) ---
     const halfJump = Math.floor(JN / 2);
     this.anims.create({
