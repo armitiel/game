@@ -29,7 +29,7 @@ export default class WinScene extends Phaser.Scene {
     }
 
     // Win text — responsive sizes analogous to level select
-    const titleSize = Math.min(64, gw * 0.12);
+    const titleSize = Math.min(96, gw * 0.18);
     const subSize = Math.min(28, gw * 0.06);
     const replaySize = Math.min(24, gw * 0.05);
     const menuSize = Math.min(20, gw * 0.04);
