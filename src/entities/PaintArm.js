@@ -176,7 +176,10 @@ export default class PaintArm {
     hx = Phaser.Math.Clamp(hx, b.x, b.x + b.w);
     hy = Phaser.Math.Clamp(hy, b.y, b.y + b.h);
 
-    // Limit reach on the "behind body" side — use ORIGINAL shoulder
+    // Limit reach — use ORIGINAL shoulder for constraints so hand
+    // doesn't get dragged when player dodges, but be generous enough
+    // that the full mural is reachable
+    // Behind-body limit is relaxed — only prevent extreme over-reach
     const behindLimit = origSx - dir * MAX_ARM_LEFT;
     if (dir > 0) {
       hx = Math.max(hx, behindLimit);
@@ -184,12 +187,15 @@ export default class PaintArm {
       hx = Math.min(hx, behindLimit);
     }
 
-    // Limit arm length from ORIGINAL shoulder — hand stays put during dodge
+    // Arm length from original shoulder — generous limit so full mural is reachable
     const adx = hx - origSx;
     const ady = hy - origSy;
     const armDist = Math.sqrt(adx * adx + ady * ady);
-    if (armDist > MAX_ARM_LENGTH) {
-      const ratio = MAX_ARM_LENGTH / armDist;
+    // Use extended reach (1.5×) when hand is within paint bounds
+    const inBounds = hx >= b.x && hx <= b.x + b.w && hy >= b.y && hy <= b.y + b.h;
+    const effectiveMax = inBounds ? MAX_ARM_LENGTH * 1.5 : MAX_ARM_LENGTH;
+    if (armDist > effectiveMax) {
+      const ratio = effectiveMax / armDist;
       hx = origSx + adx * ratio;
       hy = origSy + ady * ratio;
     }

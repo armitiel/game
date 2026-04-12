@@ -3213,7 +3213,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Shift camera focus down toward the arm's reach area so the
     // paint zone is centered on screen, not the player's head.
-    const armOffsetY = isMobile ? 25 : 18;
+    const armOffsetY = isMobile ? 45 : 18;
 
     // Use a fixed anchor point for camera during painting so dodge
     // doesn't shift the viewport (and with it the mouse→world mapping)
@@ -4471,9 +4471,11 @@ export default class GameScene extends Phaser.Scene {
       const touchFillPressed = !!(this.touch && this.touch.paintFillJustPressed);
       const touchFillHeld = !!(this.touch && this.touch.paintFillHeld);
 
-      // Track hold state for active flood animation (desktop: pointer, mobile: fill button)
+      // Track hold state for active flood animation
       if (this._floodAnimating) {
-        this._floodHeld = isTouch ? touchFillHeld : floodPtr.isDown;
+        // Mobile: auto-paint keeps filling as long as joystick is active
+        // Desktop: held while pointer is down
+        this._floodHeld = isTouch ? isMovingHand : floodPtr.isDown;
       }
 
       // Start new flood on click/tap (not during active animation)

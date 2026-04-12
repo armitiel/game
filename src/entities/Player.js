@@ -1059,8 +1059,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (!this.isPainting) return;
 
     const DODGE_DIST = 50;        // how far to shift (pixels)
-    const DODGE_SPEED = 0.12;     // lerp factor per frame — smooth slide
-    const BODY_HALF = 14;         // half-width of player body zone (fixed, at origX)
+    const DODGE_SPEED = 0.06;     // lerp factor per frame — slower, deliberate slide
+    const BODY_HALF = 6;          // half-width — cursor must be deep inside body to trigger
     const RETURN_DIST = 25;       // cursor must move this far to opposite side to allow return
 
     const origX = this._paintOrigX;
