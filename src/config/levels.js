@@ -98,8 +98,7 @@ export const LEVEL_1 = {
   ],
   shadows: [
     { x: 20, y: H - 130, w: 80, h: 100 },
-    { x: 500, y: H - 130, w: 80, h: 100 },
-    { x: 1180, y: H - 130, w: 80, h: 100 },
+    { x: 910, y: H - 130, w: 80, h: 100 },
   ],
   fillWalls: [
     { x: 600, y: H - 440, w: 500, h: 408 },
@@ -109,7 +108,7 @@ export const LEVEL_1 = {
   ],
   paintSpots: [
     { x: 350, y: H - 107, w: 140, h: 120, paintingKey: 'painting_flower' },
-    { x: 800, y: H - 355, w: 130, h: 120, paintingKey: 'painting_fish' },
+    { x: 800, y: H - 350, w: 130, h: 120, paintingKey: 'painting_fish' },
   ],
   trashCans: [
     { x: 800, y: H - 53 },
@@ -119,7 +118,7 @@ export const LEVEL_1 = {
   ],
   lamps: [
     { x: 100, y: H - 23, radius: 100, intensity: 0.5 },
-    { x: 650, y: H - 23, radius: 130, intensity: 0.6 },
+    { x: 980, y: H - 274, radius: 130, intensity: 0.6 },
     { x: 1150, y: H - 25, radius: 100, intensity: 0.5 },
   ],
   papers: [

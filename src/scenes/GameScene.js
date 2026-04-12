@@ -3210,6 +3210,12 @@ export default class GameScene extends Phaser.Scene {
     // Shift camera focus down toward the arm's reach area so the
     // paint zone is centered on screen, not the player's head.
     const armOffsetY = isMobile ? 25 : 18;
+
+    // Use a fixed anchor point for camera during painting so dodge
+    // doesn't shift the viewport (and with it the mouse→world mapping)
+    this._paintCamAnchor = this.add.rectangle(this.player.x, this.player.y, 1, 1)
+      .setAlpha(0).setDepth(-999);
+    cam.startFollow(this._paintCamAnchor, true, 0.1, 0.1);
     cam.setFollowOffset(0, -armOffsetY);
     cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
 
@@ -3393,6 +3399,10 @@ export default class GameScene extends Phaser.Scene {
     this._paintViewMode = 'arm';
 
     // --- Camera: always ensure following player + restore zoom ---
+    if (this._paintCamAnchor) {
+      this._paintCamAnchor.destroy();
+      this._paintCamAnchor = null;
+    }
     const cam = this.cameras.main;
     cam.startFollow(this.player, true, 0.15, 0.15);
     cam.setFollowOffset(0, 0);
@@ -3539,12 +3549,14 @@ export default class GameScene extends Phaser.Scene {
 
       const layer = region.layers[layerIndex];
       for (const { r, c } of layer) {
-        if (this.pbn.fillCellDirect(r, c)) {
+        if (this.pbn.fillCellDirect(r, c, true)) {
           cellsFilled++;
           const cost = this.pbn.costPerCell[region.colorIndex] || 1;
           this.player.usePaint(colorName.toLowerCase(), cost);
         }
       }
+      // Batch composite update after entire layer
+      if (this.pbn.updateDisplay) this.pbn.updateDisplay();
 
       if (this.pbn && this.hudCountText) {
         const progress = this.pbn.getProgress();
@@ -4422,6 +4434,7 @@ export default class GameScene extends Phaser.Scene {
       const isTouch = !!(t && t.enabled);
 
       // Desktop: arm always follows mouse cursor (not just on click)
+      // Camera follows fixed anchor during painting, so world mapping is stable
       let mouseWorld = null;
       if (!isTouch) {
         const worldPoint = this.cameras.main.getWorldPoint(
@@ -4430,7 +4443,14 @@ export default class GameScene extends Phaser.Scene {
         mouseWorld = { x: worldPoint.x, y: worldPoint.y };
       }
 
+      // Pass original X for shoulder visual, actual X for arm attachment
       const handPos = this.paintArm.update(delta, input, this.player.x, this.player.y, isTouch, mouseWorld);
+
+      // Dodge: shift player aside when hand overlaps player sprite
+      if (handPos) {
+        this.player.updatePaintDodge(handPos.x, delta);
+      }
+
       // On desktop arm always tracks mouse — treat as "moving" only when pointer moves or keys pressed
       const isMovingHand = !!(input.left || input.right || input.up || input.down) ||
         (!isTouch && this.input.activePointer.isDown);
@@ -4441,21 +4461,33 @@ export default class GameScene extends Phaser.Scene {
 
       // --- Flood fill trigger + hold-to-fill ---
       const floodPtr = this.input.activePointer;
+      const touchFillPressed = !!(this.touch && this.touch.paintFillJustPressed);
+      const touchFillHeld = !!(this.touch && this.touch.paintFillHeld);
 
-      // Track hold state for active flood animation
+      // Track hold state for active flood animation (desktop: pointer, mobile: fill button)
       if (this._floodAnimating) {
-        this._floodHeld = floodPtr.isDown;
+        this._floodHeld = isTouch ? touchFillHeld : floodPtr.isDown;
       }
 
-      // Start new flood on click (not during active animation)
-      if (floodPtr.isDown && !this._floodPointerWasDown && !this._floodAnimating) {
-        if (handPos && this.pbn) {
-          const b = this.pbn.bounds;
-          const wp = this.cameras.main.getWorldPoint(floodPtr.x, floodPtr.y);
-          const inBounds = wp.x >= b.x && wp.x <= b.x + b.w &&
-                           wp.y >= b.y && wp.y <= b.y + b.h;
-          if (inBounds) {
+      // Start new flood on click/tap (not during active animation)
+      if (!this._floodAnimating) {
+        if (isTouch) {
+          // Mobile: PAINT button triggers flood fill on the arm's current region
+          if (touchFillPressed && handPos && this.pbn) {
             this.tryFloodFill();
+          }
+        } else {
+          // Desktop: mouse click inside mural bounds
+          if (floodPtr.isDown && !this._floodPointerWasDown) {
+            if (handPos && this.pbn) {
+              const b = this.pbn.bounds;
+              const wp = this.cameras.main.getWorldPoint(floodPtr.x, floodPtr.y);
+              const inBounds = wp.x >= b.x && wp.x <= b.x + b.w &&
+                               wp.y >= b.y && wp.y <= b.y + b.h;
+              if (inBounds) {
+                this.tryFloodFill();
+              }
+            }
           }
         }
       }

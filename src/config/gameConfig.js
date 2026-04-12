@@ -9,13 +9,16 @@ export const GAME = {
 
 export const PLAYER = {
   SPEED: 160,
+  RUN_SPEED: 220,           // running speed after holding direction (walk 160)
+  RUN_DELAY: 800,           // ms of walking before run kicks in
+  RUN_ANIM_RATE: 24,        // frameRate for run animation (18 frames → 0.75s cycle)
   JUMP_VELOCITY: -350,
   CLIMB_SPEED: 100,
   // Unified sprite sheet — all animations in one sheet at same frame size
   FRAME_W: 96,
   FRAME_H: 144,
   // Frame ranges in combined sheet:
-  // idle: 0-17, walk: 18-53, jump: 54-73, push: 74-97, climb: 98-116, climb2: 117-136, paint: 137-161, twist: 162-189, side: 190-217, hide: 218-234
+  // idle: 0-17, walk: 18-53, jump: 54-73, push: 74-97, climb: 98-116, climb2: 117-136, paint: 137-161, twist: 162-189, side: 190-217, hide: 218-234, run: 235-252
   TOTAL_IDLE_FRAMES: 18,
   IDLE_FRAME_START: 0,
   TOTAL_WALK_FRAMES: 36,
@@ -38,6 +41,8 @@ export const PLAYER = {
   SIDE_FRAME_START: 190,
   TOTAL_HIDE_FRAMES: 17,
   HIDE_FRAME_START: 218,
+  TOTAL_RUN_FRAMES: 18,
+  RUN_FRAME_START: 235,
   // Health
   MAX_HP: 5,             // max hearts
   INVINCIBLE_MS: 1500,   // invincibility after taking damage (ms)
@@ -47,7 +52,7 @@ export const PLAYER = {
   BODY_OFFSET_X: 38,  // (96 - 20) / 2
   BODY_OFFSET_Y: 81,  // feet at Y=141 in 144px frame, body top at 141-60=81
   // Sprite sheet path
-  SHEET_PATH: 'assets/sprites/player_combined_sheet.png?v=226'
+  SHEET_PATH: 'assets/sprites/player_combined_sheet.png?v=229'
 };
 
 export const COP = {

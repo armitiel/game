@@ -88,10 +88,11 @@ export default class PaintArm {
     // Set spray can texture to current color
     this.setCanColor(colorName);
 
-    // Shoulder anchor position
+    // Shoulder anchor position (save original for reach constraints during dodge)
     const dir = flipX ? -1 : 1;
     const sx = playerX + dir * this.shoulderOffsetX;
     const sy = playerY + this.shoulderOffsetY;
+    this._origShoulderX = sx;
 
     // Start hand at center of paint area
     const handX = bounds.x + bounds.w / 2;
@@ -116,6 +117,7 @@ export default class PaintArm {
    */
   stop() {
     this.active = false;
+    this._origShoulderX = null;
     this.hand.setVisible(false);
     this.canSprite.setVisible(false);
     this.armGfx.setVisible(false);
@@ -138,11 +140,16 @@ export default class PaintArm {
     const dir = this.flipX ? -1 : 1;
     const speed = isTouch ? HAND_SPEED_TOUCH : HAND_SPEED;
 
-    // Update shoulder anchor to follow player
+    // Update shoulder anchor to follow player (visual — arm stays attached)
     const sx = playerX + dir * this.shoulderOffsetX;
     const sy = playerY + this.shoulderOffsetY;
     this.points[0].x = sx;
     this.points[0].y = sy;
+
+    // For reach/constraint calculations use original shoulder position
+    // so hand doesn't get dragged when player dodges aside
+    const origSx = (this._origShoulderX != null) ? this._origShoulderX : sx;
+    const origSy = sy;
 
     // Move hand based on input
     const last = this.points.length - 1;
@@ -168,24 +175,22 @@ export default class PaintArm {
     hx = Phaser.Math.Clamp(hx, b.x, b.x + b.w);
     hy = Phaser.Math.Clamp(hy, b.y, b.y + b.h);
 
-    // Limit reach on the "behind body" side (left of shoulder when facing right)
-    const behindLimit = sx - dir * MAX_ARM_LEFT;
+    // Limit reach on the "behind body" side — use ORIGINAL shoulder
+    const behindLimit = origSx - dir * MAX_ARM_LEFT;
     if (dir > 0) {
-      // Facing right — hand shouldn't go too far left of shoulder
       hx = Math.max(hx, behindLimit);
     } else {
-      // Facing left — hand shouldn't go too far right of shoulder
       hx = Math.min(hx, behindLimit);
     }
 
-    // Limit arm length — pull hand back toward shoulder if too far
-    const adx = hx - sx;
-    const ady = hy - sy;
+    // Limit arm length from ORIGINAL shoulder — hand stays put during dodge
+    const adx = hx - origSx;
+    const ady = hy - origSy;
     const armDist = Math.sqrt(adx * adx + ady * ady);
     if (armDist > MAX_ARM_LENGTH) {
       const ratio = MAX_ARM_LENGTH / armDist;
-      hx = sx + adx * ratio;
-      hy = sy + ady * ratio;
+      hx = origSx + adx * ratio;
+      hy = origSy + ady * ratio;
     }
 
     // Grid cell snapping — at low joystick intensity, pull hand toward

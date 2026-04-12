@@ -483,6 +483,8 @@ export default class BootScene extends Phaser.Scene {
     const C2N = PLAYER.TOTAL_CLIMB2_FRAMES;  // 20
     const T = PLAYER.TURN_FRAME_START;       // 125
     const TN = PLAYER.TOTAL_TURN_FRAMES;     // 25
+    const RN_START = PLAYER.RUN_FRAME_START; // 235
+    const RN_COUNT = PLAYER.TOTAL_RUN_FRAMES; // 18
 
     // --- IDLE: 18-frame idle sequence ---
     this.anims.create({
@@ -497,6 +499,14 @@ export default class BootScene extends Phaser.Scene {
       key: 'player_walk',
       frames: this.anims.generateFrameNumbers('player_sheet', { start: W, end: W + WN - 1 }),
       frameRate: 57,
+      repeat: -1
+    });
+
+    // --- RUN: 18-frame cycle at RUN_ANIM_RATE (faster than walk)
+    this.anims.create({
+      key: 'player_run',
+      frames: this.anims.generateFrameNumbers('player_sheet', { start: RN_START, end: RN_START + RN_COUNT - 1 }),
+      frameRate: PLAYER.RUN_ANIM_RATE || 90,
       repeat: -1
     });
 

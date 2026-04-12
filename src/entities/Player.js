@@ -53,11 +53,22 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.idleTimer = 0;
     this.isTwisting = false;
 
+    // Run state — walk transitions to run after holding direction
+    this._walkStartTime = 0;    // timestamp when current walk began
+    this._walkDir = 0;          // -1 left, +1 right, 0 none
+    this.isRunning = false;
+
     // Climb manual frame control (ping-pong: 0→18→0→18...)
     this.climbFrameIndex = 0;        // float — fractional frame position
     this.climbTotalFrames = PLAYER.TOTAL_CLIMB_FRAMES; // 19
     this.climbAnimSpeed = PLAYER.CLIMB_ANIM_SPEED;     // frames per game-frame
     this.climbDirection = 1;         // +1 = forward, -1 = backward (ping-pong)
+
+    // Paint dodge — shift aside when paint hand overlaps player
+    this._paintDodgeOffset = 0;    // current X offset from original paint position
+    this._paintDodgeDir = 0;       // -1 dodge left, +1 dodge right, 0 centered
+    this._paintOrigX = 0;          // player X when painting started
+    this._paintDodging = false;    // currently dodging?
 
     // Hidden indicator (disabled — no icon above player)
     this.hiddenIcon = { setPosition() {}, setVisible() {}, setAlpha() {}, destroy() {} };
@@ -98,23 +109,24 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this._pushFrameIndex = null;
       if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
     }
-    // Remove walk adjustments if leaving walk animation
-    if (this._walkYShift && key !== 'player_walk') {
+    // Remove walk/run adjustments if leaving locomotion animations
+    const isLocomotion = key === 'player_walk' || key === 'player_run';
+    if (this._walkYShift && !isLocomotion) {
       this.y -= this._walkYShift;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
       this.setScale(1);
       this._walkYShift = 0;
     }
-    // Apply walk adjustments — nudge down + scale up 1.5%
+    // Apply walk/run adjustments — nudge down + scale up 1.5%
     // Skip Y shift on bridge to prevent fighting with _bridgeSnap
-    if (key === 'player_walk' && !this._walkYShift && !this._bridgeGrace) {
+    if (isLocomotion && !this._walkYShift && !this._bridgeGrace) {
       this._walkYShift = 2;
       this.y += 2;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y - 2);
       this.setScale(1.015);
     }
-    // Footstep sound: loop while walking, stop otherwise
-    if (key === 'player_walk') {
+    // Footstep sound: loop while walking/running, stop otherwise
+    if (isLocomotion) {
       if (!this._footstepSound) {
         this._footstepSound = this.scene.sound.add('sfx_footstep', { loop: true, volume: 0.18 });
       }
@@ -742,8 +754,39 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // === Movement with inertia ===
-    const accel = this.isPushingTrash ? 600 : 1200;
-    const maxSpd = this.isPushingTrash ? PLAYER.SPEED * 0.4 : PLAYER.SPEED;
+    // Run detection: track how long direction is held
+    const now = this.scene.time.now;
+    const moveDir = left ? -1 : right ? 1 : 0;
+    if (moveDir !== 0 && moveDir === this._walkDir && !this.isPushingTrash) {
+      // Same direction still held — check if we should transition to run
+      // Allow brief air time (small bumps) without resetting run
+      if (!this.isRunning && onGround && (now - this._walkStartTime) >= (PLAYER.RUN_DELAY || 500)) {
+        this.isRunning = true;
+      }
+    } else if (moveDir !== 0 && !this.isPushingTrash) {
+      // Direction changed or just started walking
+      this._walkDir = moveDir;
+      this._walkStartTime = now;
+      this.isRunning = false;
+    } else if (moveDir === 0) {
+      // Stopped
+      this._walkDir = 0;
+      this._walkStartTime = 0;
+      this.isRunning = false;
+    }
+    // Reset run on push/climb/falling
+    if (this.isPushingTrash || this.isClimbing) {
+      this.isRunning = false;
+      this._walkDir = 0;
+      this._walkStartTime = 0;
+    }
+    // Reset run when actually falling (velocity.y > threshold = not just a tiny bump)
+    if (!onGround && this.body && this.body.velocity.y > 80) {
+      this.isRunning = false;
+    }
+
+    const accel = this.isPushingTrash ? 600 : (this.isRunning ? 1600 : 1200);
+    const maxSpd = this.isPushingTrash ? PLAYER.SPEED * 0.4 : (this.isRunning ? PLAYER.RUN_SPEED : PLAYER.SPEED);
     const friction = 800;
     const vx = this.body.velocity.x;
 
@@ -756,6 +799,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           this.playPushAnim(true);
         } else if (vx > 30) {
           this.playAnim('player_idle');
+        } else if (this.isRunning) {
+          this.playAnim('player_run');
         } else {
           this.playAnim('player_walk');
         }
@@ -769,6 +814,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           this.playPushAnim(true);
         } else if (vx < -30) {
           this.playAnim('player_idle');
+        } else if (this.isRunning) {
+          this.playAnim('player_run');
         } else {
           this.playAnim('player_walk');
         }
@@ -822,10 +869,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.playAnim('player_fall');
       }
     }
-    // Force walk anim if moving on bridge but current anim got interrupted
+    // Force walk/run anim if moving on bridge but current anim got interrupted
     if (onBridge && !this.body.blocked.down && (left || right)) {
-      if (this.currentAnim !== 'player_walk') {
-        this.playAnim('player_walk');
+      const expectedAnim = this.isRunning ? 'player_run' : 'player_walk';
+      if (this.currentAnim !== expectedAnim) {
+        this.playAnim(expectedAnim);
       }
     }
     // Tick down ladder exit grace (set in exitLadder, cleared on ground)
@@ -905,6 +953,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.paintOnCancel = onCancel;
     this.paintParticleTimer = 0;
 
+    // Reset dodge state
+    this._paintOrigX = this.x;
+    this._paintDodgeOffset = 0;
+    this._paintDodgeDir = 0;
+    this._paintDodging = false;
+
     // Freeze player: stop movement, disable gravity, play hi-res paint loop
     this.setVelocity(0, 0);
     this.body.setAccelerationX(0);
@@ -969,6 +1023,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.paintBounds = null;
     this.paintOnComplete = null;
     this.paintOnCancel = null;
+    // Reset dodge — snap back to original position
+    if (this._paintDodging) {
+      this.x = this._paintOrigX;
+      this._paintDodging = false;
+      this._paintDodgeOffset = 0;
+      this._paintDodgeDir = 0;
+    }
     // Restore scale and Y position from hi-res paint back to normal
     if (this._prePaintScaleX !== undefined) {
       this.setScale(this._prePaintScaleX, this._prePaintScaleY);
@@ -982,6 +1043,70 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.body.allowGravity = true;
     this.currentAnim = '';
     this.playAnim('player_idle');
+  }
+
+  // === PAINT DODGE — shift aside when hand overlaps player sprite ===
+
+  /**
+   * Called each frame during painting. If the paint hand is in the player's
+   * body zone, smoothly slide the player aside and switch to a climb frame
+   * (one arm free). When the hand moves away, slide back and resume paint anim.
+   *
+   * @param {number} handX - paint hand world X
+   * @param {number} delta - frame delta in ms
+   */
+  updatePaintDodge(handX, delta) {
+    if (!this.isPainting) return;
+
+    const DODGE_DIST = 50;        // how far to shift (pixels)
+    const DODGE_SPEED = 0.12;     // lerp factor per frame — smooth slide
+    const BODY_HALF = 14;         // half-width of player body zone (fixed, at origX)
+    const RETURN_DIST = 25;       // cursor must move this far to opposite side to allow return
+
+    const origX = this._paintOrigX;
+
+    // Check if cursor is in the original body zone
+    const inBodyZone = handX > (origX - BODY_HALF) && handX < (origX + BODY_HALF);
+
+    if (!this._paintDodging) {
+      // NOT dodging — check if cursor enters body zone
+      if (inBodyZone) {
+        // Dodge: pick direction away from cursor, remember trigger point
+        this._paintDodgeDir = (handX <= origX) ? 1 : -1;
+        this._paintDodging = true;
+        this._dodgeTriggerX = handX; // where the cursor was when dodge started
+      }
+    } else {
+      // DODGING — return when cursor crosses to the opposite half of the mural
+      // paintBounds = {x, y, w, h} — mural area
+      const b = this.paintBounds;
+      const muralCenterX = b ? b.x + b.w / 2 : origX;
+
+      // Dodge dir +1 = player went right (cursor was on left side)
+      // → return when cursor moves to the RIGHT half of the mural
+      // Dodge dir -1 = player went left (cursor was on right side)
+      // → return when cursor moves to the LEFT half of the mural
+      const canReturn = (this._paintDodgeDir > 0)
+        ? handX > muralCenterX
+        : handX < muralCenterX;
+
+      if (canReturn) {
+        this._paintDodgeDir = 0;
+        this._paintDodging = false;
+      }
+    }
+
+    // Smooth lerp toward target offset, snap when close to prevent sub-pixel jitter
+    const targetOffset = this._paintDodgeDir * DODGE_DIST;
+    const diff = targetOffset - this._paintDodgeOffset;
+    if (Math.abs(diff) < 1) {
+      this._paintDodgeOffset = targetOffset;
+    } else {
+      this._paintDodgeOffset += diff * DODGE_SPEED;
+    }
+
+    // Apply position (round to avoid sub-pixel flickering)
+    this.x = Math.round(origX + this._paintDodgeOffset);
   }
 
   // === LADDER PUSH ===
