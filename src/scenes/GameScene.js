@@ -3211,16 +3211,16 @@ export default class GameScene extends Phaser.Scene {
 
     const targetZoom = isMobile ? 5.0 : 3.5;
 
-    // Position camera so player's feet are near the bottom of the frame
-    // Camera follows a fixed anchor at player position, offset pushes view up
-    // so the mural (above feet) fills most of the screen
-    const camH = cam.height / targetZoom; // visible world height at target zoom
-    const feetOffsetY = camH * 0.42;      // push camera focus up — feet near bottom edge
+    // Focus camera on the mural center (mobile) or slightly below player (desktop)
+    // so the full paint area is visible on screen
+    const anchorX = isMobile ? (bounds.x + bounds.w / 2) : this.player.x;
+    const anchorY = isMobile ? (bounds.y + bounds.h / 2) : this.player.y;
+    const camOffsetY = isMobile ? 0 : -18;
 
-    this._paintCamAnchor = this.add.rectangle(this.player.x, this.player.y, 1, 1)
+    this._paintCamAnchor = this.add.rectangle(anchorX, anchorY, 1, 1)
       .setAlpha(0).setDepth(-999);
     cam.startFollow(this._paintCamAnchor, true, 0.1, 0.1);
-    cam.setFollowOffset(0, -feetOffsetY);
+    cam.setFollowOffset(0, camOffsetY);
     cam.zoomTo(targetZoom, 400, 'Sine.easeInOut');
 
     // Start paint arm (hand + rope + spray can)

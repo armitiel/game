@@ -969,6 +969,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._prePaintY = this.y;
     this.setScale(this.scaleX / 3, this.scaleY / 3);
     this.y += 1; // nudge paint animation 1px down
+    this.setAlpha(0.55); // semi-transparent so labels behind player are visible
     this.currentAnim = 'player_paint_loop';
     this.anims.play('player_paint_loop', true);
   }
@@ -1039,7 +1040,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.y = this._prePaintY;
       this._prePaintY = undefined;
     }
-    // Restore physics
+    // Restore physics and opacity
+    this.setAlpha(1);
     this.body.allowGravity = true;
     this.currentAnim = '';
     this.playAnim('player_idle');
