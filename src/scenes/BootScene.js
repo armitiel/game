@@ -510,6 +510,17 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
+    // --- RUNSTART: burst from walk into run (first few run frames, played once fast)
+    {
+      const startCount = Math.min(5, RN_COUNT);
+      this.anims.create({
+        key: 'player_runstart',
+        frames: this.anims.generateFrameNumbers('player_sheet', { start: RN_START, end: RN_START + startCount - 1 }),
+        frameRate: 22,
+        repeat: 0
+      });
+    }
+
     // --- RUNSTOP: skid/deceleration from run to idle (last few run frames slowing down + first idle frame)
     {
       const stopFrames = [];

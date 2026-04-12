@@ -64,6 +64,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._slideStartVx = 0;     // initial velocity when slide starts
     this._slideTime = 0;        // elapsed slide time (ms)
     this._slideDuration = 350;  // total slide duration (ms)
+    this._runStarting = false;  // true during runstart burst anim
+    this._runStartDir = 0;      // direction of runstart burst
+    this._runStartTime = 0;     // elapsed time in runstart burst (ms)
+    this._runStartDuration = 300; // total burst duration (ms)
+    this._runStartBoostVx = 0;  // peak burst velocity
 
     // Climb manual frame control (ping-pong: 0→18→0→18...)
     this.climbFrameIndex = 0;        // float — fractional frame position
@@ -117,7 +122,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       if (this._pushXShift) { this.x -= this._pushXShift; this._pushXShift = 0; }
     }
     // Remove walk/run adjustments if leaving locomotion animations
-    const isLocomotion = key === 'player_walk' || key === 'player_run' || key === 'player_runstop';
+    const isLocomotion = key === 'player_walk' || key === 'player_run' || key === 'player_runstop' || key === 'player_runstart';
     if (this._walkYShift && !isLocomotion) {
       this.y -= this._walkYShift;
       this.body.setOffset(PLAYER.BODY_OFFSET_X, PLAYER.BODY_OFFSET_Y);
@@ -782,13 +787,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       }
     } else if (moveDir !== 0 && moveDir === this._walkDir && !this.isPushingTrash) {
       // Same direction still held — check if we should transition to run
-      if (!this.isRunning && onGround && (now - this._walkStartTime) >= (PLAYER.RUN_DELAY || 500)) {
-        this.isRunning = true;
-        this.spawnRunDust();
+      if (!this.isRunning && !this._runStarting && onGround && (now - this._walkStartTime) >= (PLAYER.RUN_DELAY || 500)) {
+        this._startRunStart(moveDir);
       }
     } else if (moveDir !== 0 && !this.isPushingTrash) {
       // Direction changed
       this.isRunning = false;
+      this._runStarting = false;
       if (wasRunning && onGround) {
         this._startRunStop();
         this._runStopNextDir = moveDir; // queue new direction for after runstop
@@ -800,6 +805,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     } else if (moveDir === 0) {
       // Stopped
       this.isRunning = false;
+      this._runStarting = false;
       if (wasRunning && onGround) {
         this._startRunStop();
       } else if (!this._runStopping) {
@@ -813,6 +819,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.isRunning = false;
       this._runBlend = 0;
       this._runStopping = false;
+      this._runStarting = false;
       this._walkDir = 0;
       this._walkStartTime = 0;
     }
@@ -821,6 +828,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.isRunning = false;
       this._runBlend = 0;
       this._runStopping = false;
+      this._runStarting = false;
     }
 
     // Smooth run blend (ramp up over ~0.3s, ramp down over ~0.15s)
@@ -852,11 +860,23 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.setVelocityX(0);
       }
       // runstop anim plays, don't override
+    } else if (this._runStarting) {
+      // Smooth burst curve: overshoot then ease back to run speed
+      this.body.setAccelerationX(0);
+      this.body.setDragX(0);
+      this._runStartTime += dt;
+      const t = Math.min(this._runStartTime / this._runStartDuration, 1);
+      // Bell-like curve: sin(π*t) peaks at t=0.5, then returns to 0
+      // Mix: runSpeed + overshoot * sin(π*t)  →  starts at runSpeed, peaks, returns to runSpeed
+      const overshoot = this._runStartBoostVx - PLAYER.RUN_SPEED;
+      const burstVx = (PLAYER.RUN_SPEED + overshoot * Math.sin(Math.PI * t)) * this._runStartDir;
+      this.body.setVelocityX(burstVx);
+      this.setFlipX(this._runStartDir < 0);
     } else if (left) {
       this.body.setAccelerationX(-accel);
       this.body.setMaxVelocityX(maxSpd);
       if (!this.isPushingTrash) this.setFlipX(true);
-      if (onGround) {
+      if (onGround && !this._runStarting) {
         if (this.isPushingTrash) {
           this.playPushAnim(true);
         } else if (vx > 30) {
@@ -871,7 +891,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.body.setAccelerationX(accel);
       this.body.setMaxVelocityX(maxSpd);
       if (!this.isPushingTrash) this.setFlipX(false);
-      if (onGround) {
+      if (onGround && !this._runStarting) {
         if (this.isPushingTrash) {
           this.playPushAnim(true);
         } else if (vx < -30) {
@@ -1033,6 +1053,22 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         onComplete: () => dust.destroy()
       });
     }
+  }
+
+  _startRunStart(dir) {
+    this._runStarting = true;
+    this._runStartDir = dir;
+    this._runStartTime = 0;
+    // Peak burst speed — overshoot run speed, then ease back
+    this._runStartBoostVx = PLAYER.RUN_SPEED * 1.45;
+    this.spawnRunDust();
+    this.playAnim('player_runstart', false);
+    this.once('animationcomplete-player_runstart', () => {
+      this._runStarting = false;
+      this.isRunning = true;
+      this._runBlend = 1;
+      this.playAnim('player_run');
+    });
   }
 
   _startRunStop() {
