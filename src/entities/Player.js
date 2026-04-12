@@ -1060,21 +1060,28 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     const DODGE_DIST = 50;        // how far to shift (pixels)
     const DODGE_SPEED = 0.06;     // lerp factor per frame — slower, deliberate slide
-    const BODY_HALF = 6;          // half-width — cursor must be deep inside body to trigger
-    const RETURN_DIST = 25;       // cursor must move this far to opposite side to allow return
+    const BODY_HALF = 4;          // half-width — very tight, cursor must be right on center
+    const ENTER_DELAY = 400;      // ms cursor must stay inside body before dodge triggers
 
     const origX = this._paintOrigX;
 
     // Check if cursor is in the original body zone
     const inBodyZone = handX > (origX - BODY_HALF) && handX < (origX + BODY_HALF);
 
+    if (!this._dodgeEnterTimer) this._dodgeEnterTimer = 0;
+
     if (!this._paintDodging) {
-      // NOT dodging — check if cursor enters body zone
       if (inBodyZone) {
-        // Dodge: pick direction away from cursor, remember trigger point
-        this._paintDodgeDir = (handX <= origX) ? 1 : -1;
-        this._paintDodging = true;
-        this._dodgeTriggerX = handX; // where the cursor was when dodge started
+        // Accumulate time inside body zone
+        this._dodgeEnterTimer += delta;
+        if (this._dodgeEnterTimer >= ENTER_DELAY) {
+          this._paintDodgeDir = (handX <= origX) ? 1 : -1;
+          this._paintDodging = true;
+          this._dodgeEnterTimer = 0;
+        }
+      } else {
+        // Reset timer when cursor leaves
+        this._dodgeEnterTimer = 0;
       }
     } else {
       // DODGING — return when cursor crosses to the opposite half of the mural
