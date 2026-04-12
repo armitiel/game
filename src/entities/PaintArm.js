@@ -222,50 +222,7 @@ export default class PaintArm {
       }
     }
 
-    // Color-aware snapping: snap cursor to center of nearest unpainted cell
-    // of the currently selected color when within threshold distance
-    if (this._getCellColor && this._cellW && this._cellH && this._selectedColorIndex != null) {
-      const col = Math.floor((hx - b.x) / this._cellW);
-      const row = Math.floor((hy - b.y) / this._cellH);
-      const SNAP_RADIUS = 3;
-      const SNAP_THRESHOLD = this._cellW * 2.5; // max pixel distance to trigger snap
-      const SNAP_HARD = this._cellW * 0.9;      // below this → hard snap to center
-      const SNAP_LERP = 0.7;                     // strong pull in transition zone
-
-      let bestDist = SNAP_THRESHOLD;
-      let bestCX = hx, bestCY = hy;
-
-      for (let dr = -SNAP_RADIUS; dr <= SNAP_RADIUS; dr++) {
-        for (let dc = -SNAP_RADIUS; dc <= SNAP_RADIUS; dc++) {
-          const cr = row + dr;
-          const cc = col + dc;
-          if (cr < 0 || cc < 0) continue;
-          const ci = this._getCellColor(cc, cr);
-          if (ci !== this._selectedColorIndex) continue;
-          const filled = this._isCellFilled && this._isCellFilled(cc, cr);
-          if (filled) continue;
-          const cx = b.x + (cc + 0.5) * this._cellW;
-          const cy = b.y + (cr + 0.5) * this._cellH;
-          const dx = hx - cx, dy = hy - cy;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < bestDist) {
-            bestDist = dist;
-            bestCX = cx;
-            bestCY = cy;
-          }
-        }
-      }
-
-      if (bestDist < SNAP_HARD) {
-        // Close enough — hard snap to cell center
-        hx = bestCX;
-        hy = bestCY;
-      } else if (bestDist < SNAP_THRESHOLD) {
-        // Transition zone — strong pull
-        hx += (bestCX - hx) * SNAP_LERP;
-        hy += (bestCY - hy) * SNAP_LERP;
-      }
-    }
+    // Color-aware snapping disabled — free hand movement over all cells
 
     this.points[last].x = hx;
     this.points[last].y = hy;
