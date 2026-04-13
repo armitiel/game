@@ -15,25 +15,26 @@ OUT = f'{BASE}/player_combined_sheet.png'
 FRAME_W = 96
 FRAME_H = 144
 MAX_TEX_W = 4096
-TWIST_SCALE = 1.3
+TWIST_SCALE = 1.0
 GLOBAL_Y_OFFSET = 15  # shift all content down to align feet with physics body
 
 # Animation folders in order (matching gameConfig frame ranges)
-# Tuple: (folder, count, extra_scale, content_fit[, y_offset])
+# Tuple: (folder, count, extra_scale, content_fit[, y_offset[, x_offset]])
 # content_fit: if True, scale based on alpha bbox so character fills frame properly
 # y_offset: optional extra pixel shift (negative = up, positive = down)
+# x_offset: optional extra horizontal shift (negative = left, positive = right)
 ANIMS = [
-    ('idle',   18, 1.0,         False),  # 0-17
-    ('walk',   36, 1.0,         False),  # 18-53
-    ('jump',   20, 1.0,         False),  # 54-73
-    ('push',   24, 1.0,         False),  # 74-97
-    ('climb',  19, 1.0,         False),  # 98-116
-    ('climb2', 20, 1.0,         False),  # 117-136
-    ('paint',  25, 1.0,         False),  # 137-161
-    ('Twist',  28, TWIST_SCALE, False),  # 162-189
-    ('Side',   28, 1.0,         False),  # 190-217
-    ('Hide',   17, 1.0,         False),  # 218-234
-    ('run',    18, 1.0,         True, -3),   # 235-252  (no flip needed) — y_offset -3 = 3px up
+    ('idle',   18, 1.0,         False),            # 0-17
+    ('walk',   36, 1.0,         False),            # 18-53
+    ('jump',   20, 1.0,         False),            # 54-73
+    ('push',   24, 1.0,         False),            # 74-97
+    ('climb',  19, 1.0,         False),            # 98-116
+    ('climb2', 20, 1.0,         False),            # 117-136
+    ('paint',  25, 1.0,         False),            # 137-161
+    ('Twist',  28, TWIST_SCALE, False, 1, 15),      # 162-189 — 1px down, 15px right
+    ('Side',   28, 1.0,         False),            # 190-217
+    ('Hide',   17, 1.0,         False),            # 218-234
+    ('run',    18, 1.0,         True, -3),         # 235-252 — y_offset -3 = 3px up
 ]
 
 # Reference: walk frame content height for scaling content-fit anims
@@ -57,12 +58,13 @@ def get_alpha_bbox(img):
     return alpha.getbbox()
 
 
-def fit_frame(src, tw, th, extra_scale=1.0):
+def fit_frame(src, tw, th, extra_scale=1.0, x_offset=0, y_offset=0):
     """
     Fit 1080x1080 source into 96x144 frame:
     - Scale to height (144px for 1080)
     - Center horizontally to 96px
     - Bottom-aligned + global Y offset
+    - Optional x_offset/y_offset shifts
     """
     sw, sh = src.size
     base_scale = th / sh
@@ -73,13 +75,13 @@ def fit_frame(src, tw, th, extra_scale=1.0):
     resized = src.resize((new_w, new_h), Image.LANCZOS)
 
     canvas = Image.new('RGBA', (tw, th), (0, 0, 0, 0))
-    paste_x = (tw - new_w) // 2
-    paste_y = th - new_h + GLOBAL_Y_OFFSET
+    paste_x = (tw - new_w) // 2 + x_offset
+    paste_y = th - new_h + GLOBAL_Y_OFFSET + y_offset
     canvas.paste(resized, (paste_x, paste_y), resized)
     return canvas
 
 
-def fit_frame_content(src, tw, th, ref_frames, y_offset=0):
+def fit_frame_content(src, tw, th, ref_frames, y_offset=0, x_offset=0):
     """
     Content-aware fit for frames where character is NOT bottom-aligned.
     Uses the tallest frame in the batch as reference to keep all frames
@@ -141,7 +143,7 @@ def fit_frame_content(src, tw, th, ref_frames, y_offset=0):
     paste_y = target_feet_y - avg_feet_scaled + y_offset
 
     # Center horizontally using source frame center (not per-frame content center)
-    paste_x = (tw - new_w) // 2
+    paste_x = (tw - new_w) // 2 + x_offset
 
     canvas.paste(resized, (paste_x, paste_y), resized)
     return canvas
@@ -199,15 +201,16 @@ all_frames = []
 for anim_entry in ANIMS:
     anim_name, count, extra_scale, content_fit = anim_entry[:4]
     y_offset = anim_entry[4] if len(anim_entry) > 4 else 0
-    print(f"Loading {anim_name}: {count} frames (y_offset={y_offset})...")
+    x_offset = anim_entry[5] if len(anim_entry) > 5 else 0
+    print(f"Loading {anim_name}: {count} frames (y_offset={y_offset}, x_offset={x_offset})...")
     frames = load_frames(anim_name, count)
     if content_fit:
         precompute_content_batch_scale(frames, FRAME_W, FRAME_H, walk_ref)
     for f in frames:
         if content_fit:
-            fitted = fit_frame_content(f, FRAME_W, FRAME_H, walk_ref, y_offset=y_offset)
+            fitted = fit_frame_content(f, FRAME_W, FRAME_H, walk_ref, y_offset=y_offset, x_offset=x_offset)
         else:
-            fitted = fit_frame(f, FRAME_W, FRAME_H, extra_scale=extra_scale)
+            fitted = fit_frame(f, FRAME_W, FRAME_H, extra_scale=extra_scale, x_offset=x_offset, y_offset=y_offset)
         all_frames.append(fitted)
     if content_fit:
         # Clean up batch state for next content-fit anim

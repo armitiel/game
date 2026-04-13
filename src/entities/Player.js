@@ -64,6 +64,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._slideStartVx = 0;     // initial velocity when slide starts
     this._slideTime = 0;        // elapsed slide time (ms)
     this._slideDuration = 350;  // total slide duration (ms)
+    this._midAirUpBuffer = 0;   // frames remaining for buffered UP press in mid-air
     this._runStarting = false;  // true during runstart burst anim
     this._runStartDir = 0;      // direction of runstart burst
     this._runStartTime = 0;     // elapsed time in runstart burst (ms)
@@ -211,10 +212,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   playClimb2Anim(platformTopY) {
     if (this.isClimbing2) return;
     this.isClimbing2 = true;
-    // Snap hands (top of content) to platform edge/corner
+    // Grab position: hands (top of content) at platform edge
     // Content top at Y=35 in frame, frame center at 72 → offset = 72-35 = 37
     const handsOffset = 37;
-    this._climb2StartY = platformTopY + handsOffset;  // hands grab platform edge
+    const grabY = platformTopY + handsOffset;
+    // Use current Y if already at or below grab point (natural fall),
+    // only snap UP if somehow above (shouldn't happen with new trigger logic)
+    this._climb2StartY = Math.max(this.y, grabY);
     this.y = this._climb2StartY;
     // End position: body bottom 2px above platform — gravity settles it down
     this._climb2EndY = platformTopY - PLAYER.BODY_OFFSET_Y - PLAYER.BODY_H + PLAYER.FRAME_H / 2 - 2;
@@ -372,9 +376,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.fallVelocity = Math.max(this.fallVelocity, this.body.velocity.y);
       // Track how long we've been falling
       this._fallDuration = (this._fallDuration || 0) + dt;
-      // Play whee only on long falls (>800ms, fast velocity) — not on normal jumps
-      if (this._fallDuration > 800 && this.body.velocity.y > 350 && !this._wheePlaying) {
-        this._wheePlaying = this.scene.sound.add('sfx_whee', { volume: 0.3 });
+      // Play whee on significant falls — fast velocity and enough time airborne
+      if (this._fallDuration > 400 && this.body.velocity.y > 250 && !this._wheePlaying) {
+        this._wheePlaying = this.scene.sound.add('sfx_whee', { volume: 0.4 });
         this._wheePlaying.play();
       }
     } else {
@@ -383,18 +387,19 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
     this.wasInAir = !onGround && !this.isClimbing;
 
-    // === Climb2: ledge grab — head hits side of platform during a JUMP ===
-    // _hasJumped is set when the player presses jump, cleared on landing.
-    // This means climb2 activates during the FULL arc of a jump (including
-    // the descending part), but does NOT activate when the player walks off
-    // a platform edge and falls without jumping.
-    if (this._hasJumped && !onGround && !this.isClimbing && !this.isPushingTrash && !this.isClimbing2 && this.ladderCooldown <= 0 && (this._climb2Cooldown || 0) <= 0) {
+    // === Climb2: ledge grab — head hits side of platform ===
+    // ONLY activates when player is DESCENDING (velocity.y > 0).
+    // This lets the player jump UP past the ledge first, reach the peak,
+    // and only grab on the way back down. No grab during ascent!
+    const isDescending = !onGround && this.body && this.body.velocity.y > 50;
+    const canGrabLedge = isDescending && !this.isClimbing && !this.isPushingTrash && !this.isClimbing2 && this.ladderCooldown <= 0 && (this._climb2Cooldown || 0) <= 0;
+    if (canGrabLedge) {
       const playerHeadY = this.body.y;                   // top of player body
       const playerLeft = this.body.x;
       const playerRight = this.body.x + this.body.width;
       const platforms = this.scene.platforms ? this.scene.platforms.getChildren() : [];
       const grabRange = 15;   // how close to platform edge horizontally
-      const headRange = 25;   // vertical tolerance — head near platform top
+      const grabDepthBelow = 30; // how far below platTop head can be to still grab
 
       for (const plat of platforms) {
         const platTop = plat.body.y;
@@ -402,9 +407,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         const platLeft = plat.body.x;
         const platRight = plat.body.x + plat.body.width;
 
-        // Head must be near platform top (between platTop-headRange and platTop+headRange)
-        const headDist = Math.abs(playerHeadY - platTop);
-        if (headDist > headRange) continue;
+        // Head must be AT or BELOW platform top — never grab from above!
+        // This ensures player physically falls to the ledge before grabbing.
+        // Allow a tiny margin above (3px) for frame-skip tolerance, but
+        // the main window is BELOW platTop.
+        const headRelative = playerHeadY - platTop; // positive = below platTop
+        if (headRelative < -3 || headRelative > grabDepthBelow) continue;
 
         // Reject if player is horizontally underneath the platform (jumping up from below)
         const playerCenterX = this.body.x + this.body.width / 2;
@@ -682,27 +690,37 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    // === Jump has HIGHEST priority — works regardless of d-pad direction ===
-    if (jump && onGround) {
-      this._ladderDownHoldFrames = 0;  // reset ladder hold counter
-      this._hasJumped = true;  // flag: player initiated a jump (for climb2 check)
+    // === Jump ===
+    // Skip jump if near ladder and walking slowly — let ladder grab handle UP instead
+    const skipJumpForLadder = this.onLadder && this.ladderCooldown <= 0 && Math.abs(this.body.velocity.x) < PLAYER.SPEED * 0.6;
+    if (jump && onGround && !skipJumpForLadder) {
+      this._ladderDownHoldFrames = 0;
+      this._hasJumped = true;
       this.setVelocityY(PLAYER.JUMP_VELOCITY);
       this.playAnim('player_jump');
       this.spawnJumpDust();
-      if (!this.onLadder) this.scene.sound.play('sfx_jump', { volume: 0.35 });
+      this.scene.sound.play('sfx_jump', { volume: 0.35 });
       this.updateHiddenIcon();
       return;
     }
 
     // === Enter ladder: UP while near ladder ===
-    // Requires slow speed or stopped — prevents accidental grabs while running past
-    // Mid-air grabs still allowed (falling onto ladder)
-    // Don't grab ladder with UP if standing on the platform at the top of the ladder
+    // Buffer mid-air UP presses for a few frames (JustDown may fire before overlap detects ladder)
+    if (!onGround && jump) this._midAirUpBuffer = 12; // buffer for 12 frames (~200ms)
+    if (this._midAirUpBuffer > 0) this._midAirUpBuffer--;
+    if (onGround) this._midAirUpBuffer = 0; // clear on landing
+
     const playerFeetAtTop = this.ladderTopY && (this.y + PLAYER.BODY_H / 2) <= this.ladderTopY + 10;
     const absVxUp = Math.abs(this.body.velocity.x);
-    const canGrabLadder = !onGround || absVxUp < PLAYER.SPEED * 0.6; // mid-air always OK, ground needs slow speed
-    if (this.onLadder && up && this.ladderCooldown <= 0 && !playerFeetAtTop && canGrabLadder) {
+    const midAirDescending = !onGround && this.body.velocity.y > 20;
+    const midAirAscending = !onGround && this.body.velocity.y <= 20;
+    const midAirGrab = midAirDescending || (midAirAscending && this._midAirUpBuffer > 0);
+    const canGrabLadder = (onGround && absVxUp < PLAYER.SPEED * 0.6) || midAirGrab;
+    // On ground: UP (held). Mid-air: buffered fresh UP press
+    const ladderInput = !onGround ? (this._midAirUpBuffer > 0) : up;
+    if (this.onLadder && ladderInput && this.ladderCooldown <= 0 && !playerFeetAtTop && canGrabLadder) {
       this._preClimbFlipX = this.flipX; // remember facing direction before climbing
+      this._midAirUpBuffer = 0; // consume buffer
       this.isClimbing = true;
       this.climbFrameIndex = 0;
       this.body.allowGravity = false;
@@ -712,6 +730,24 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.anims.stop();
       this.setFrame(PLAYER.CLIMB_FRAME_START);
       this.currentAnim = '_climb_manual';
+      // Snap to ladder center — smooth tween so it doesn't teleport
+      if (this.ladderX) {
+        const dist = Math.abs(this.x - this.ladderX);
+        if (dist > 2) {
+          if (this._snapTween) { try { this._snapTween.stop(); } catch (e) {} }
+          this._snapToLadderActive = true;
+          this._snapTween = this.scene.tweens.add({
+            targets: this,
+            x: this.ladderX,
+            duration: Math.min(180, dist * 3),
+            ease: 'Quad.easeOut',
+            onComplete: () => {
+              this._snapToLadderActive = false;
+              this._snapTween = null;
+            }
+          });
+        }
+      }
       this.updateHiddenIcon();
       return;
     }
@@ -861,15 +897,30 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       }
       // runstop anim plays, don't override
     } else if (this._runStarting) {
-      // Smooth burst curve: overshoot then ease back to run speed
+      // Smooth burst curve: walkSpeed → peak (overshoot) → runSpeed
+      // Uses smooth ease-in from walk speed, peaks mid-way, settles to run speed
       this.body.setAccelerationX(0);
       this.body.setDragX(0);
       this._runStartTime += dt;
       const t = Math.min(this._runStartTime / this._runStartDuration, 1);
-      // Bell-like curve: sin(π*t) peaks at t=0.5, then returns to 0
-      // Mix: runSpeed + overshoot * sin(π*t)  →  starts at runSpeed, peaks, returns to runSpeed
-      const overshoot = this._runStartBoostVx - PLAYER.RUN_SPEED;
-      const burstVx = (PLAYER.RUN_SPEED + overshoot * Math.sin(Math.PI * t)) * this._runStartDir;
+      // Three-point interpolation: from → peak → to
+      // t=0: fromVx (walk speed), t≈0.35: peakVx (overshoot), t=1: RUN_SPEED
+      const fromVx = this._runStartFromVx;
+      const peakVx = this._runStartBoostVx;
+      const toVx = PLAYER.RUN_SPEED;
+      // Smooth S-curve using hermite-like blend
+      // Phase 1 (0→0.4): ease-in from walk to peak
+      // Phase 2 (0.4→1): ease-out from peak to run speed
+      let burstVx;
+      if (t < 0.4) {
+        const p = t / 0.4; // 0→1 in first phase
+        const easeIn = p * p * (3 - 2 * p); // smoothstep
+        burstVx = (fromVx + (peakVx - fromVx) * easeIn) * this._runStartDir;
+      } else {
+        const p = (t - 0.4) / 0.6; // 0→1 in second phase
+        const easeOut = p * p * (3 - 2 * p); // smoothstep
+        burstVx = (peakVx + (toVx - peakVx) * easeOut) * this._runStartDir;
+      }
       this.body.setVelocityX(burstVx);
       this.setFlipX(this._runStartDir < 0);
     } else if (left) {
@@ -1059,8 +1110,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._runStarting = true;
     this._runStartDir = dir;
     this._runStartTime = 0;
-    // Peak burst speed — overshoot run speed, then ease back
-    this._runStartBoostVx = PLAYER.RUN_SPEED * 1.45;
+    // Capture current walk speed as starting point for smooth ramp
+    this._runStartFromVx = Math.abs(this.body.velocity.x) || PLAYER.SPEED;
+    // Peak burst speed — overshoot run speed, then ease back to run speed
+    this._runStartBoostVx = PLAYER.RUN_SPEED * 1.35;
+    this._runStartDuration = 350; // ms — total burst duration
     this.spawnRunDust();
     this.playAnim('player_runstart', false);
     this.once('animationcomplete-player_runstart', () => {

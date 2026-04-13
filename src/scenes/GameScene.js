@@ -64,7 +64,9 @@ export default class GameScene extends Phaser.Scene {
     this._initialScaleH = this.scale.height;
 
     // === World bounds ===
-    this.physics.world.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
+    // Extend bottom by 500px so player can fall through gaps in the floor
+    // (death detection handles respawn when player falls too far)
+    this.physics.world.setBounds(0, 0, ld.worldWidth, ld.worldHeight + 500);
 
     // === Checkpoint ===
     this.checkpointX = ld.checkpoint.x;
@@ -235,6 +237,7 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.paintCans, (player, can) => {
       can.collect(player);
       this.sound.play('sfx_pickup', { volume: 0.35 });
+      this.updateHUD();
     });
 
     // Paint spot interaction — with grace timestamp for flicker tolerance at high fps
@@ -1028,9 +1031,9 @@ export default class GameScene extends Phaser.Scene {
     this.ladderData = [];
 
     const LADDER_DISPLAY_W = 34;
-    const ZONE_WIDTH = 36;
-    const ZONE_EXTEND_TOP = 40;
-    const ZONE_EXTEND_BOTTOM = 16;
+    const ZONE_WIDTH = 56;
+    const ZONE_EXTEND_TOP = 50;
+    const ZONE_EXTEND_BOTTOM = 24;
     const ld = this.levelData;
 
     const addLadder = (x, topY, bottomY, minX, maxX, ladderDepth) => {
@@ -4154,6 +4157,17 @@ export default class GameScene extends Phaser.Scene {
   // === UPDATE ===
 
   update(time, delta) {
+    // === Fall death: player fell through a gap below the level ===
+    if (this.player.y > this.levelData.worldHeight + 100) {
+      const took = this.player.takeDamage(1);
+      if (!took) {
+        // Invincible — just respawn without damage
+        this.player.setPosition(this.checkpointX, this.checkpointY);
+        this.player.setVelocity(0, 0);
+      }
+      // If hp <= 0 the 'player-died' event handles full respawn
+    }
+
     // Tutorial transition — freeze player during camera pans
     if (this._tutTransitioning) {
       this.player.setVelocity(0, 0);
@@ -4191,6 +4205,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 1. Apply overlap results to player state
     this.player.setOnLadder(this.playerOnLadderThisFrame, this.ladderCenterX, this.ladderTopY, this.currentLadderInfo);
+    // playerOnLadderThisFrame reset moved to END of update (used by E key handler later)
     // Shadow zone: tell player whether they're in shadow (for hide mechanic availability)
     // isHidden is now managed by Player — only true when actively hiding (DOWN + stopped + in shadow)
     this.player.inShadowZone = this.playerInShadow;
@@ -4672,46 +4687,14 @@ export default class GameScene extends Phaser.Scene {
         const feetY = this.player.body.y + this.player.body.height;
         nearGrab = feetY >= this.currentLadderInfo.bottomY - 40;
       }
-      this.touch.highlightButton('grab', nearGrab && !this.player.isPushingTrash && !this.player.isPushingLadder);
-
-      // Active mode for grab button (push trash or ladder) — show "✕" exit icon
-      const grabActive = this.player.isPushingTrash || this.player.isPushingLadder;
-      if (grabActive !== this.touch._grabActive) {
-        this.touch.setActiveMode('grab', grabActive);
-      }
+      this.touch.highlightButton('grab', nearGrab);
     }
 
-    // 5. HUD (uses interactablePaintSpot, ladder info)
-    this.updateHUD();
-
-
-    // 6. Reset flags AFTER use — next frame's physics step will set them again
-    // Grace period (100ms) to prevent flickering at high frame rates.
-    // Phaser overlap callbacks can miss 1-2 frames at 114+ fps.
-    const overlapGrace = 100; // ms
-    const now = this.time.now;
-
-    // Shadow
-    if (this._shadowOverlapTs && now - this._shadowOverlapTs > overlapGrace) {
-      this.playerInShadow = false;
-    }
-
-    // Paint spot
-    if (this._paintSpotOverlapTs && now - this._paintSpotOverlapTs < overlapGrace) {
-      // Keep last paint spot alive during grace period
-      if (!this.interactablePaintSpot && this._lastPaintSpot && !this._lastPaintSpot.getData('painted')) {
-        this.interactablePaintSpot = this._lastPaintSpot;
-      }
-    } else {
-      this.interactablePaintSpot = null;
-    }
-
-    // Ladder — reset every frame (no grace period for gameplay logic;
-    // grace period only used for UI hints via _ladderOverlapTs check in updateHUD)
+    // Reset ALL per-frame overlap flags at END of update — ready for next frame's physics step
     this.playerOnLadderThisFrame = false;
-    this.currentLadderInfo = null;
-
+    this.playerInShadow = false;
     this.nearbyTrash = null;
     this.collidingTrash = null;
+    this.currentLadderInfo = null;
   }
 }

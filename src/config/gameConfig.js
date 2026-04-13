@@ -52,7 +52,7 @@ export const PLAYER = {
   BODY_OFFSET_X: 38,  // (96 - 20) / 2
   BODY_OFFSET_Y: 81,  // feet at Y=141 in 144px frame, body top at 141-60=81
   // Sprite sheet path
-  SHEET_PATH: 'assets/sprites/player_combined_sheet.png?v=243'
+  SHEET_PATH: 'assets/sprites/player_combined_sheet.png?v=250'
 };
 
 export const COP = {

@@ -7,6 +7,84 @@ export default class WinScene extends Phaser.Scene {
   }
 
   create() {
+    this.cameras.main.setBackgroundColor('#000000');
+
+    // Play win sound
+    this.sound.play('sfx_win', { volume: 0.5 });
+
+    // Play outro video first, then show win screen
+    this._playOutro();
+  }
+
+  _playOutro() {
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+
+    // Create video DOM element manually for reliable playback
+    const videoEl = document.createElement('video');
+    videoEl.src = 'assets/sprites/outro.mp4';
+    videoEl.style.position = 'absolute';
+    videoEl.style.top = '0';
+    videoEl.style.left = '0';
+    videoEl.style.width = '100%';
+    videoEl.style.height = '100%';
+    videoEl.style.objectFit = 'cover';
+    videoEl.style.zIndex = '9999';
+    videoEl.style.backgroundColor = '#000';
+    videoEl.playsInline = true;
+    videoEl.muted = false;
+    videoEl.autoplay = true;
+
+    // Add to game container
+    const container = this.game.canvas.parentElement || document.body;
+    container.appendChild(videoEl);
+
+    // Allow skipping with click/tap or SPACE
+    const skip = () => {
+      cleanup();
+      this._showWinScreen();
+    };
+
+    const onEnded = () => {
+      cleanup();
+      this._showWinScreen();
+    };
+
+    const cleanup = () => {
+      try { videoEl.pause(); } catch (e) {}
+      try { container.removeChild(videoEl); } catch (e) {}
+      try { this.input.keyboard.off('keydown-SPACE', skip); } catch (e) {}
+      try { this.input.off('pointerdown', skip); } catch (e) {}
+    };
+
+    videoEl.addEventListener('ended', onEnded, { once: true });
+    videoEl.addEventListener('error', () => {
+      // If video fails to load, skip to win screen
+      cleanup();
+      this._showWinScreen();
+    }, { once: true });
+
+    // Try to play — handle autoplay restrictions
+    const playPromise = videoEl.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch(() => {
+        // Autoplay blocked — skip to win screen
+        cleanup();
+        this._showWinScreen();
+      });
+    }
+
+    // Skip on input
+    this.input.keyboard.once('keydown-SPACE', skip);
+    this.input.once('pointerdown', skip);
+
+    // Safety timeout — if video hangs, skip after 30s
+    this.time.delayedCall(30000, () => {
+      if (videoEl.parentElement) skip();
+    });
+  }
+
+  _showWinScreen() {
     const cx = this.scale.width / 2;
     const cy = this.scale.height / 2;
     const gw = this.scale.width;
@@ -28,7 +106,7 @@ export default class WinScene extends Phaser.Scene {
       );
     }
 
-    // Win text — responsive sizes analogous to level select
+    // Win text — responsive sizes
     const titleSize = Math.min(96, gw * 0.18);
     const subSize = Math.min(28, gw * 0.06);
     const replaySize = Math.min(24, gw * 0.05);
@@ -84,7 +162,7 @@ export default class WinScene extends Phaser.Scene {
       this.scene.start('LevelSelectScene');
     });
 
-    // Rebuild on significant resize (URL bar hides, rotation, fullscreen)
+    // Rebuild on significant resize
     this._initW = this.scale.width;
     this._initH = this.scale.height;
     this._resizeHandler = (gs) => {
