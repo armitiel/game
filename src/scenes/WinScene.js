@@ -9,21 +9,8 @@ export default class WinScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#000000');
 
-    // Play win sound first, then start outro video after it finishes
-    const winSound = this.sound.add('sfx_win', { volume: 0.5 });
-    winSound.once('complete', () => {
-      this._playOutro();
-    });
-    winSound.play();
-
-    // Safety fallback — if sound fails or is very long, start outro after 5s
-    this.time.delayedCall(5000, () => {
-      if (!this._outroStarted) {
-        this._outroStarted = true;
-        winSound.stop();
-        this._playOutro();
-      }
-    });
+    // Win sound already played in GameScene — go straight to outro video
+    this._playOutro();
   }
 
   _playOutro() {

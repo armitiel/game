@@ -3411,7 +3411,19 @@ export default class GameScene extends Phaser.Scene {
     // Check win
     if (this.paintedSpots >= this.totalSpots) {
       this.time.delayedCall(1000, () => {
-        this.scene.start('WinScene');
+        // Freeze the game view and play win sound before transitioning
+        this.physics.pause();
+        const winSound = this.sound.add('sfx_win', { volume: 0.5 });
+        winSound.once('complete', () => {
+          this.scene.start('WinScene');
+        });
+        winSound.play();
+        // Safety fallback if sound fails
+        this.time.delayedCall(5000, () => {
+          if (this.scene.isActive()) {
+            this.scene.start('WinScene');
+          }
+        });
       });
     }
   }
