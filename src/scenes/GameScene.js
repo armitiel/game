@@ -3080,10 +3080,15 @@ export default class GameScene extends Phaser.Scene {
   tryPaint() {
     if (!this.interactablePaintSpot) return;
 
-    // Player must be standing on something or on a ladder to paint (not mid-air)
-    const onGround = this.player.body.blocked.down || this.player.body.touching.down;
-    const onLadder = this.player.isClimbing || this.player.onLadder;
-    if (!onGround && !onLadder) return;
+    // Player must be standing on something or actively CLIMBING a ladder to paint
+    // (not mid-air). Note: `onLadder` alone isn't enough — it stays true briefly
+    // after jumping off a ladder, which would allow starting paint mid-air.
+    // Strict ground check: blocked.down only (touching.down can flicker briefly
+    // when passing corners mid-jump), AND not in ladder-exit grace (airborne
+    // after jumping off ladder).
+    const onGround = this.player.body.blocked.down && !(this.player._ladderExitGrace > 0);
+    const activelyClimbing = this.player.isClimbing;
+    if (!onGround && !activelyClimbing) return;
 
     // Remember if player was on ladder before painting
     this._paintedFromLadder = this.player.isClimbing || this.player.onLadder;
@@ -3315,7 +3320,7 @@ export default class GameScene extends Phaser.Scene {
     const selectedColorName = this.pbn.getSelectedColorName().toLowerCase();
     if (!this.player.hasPaint(selectedColorName)) return;
 
-    const cell = this.pbn.getCellAt(handX, handY);
+    let cell = this.pbn.getCellAt(handX, handY);
     if (!cell) {
       // Arm moved outside the grid — clear preview
       if (this._armFloodLastCell !== null) {
@@ -3324,6 +3329,45 @@ export default class GameScene extends Phaser.Scene {
         this._destroyFloodPreview();
       }
       return;
+    }
+
+    // Smart snap: when the selected color is correct, aggressively snap to the
+    // NEAREST matching-color cell within a search radius — so cursor doesn't need
+    // to be exactly on target pixel.
+    const selectedCI = this.pbn.selectedColorIndex;
+    const currentRegion = this.pbn.getFloodRegion(cell.row, cell.col);
+    const currentMatches = currentRegion && currentRegion.colorIndex === selectedCI;
+
+    if (!currentMatches) {
+      const b = this.pbn.bounds;
+      const cw = this.pbn.cellW, ch = this.pbn.cellH;
+      const SEARCH_RADIUS = 2; // cells in each direction
+
+      let bestCell = null;
+      let bestDistSq = Infinity;
+
+      for (let dr = -SEARCH_RADIUS; dr <= SEARCH_RADIUS; dr++) {
+        for (let dc = -SEARCH_RADIUS; dc <= SEARCH_RADIUS; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = cell.row + dr;
+          const nc = cell.col + dc;
+          if (nr < 0 || nr >= this.pbn.rows || nc < 0 || nc >= this.pbn.cols) continue;
+          const candRegion = this.pbn.getFloodRegion(nr, nc);
+          if (!candRegion || candRegion.colorIndex !== selectedCI) continue;
+          // Distance from cursor to center of candidate cell
+          const cellCX = b.x + (nc + 0.5) * cw;
+          const cellCY = b.y + (nr + 0.5) * ch;
+          const ddx = handX - cellCX;
+          const ddy = handY - cellCY;
+          const distSq = ddx * ddx + ddy * ddy;
+          if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            bestCell = { row: nr, col: nc };
+          }
+        }
+      }
+
+      if (bestCell) cell = bestCell;
     }
 
     const cellKey = `${cell.row},${cell.col}`;
@@ -3489,9 +3533,9 @@ export default class GameScene extends Phaser.Scene {
     this.paintArm.stop();
     if (this.touch) this.touch.setPaintMode(false);
 
-    // Restore mural counter text
+    // Restore mural counter text — use CURRENT paintedSpots count, not stale saved value
     if (this._savedMuralCountText != null && this.hudCountText) {
-      this.hudCountText.setText(this._savedMuralCountText);
+      this.hudCountText.setText(`${this.paintedSpots}/${this.totalSpots}`);
       this._savedMuralCountText = null;
     }
     if (this.colorSelectorElements) {
@@ -4291,9 +4335,13 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // 2. Check paint input (SPACE or touch ACT)
-    // Allowed when: on solid ground OR on ladder (not mid-air)
-    const onSolidGround = this.player.body.blocked.down;
-    const onLadder = this.player.isClimbing || this.player.onLadder;
+    // Allowed when: on solid ground OR actively climbing ladder (not mid-air).
+    // Strictly require blocked.down (not touching.down which can flicker briefly
+    // when brushing corners mid-jump) AND that we're not in ladder-exit grace
+    // period (which means the player just jumped off a ladder and is airborne).
+    const strictGround = this.player.body.blocked.down && !this._ladderExitGrace_paintBlock;
+    const onSolidGround = this.player.body.blocked.down && !(this.player._ladderExitGrace > 0);
+    const onLadder = this.player.isClimbing; // only when actively climbing, not just overlapping
     const canPaint = (onSolidGround || onLadder);
 
     // On ladder: ALWAYS check distance to paint spots (physics overlap may not reach)

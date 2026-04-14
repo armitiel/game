@@ -511,6 +511,24 @@ export default class BootScene extends Phaser.Scene {
       repeat: -1
     });
 
+    // --- WALKSTOP: brake/skid between direction changes while walking
+    {
+      const stopFrames = [];
+      // Use last 4 walk frames as the brake
+      const skidStart = W + WN - 4;
+      for (let i = skidStart; i < W + WN; i++) {
+        stopFrames.push({ key: 'player_sheet', frame: i });
+      }
+      // End on first idle frame for smooth blend into idle
+      stopFrames.push({ key: 'player_sheet', frame: I });
+      this.anims.create({
+        key: 'player_walkstop',
+        frames: stopFrames,
+        frameRate: 18, // slower than walk for a brief brake feel
+        repeat: 0
+      });
+    }
+
     // --- RUNSTART: burst from walk into run (first few run frames, played once fast)
     {
       const startCount = Math.min(5, RN_COUNT);

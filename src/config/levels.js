@@ -106,6 +106,14 @@ export const LEVEL_1 = {
     { x: 270, y: H - 180, w: 160, h: 150 },
   ],
   paintCans: [
+    { x: 213, y: H - 62, color: 'black' },
+    { x: 552, y: H - 62, color: 'yellow' },
+    { x: 640, y: H - 62, color: 'green' },
+    { x: 953, y: H - 62, color: 'blue' },
+    { x: 1180, y: H - 80, color: 'yellow' },
+    { x: 75, y: H - 260, color: 'black' },
+    { x: 967, y: H - 310, color: 'red' },
+    { x: 860, y: H - 310, color: 'red' },
   ],
   paintSpots: [
     { x: 350, y: H - 107, w: 140, h: 120, paintingKey: 'painting_flower' },

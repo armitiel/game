@@ -65,6 +65,14 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._slideTime = 0;        // elapsed slide time (ms)
     this._slideDuration = 350;  // total slide duration (ms)
     this._midAirUpBuffer = 0;   // frames remaining for buffered UP press in mid-air
+    this._upWasPressed = false; // previous frame UP state (for rising-edge detection)
+    // Walk-stop state — mirrors run-stop but for walking (short brake anim)
+    this._walkStopping = false;
+    this._walkStopDir = 0;
+    this._walkStopNextDir = 0;
+    this._walkSlideStartVx = 0;
+    this._walkSlideTime = 0;
+    this._walkSlideDuration = 180; // shorter than run slide
     this._runStarting = false;  // true during runstart burst anim
     this._runStartDir = 0;      // direction of runstart burst
     this._runStartTime = 0;     // elapsed time in runstart burst (ms)
@@ -706,7 +714,12 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // === Enter ladder: UP while near ladder ===
     // Buffer mid-air UP presses for a few frames (JustDown may fire before overlap detects ladder)
-    if (!onGround && jump) this._midAirUpBuffer = 12; // buffer for 12 frames (~200ms)
+    // Rising-edge detection on UP — works for keyboard arrow, joystick UP, and JUMP button mid-air
+    const upJustPressed = up && !this._upWasPressed;
+    this._upWasPressed = up;
+    if (!onGround && (jump || upJustPressed)) this._midAirUpBuffer = 12; // buffer for 12 frames (~200ms)
+    // While mid-air and UP held, keep buffer alive so player can hold UP into ladder zone
+    if (!onGround && up) this._midAirUpBuffer = Math.max(this._midAirUpBuffer, 4);
     if (this._midAirUpBuffer > 0) this._midAirUpBuffer--;
     if (onGround) this._midAirUpBuffer = 0; // clear on landing
 
@@ -808,6 +821,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // Snapshot running state BEFORE any resets
     const wasRunning = this.isRunning;
 
+    // Walk-stop speed threshold: only trigger brake if actually had walking momentum
+    const WALK_STOP_MIN_VX = 60;
+    const walkHadMomentum = this._walkDir !== 0 && Math.abs(this.body.velocity.x) > WALK_STOP_MIN_VX;
+
     // During runstop — let anim play, queue new direction
     if (this._runStopping) {
       this.isRunning = false;
@@ -821,6 +838,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         // Pressing opposite/new direction — queue for after runstop
         this._runStopNextDir = moveDir;
       }
+    } else if (this._walkStopping) {
+      // During walkstop — let anim play, queue new direction
+      if (moveDir !== 0 && moveDir === this._walkStopDir) {
+        // Pressing same direction as brake — cancel and resume walk
+        this._walkStopping = false;
+        this._walkDir = moveDir;
+        this._walkStartTime = now;
+      } else if (moveDir !== 0) {
+        // Pressing opposite/new direction — queue for after walkstop
+        this._walkStopNextDir = moveDir;
+      }
     } else if (moveDir !== 0 && moveDir === this._walkDir && !this.isPushingTrash) {
       // Same direction still held — check if we should transition to run
       if (!this.isRunning && !this._runStarting && onGround && (now - this._walkStartTime) >= (PLAYER.RUN_DELAY || 500)) {
@@ -833,6 +861,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       if (wasRunning && onGround) {
         this._startRunStop();
         this._runStopNextDir = moveDir; // queue new direction for after runstop
+      } else if (walkHadMomentum && onGround && this._walkDir !== 0 && moveDir !== this._walkDir) {
+        this._startWalkStop();
+        this._walkStopNextDir = moveDir; // queue new direction for after walkstop
       } else {
         this._walkDir = moveDir;
         this._walkStartTime = now;
@@ -844,7 +875,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this._runStarting = false;
       if (wasRunning && onGround) {
         this._startRunStop();
-      } else if (!this._runStopping) {
+      } else if (walkHadMomentum && onGround) {
+        this._startWalkStop();
+      } else if (!this._runStopping && !this._walkStopping) {
         this._walkDir = 0;
         this._walkStartTime = 0;
         this._runBlend = 0;
@@ -856,6 +889,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this._runBlend = 0;
       this._runStopping = false;
       this._runStarting = false;
+      this._walkStopping = false;
       this._walkDir = 0;
       this._walkStartTime = 0;
     }
@@ -865,6 +899,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this._runBlend = 0;
       this._runStopping = false;
       this._runStarting = false;
+      this._walkStopping = false;
     }
 
     // Smooth run blend (ramp up over ~0.3s, ramp down over ~0.15s)
@@ -896,32 +931,47 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.setVelocityX(0);
       }
       // runstop anim plays, don't override
+    } else if (this._walkStopping) {
+      // Walk brake: shorter, gentler deceleration
+      this.body.setAccelerationX(0);
+      this.body.setDragX(0);
+      this._walkSlideTime += dt;
+      const t = Math.min(this._walkSlideTime / this._walkSlideDuration, 1);
+      const ease = 1 - t * t;
+      const slideVx = this._walkSlideStartVx * ease * this._walkStopDir;
+      this.body.setVelocityX(slideVx);
+      if (t >= 1) {
+        this.setVelocityX(0);
+      }
+      // walkstop anim plays, don't override
     } else if (this._runStarting) {
-      // Smooth burst curve: walkSpeed → peak (overshoot) → runSpeed
-      // Uses smooth ease-in from walk speed, peaks mid-way, settles to run speed
+      // Velocity-based smoothing: approach RUN_SPEED using the player's CURRENT
+      // velocity each frame. Exponential ease (1 - e^(-dt/tau)) — the closer
+      // we get to target, the slower we approach. No fixed time curve = no
+      // visible "transition point", just a natural pickup of speed.
       this.body.setAccelerationX(0);
       this.body.setDragX(0);
       this._runStartTime += dt;
-      const t = Math.min(this._runStartTime / this._runStartDuration, 1);
-      // Three-point interpolation: from → peak → to
-      // t=0: fromVx (walk speed), t≈0.35: peakVx (overshoot), t=1: RUN_SPEED
-      const fromVx = this._runStartFromVx;
-      const peakVx = this._runStartBoostVx;
-      const toVx = PLAYER.RUN_SPEED;
-      // Smooth S-curve using hermite-like blend
-      // Phase 1 (0→0.4): ease-in from walk to peak
-      // Phase 2 (0.4→1): ease-out from peak to run speed
-      let burstVx;
-      if (t < 0.4) {
-        const p = t / 0.4; // 0→1 in first phase
-        const easeIn = p * p * (3 - 2 * p); // smoothstep
-        burstVx = (fromVx + (peakVx - fromVx) * easeIn) * this._runStartDir;
-      } else {
-        const p = (t - 0.4) / 0.6; // 0→1 in second phase
-        const easeOut = p * p * (3 - 2 * p); // smoothstep
-        burstVx = (peakVx + (toVx - peakVx) * easeOut) * this._runStartDir;
+      const dir = this._runStartDir;
+      const currentVxSigned = this.body.velocity.x * dir; // positive = forward
+      const targetVx = PLAYER.RUN_SPEED;
+      // tau: higher = gentler. ~420ms feels soft without being sluggish.
+      const tau = 420;
+      const k = 1 - Math.exp(-dt / tau);
+      const newVxSigned = currentVxSigned + (targetVx - currentVxSigned) * k;
+      this.body.setVelocityX(newVxSigned * dir);
+
+      // Motion-blur afterimages: emit ghost sprites through the burst to cover
+      // the walk→run frame transition with a soft speed trail.
+      this._motionBlurAccum = (this._motionBlurAccum || 0) + dt;
+      // Emit every ~45ms — dense enough to overlap, sparse enough to stay cheap
+      while (this._motionBlurAccum >= 45) {
+        this._motionBlurAccum -= 45;
+        // Alpha proportional to how much faster than walk we already are
+        const progress = Math.min(1, Math.max(0, (Math.abs(this.body.velocity.x) - PLAYER.SPEED) / (PLAYER.RUN_SPEED - PLAYER.SPEED)));
+        const a = 0.55 * (1 - progress * 0.5); // starts strong, eases out as we settle
+        this.spawnMotionBlur(a, 180);
       }
-      this.body.setVelocityX(burstVx);
       this.setFlipX(this._runStartDir < 0);
     } else if (left) {
       this.body.setAccelerationX(-accel);
@@ -1076,6 +1126,39 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  /**
+   * Spawn a motion-blur afterimage — a ghost copy of the current sprite
+   * that fades out quickly behind the player. Called repeatedly during
+   * the walk→run transition to cover the frame jump with a speed blur.
+   */
+  spawnMotionBlur(alpha = 0.45, duration = 180, tintBlend = 0xccddff) {
+    if (!this.scene || !this.texture) return;
+    const ghost = this.scene.add.sprite(this.x, this.y, this.texture.key, this.frame.name);
+    ghost.setOrigin(this.originX, this.originY);
+    ghost.setScale(this.scaleX, this.scaleY);
+    ghost.setFlipX(this.flipX);
+    ghost.setAlpha(alpha);
+    ghost.setDepth(this.depth - 1);
+    ghost.setTint(tintBlend);
+    // Optional subtle horizontal stretch to suggest motion
+    const dir = this.flipX ? -1 : 1;
+    ghost.scaleX *= 1.0;
+
+    // UI camera must ignore the ghost — it's a world-layer effect, not HUD
+    if (this.scene.uiCam) {
+      try { this.scene.uiCam.ignore(ghost); } catch (e) {}
+    }
+
+    this.scene.tweens.add({
+      targets: ghost,
+      alpha: 0,
+      x: ghost.x - dir * 14,
+      duration,
+      ease: 'Quad.easeOut',
+      onComplete: () => ghost.destroy()
+    });
+  }
+
   spawnRunDust() {
     const feetY = this.body.y + this.body.height;
     const dir = this.flipX ? 1 : -1; // dust kicks behind the runner
@@ -1112,9 +1195,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._runStartTime = 0;
     // Capture current walk speed as starting point for smooth ramp
     this._runStartFromVx = Math.abs(this.body.velocity.x) || PLAYER.SPEED;
-    // Peak burst speed — overshoot run speed, then ease back to run speed
-    this._runStartBoostVx = PLAYER.RUN_SPEED * 1.35;
-    this._runStartDuration = 350; // ms — total burst duration
+    // No overshoot — just smoothly ramp walk → run speed on ease-in
+    this._runStartBoostVx = PLAYER.RUN_SPEED;
+    this._runStartDuration = 550; // ms — longer, gentler burst
+    this._motionBlurAccum = 0;
+    this.spawnMotionBlur(0.55, 200); // initial ghost at transition moment
     this.spawnRunDust();
     this.playAnim('player_runstart', false);
     this.once('animationcomplete-player_runstart', () => {
@@ -1147,6 +1232,32 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
           this._walkDir = this._runStopNextDir;
           this._walkStartTime = this.scene.time.now;
           this._runStopNextDir = 0;
+        } else {
+          this.playAnim('player_idle');
+        }
+      }
+    });
+  }
+
+  _startWalkStop() {
+    this._walkStopping = true;
+    this._walkStopDir = this._walkDir;
+    this._walkStopNextDir = 0;
+    this._runBlend = 0;
+    this._walkDir = 0;
+    this._walkStartTime = 0;
+    this._walkSlideStartVx = Math.abs(this.body.velocity.x);
+    this._walkSlideTime = 0;
+    this._walkSlideDuration = 180; // ms — brief brake
+    this.playAnim('player_walkstop', false);
+    this.once('animationcomplete-player_walkstop', () => {
+      if (this._walkStopping) {
+        this._walkStopping = false;
+        this.setVelocityX(0);
+        if (this._walkStopNextDir !== 0) {
+          this._walkDir = this._walkStopNextDir;
+          this._walkStartTime = this.scene.time.now;
+          this._walkStopNextDir = 0;
         } else {
           this.playAnim('player_idle');
         }
@@ -1621,15 +1732,34 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // Lock period — prevent accidental exit right after entering (especially on mobile joystick)
     if (this._hideLockedUntil && this.scene.time.now < this._hideLockedUntil) {
+      // During lock, also reset edge-detection flags so initial joystick position is ignored
+      this._hideLeftWas = left;
+      this._hideRightWas = right;
       return;
     }
 
-    // Exit hiding if: any movement key (left/right), jump, or player leaves shadow zone
-    if (left || right || jump || !this.inShadowZone) {
+    // Rising-edge detection on left/right — only exit when direction is FRESHLY pressed
+    // (prevents accidental exit from joystick drift when player just holds DOWN to hide)
+    const leftJust = left && !this._hideLeftWas;
+    const rightJust = right && !this._hideRightWas;
+    this._hideLeftWas = left;
+    this._hideRightWas = right;
+
+    // Shadow-zone loss requires multiple frames of "out" to exit (debounce flicker)
+    if (!this.inShadowZone) {
+      this._hideOutOfShadowFrames = (this._hideOutOfShadowFrames || 0) + 1;
+    } else {
+      this._hideOutOfShadowFrames = 0;
+    }
+    const trulyOutOfShadow = this._hideOutOfShadowFrames > 8; // ~130ms grace
+
+    // Exit hiding if: freshly pressed left/right, jump, or genuinely left shadow zone
+    if (leftJust || rightJust || jump || trulyOutOfShadow) {
       // Determine exit direction for flip
       let exitDir = 0; // 0 = neutral, -1 = left, 1 = right
-      if (left) exitDir = -1;
-      else if (right) exitDir = 1;
+      if (leftJust) exitDir = -1;
+      else if (rightJust) exitDir = 1;
+      this._hideOutOfShadowFrames = 0;
       this.stopHiding(exitDir);
       return;
     }

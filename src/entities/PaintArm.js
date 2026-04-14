@@ -16,8 +16,8 @@ const HAND_DISPLAY_W = 18;       // display width of hand
 const HAND_DISPLAY_H = 18;       // display height of hand
 const HAND_SPEED = 200;          // pixels per second hand moves (keyboard)
 const HAND_SPEED_TOUCH = 150;    // mobile touch joystick max speed (scaled by joystick intensity)
-const ROPE_STIFFNESS = 0.7;     // high = stiff, nearly straight
-const GRAVITY_SAG = 1.5;        // minimal curve even at full extension
+const ROPE_STIFFNESS = 0.92;    // high = stiff, nearly straight
+const GRAVITY_SAG = 1.0;        // natural arm droop
 const MAX_ARM_LENGTH = 90;      // max distance from shoulder to hand in pixels
 const MAX_ARM_LEFT = 70;        // max pixels hand can reach past shoulder to the left (behind body)
 const MIN_SAG_DIST = 15;        // below this distance, sag is reduced to zero
@@ -227,39 +227,33 @@ export default class PaintArm {
     this.points[last].x = hx;
     this.points[last].y = hy;
 
-    // Sag scales with arm extension — close to body = no sag
+    // Place intermediate points along a quadratic bezier (shoulder → control → hand)
+    // with a gentle natural droop — always smooth, no simulation artifacts
     const finalDx = hx - sx;
     const finalDy = hy - sy;
     const finalDist = Math.sqrt(finalDx * finalDx + finalDy * finalDy);
     const sagScale = Math.max(0, (finalDist - MIN_SAG_DIST) / (MAX_ARM_LENGTH - MIN_SAG_DIST));
-    const effectiveSag = GRAVITY_SAG * sagScale;
+    const sag = GRAVITY_SAG * sagScale * finalDist * 0.3;
 
-    // Simulate rope with gravity sag: intermediate points move toward midpoint
-    // of neighbours, plus a downward gravity bias that peaks at the middle
-    for (let iter = 0; iter < 3; iter++) {
-      for (let i = 1; i < last; i++) {
-        const prev = this.points[i - 1];
-        const next = this.points[i + 1];
-        const targetX = (prev.x + next.x) / 2;
-        const targetY = (prev.y + next.y) / 2;
+    // Control point: midpoint shifted down by sag
+    const cpx = (sx + hx) / 2;
+    const cpy = (sy + hy) / 2 + sag;
 
-        // Gravity sag: parabolic — strongest at middle of chain, zero at ends
-        const t = i / last;  // 0 at shoulder, 1 at hand
-        const sagFactor = 4 * t * (1 - t); // peaks at 0.5 → value 1.0
-        const sagY = effectiveSag * sagFactor;
-
-        this.points[i].x += (targetX - this.points[i].x) * ROPE_STIFFNESS;
-        this.points[i].y += (targetY + sagY - this.points[i].y) * ROPE_STIFFNESS;
-      }
+    for (let i = 1; i < last; i++) {
+      const t = i / last;
+      const mt = 1 - t;
+      // Quadratic bezier: B(t) = (1-t)²·P0 + 2(1-t)t·CP + t²·P1
+      this.points[i].x = mt * mt * sx + 2 * mt * t * cpx + t * t * hx;
+      this.points[i].y = mt * mt * sy + 2 * mt * t * cpy + t * t * hy;
     }
 
-    // Update visuals — hand display nudged up and toward player
-    const handNudgeX = -dir * 3;  // 3px closer to body
-    const handNudgeY = -4;        // 4px up
+    // Update visuals — hand centered on active paint point
+    const handNudgeX = -dir * 2;  // slight shift, closer to cursor
+    const handNudgeY = -5;        // slightly above cursor
     this.hand.setPosition(hx + handNudgeX, hy + handNudgeY);
     this.hand.setFlipX(this.flipX);
-    // Spray can follows hand, offset slightly below/behind
-    this.canSprite.setPosition(hx + handNudgeX, hy + handNudgeY + 6);
+    // Spray can follows hand, closer to hand
+    this.canSprite.setPosition(hx + handNudgeX, hy + handNudgeY + 3);
     this.canSprite.setFlipX(this.flipX);
     this.updateSegmentVisuals();
 
@@ -278,11 +272,7 @@ export default class PaintArm {
     const n = pts.length;
     if (n < 2) return;
 
-    // Nudge the hand end (last point) slightly toward the player (left in world)
-    const handNudgeX = this.flipX ? 3 : -3;
-    const lastPt = pts[n - 1];
-    const savedLastX = lastPt.x;
-    lastPt.x += handNudgeX;
+    // No endpoint nudge — bezier curve ends naturally at hand position
 
     // Draw smooth tapered arm as a filled polygon along the curve
     // Sample many points along a Catmull-Rom spline through the rope points
@@ -394,8 +384,7 @@ export default class PaintArm {
     // Layer 4: top highlight — shifted up, narrower
     drawArmLayer(0x703dcb, 0.6, 0.5, -1.2);
 
-    // Restore last point after rendering
-    lastPt.x = savedLastX;
+    // No points to restore — arm ends at natural hand position
   }
 
   /**
