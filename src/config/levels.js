@@ -16,17 +16,17 @@ export const LEVEL_TUTORIAL = {
   paintings: ['painting_heart'],
 
   platforms: [
-    { x: 445, y: TH - 80, w: 70 },
+    { x: 470, y: TH - 80, w: 70 },
     { x: 1050, y: TH - 280, w: 350 },
     { x: 1450, y: TH - 280, w: 300 },
   ],
   ground: [
     { x: 0, y: TH - 32, w: 420 },
-    { x: 540, y: TH - 32, w: 300 },
+    { x: 590, y: TH - 30, w: 300 },
     { x: 940, y: TH - 32, w: 860 },
   ],
   ladders: [
-    { x: 1000, topY: TH - 280, bottomY: TH - 32, minX: 900, maxX: 1100 },
+    { x: 1073, topY: TH - 280, bottomY: TH - 32, minX: 973, maxX: 1173 },
   ],
   shadows: [
   ],
@@ -34,9 +34,12 @@ export const LEVEL_TUTORIAL = {
     { x: 1050, y: TH - 440, w: 700, h: 408 },
   ],
   paintCans: [
+    { x: 1580, y: TH - 60, color: 'red' },
+    { x: 1090, y: TH - 310, color: 'yellow' },
+    { x: 1370, y: TH - 62, color: 'blue' },
   ],
   paintSpots: [
-    { x: 1600, y: TH - 355, w: 120, h: 120, paintingKey: 'painting_heart' },
+    { x: 1540, y: TH - 350, w: 120, h: 120, paintingKey: 'painting_heart' },
   ],
   trashCans: [
   ],
@@ -45,7 +48,7 @@ export const LEVEL_TUTORIAL = {
   lamps: [
     { x: 200, y: TH - 23, radius: 100, intensity: 0.5 },
     { x: 700, y: TH - 23, radius: 100, intensity: 0.5 },
-    { x: 1300, y: TH - 274, radius: 120, intensity: 0.6 },
+    { x: 1300, y: TH - 273, radius: 120, intensity: 0.6 },
   ],
   papers: [
     { x: 150, y: TH - 25 },
@@ -54,23 +57,23 @@ export const LEVEL_TUTORIAL = {
     { x: 350, y: TH - 25 },
   ],
   cartons: [
-    { x: 650, y: TH - 25 },
+    { x: 630, y: TH - 30 },
   ],
   foregroundWires: [
     { x1: -10, y1: TH - 520, x2: 1810, y2: TH - 550 },
   ],
   tutorialGates: [
-    { x: 400, phase: 1 },
-    { x: 900, phase: 2 },
-    { x: 1400, phase: 3 },
-    { x: 1430, phase: 4 },
+    { x: 350, phase: 1 },
+    { x: 810, phase: 2 },
+    { x: 1410, phase: 3 },
+    { x: 1440, phase: 4 },
   ],
   tutorialHints: [
-    { phase: 0, x: 200, y: TH - 100, desktop: 'Move', mobile: 'Mobile' },
-    { phase: 1, x: 470, y: TH - 140, desktop: 'Jump', mobile: 'Jump' },
-    { phase: 2, x: 980, y: TH - 120, desktop: 'tutHintLadder', mobile: 'tutHintLadderMobile' },
-    { phase: 3, x: 1250, y: TH - 340, desktop: 'tutHintCollect', mobile: 'tutHintCollect' },
-    { phase: 4, x: 1600, y: TH - 520, desktop: 'tutHintPaint', mobile: 'tutHintPaintMobile' },
+    { phase: 0, x: 200, y: TH - 100, desktop: 'Move', mobile: 'Collect' },
+    { phase: 1, x: 500, y: TH - 140, desktop: 'Jump', mobile: 'Climb Ladder' },
+    { phase: 2, x: 980, y: TH - 120, desktop: 'Climb Ladder', mobile: 'Climb Ladder' },
+    { phase: 3, x: 1250, y: TH - 340, desktop: 'Collect', mobile: 'tutHintCollect' },
+    { phase: 4, x: 1700, y: TH - 320, desktop: 'Paint', mobile: 'Paint' },
   ],
   mapWidth: TW,
   mapHeight: TH,
@@ -127,8 +130,8 @@ export const LEVEL_1 = {
   ],
   lamps: [
     { x: 521, y: H - 27, radius: 100, intensity: 0.5 },
-    { x: 980, y: H - 274, radius: 130, intensity: 0.6 },
-    { x: 1150, y: H - 25, radius: 100, intensity: 0.5 },
+    { x: 980, y: H - 275, radius: 130, intensity: 0.6 },
+    { x: 1150, y: H - 30, radius: 100, intensity: 0.5 },
   ],
   papers: [
     { x: 300, y: H - 25 },

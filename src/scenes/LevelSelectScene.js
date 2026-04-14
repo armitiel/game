@@ -12,6 +12,16 @@ export default class LevelSelectScene extends Phaser.Scene {
 
   init(data) {
     this._selectedMode = (data && data.mode) || null;
+    // Step 0 = tutorial-first hub; Step 1 = mode picker; Step 2 = level list
+    // Default is step 0 on fresh entry; `showModes: true` jumps to step 1
+    // If tutorial was completed (this session or previously), skip hub.
+    let tutDone = false;
+    try { tutDone = sessionStorage.getItem('st_tutorialDone') === '1'; } catch (e) {}
+    if (!tutDone) {
+      try { tutDone = localStorage.getItem('st_tutorialDone') === '1'; } catch (e) {}
+    }
+    this._tutorialDone = tutDone;
+    this._showModes = !!(data && data.showModes) || tutDone;
   }
 
   create() {
@@ -34,14 +44,17 @@ export default class LevelSelectScene extends Phaser.Scene {
     // Soft dark vignette for contrast
     this.add.rectangle(cx, H / 2, W, H, COLORS.bgDeep, 0.35).setDepth(DEPTH.bgFx);
 
-    if (!this._selectedMode) {
+    if (this._selectedMode) {
+      this.showLevelCards(W, H, this._selectedMode);
+    } else if (this._showModes) {
       this.showModeSelect(W, H);
     } else {
-      this.showLevelCards(W, H, this._selectedMode);
+      this.showTutorialHub(W, H);
     }
 
     this.input.keyboard.on('keydown-ESC', () => {
-      if (this._selectedMode) this.scene.restart({ mode: null });
+      if (this._selectedMode) this.scene.restart({ mode: null, showModes: true });
+      else if (this._showModes && !this._tutorialDone) this.scene.restart({ mode: null, showModes: false });
       else this.scene.start('MenuScene');
     });
 
@@ -49,7 +62,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     this._resizeHandler = (gs) => {
       if (!this.sys || !this.sys.isActive()) return;
       if (Math.abs(gs.width - this._initW) > 2 || Math.abs(gs.height - this._initH) > 2) {
-        this.scene.restart({ mode: this._selectedMode });
+        this.scene.restart({ mode: this._selectedMode, showModes: this._showModes });
       }
     };
     this.scale.on('resize', this._resizeHandler);
@@ -63,6 +76,180 @@ export default class LevelSelectScene extends Phaser.Scene {
     if (modeKey === 'puzzle') return PUZZLE_LEVELS;
     if (modeKey === 'tower') return TOWER_LEVELS;
     return LEVELS.filter(l => (l.mode || 'stealth') === modeKey);
+  }
+
+  // === TUTORIAL HUB (first screen) ===
+  //
+  // UI-design rationale:
+  // New players land here first. A single large TUTORIAL card dominates the
+  // screen (hero element). Below it sits a secondary action — a pill button
+  // that continues to the mode picker. This hierarchy uses scale + isolation
+  // to communicate "start here" without hiding the advanced modes.
+  // Keyboard: SPACE/ENTER → tutorial, M → modes. ESC → main menu.
+  showTutorialHub(W, H) {
+    const cx = W / 2;
+    const isPortrait = H > W;
+
+    const titleY = Math.max(60, H * 0.085);
+    const titleSize = Math.min(60, W * 0.07);
+    this.add.text(cx, titleY, t('chooseMode'), {
+      fontFamily: FONTS.display,
+      fontSize: `${titleSize}px`,
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: hex(COLORS.borderDeep),
+      strokeThickness: 7,
+      shadow: { offsetX: 3, offsetY: 4, color: '#000000', blur: 12, fill: true, stroke: true },
+    }).setOrigin(0.5).setDepth(DEPTH.content)
+      .setTint(0xffffff, 0xffffff, COLORS.accent, COLORS.accent);
+
+    const tutIdx = LEVELS.indexOf(LEVEL_TUTORIAL);
+    const tutorialMode = {
+      key: 'tutorial',
+      name: t('tutorialName') || 'TUTORIAL',
+      desc: t('tutorialDesc') || '',
+      icon: 'icon_tutorial',
+      ...MODE_COLORS.tutorial,
+      levels: [LEVEL_TUTORIAL],
+    };
+
+    // Hero card: large, centered, with gentle pulsing glow to invite interaction.
+    const heroW = Math.min(isPortrait ? W * 0.86 : 460, 520);
+    const heroH = Math.min(isPortrait ? H * 0.48 : 340, 380);
+    const heroY = titleY + 60 + heroH / 2;
+    this._buildTutorialHeroCard(cx, heroY, heroW, heroH, tutorialMode, tutIdx);
+
+    // Secondary action: "Choose a mode" pill button — smaller, below hero.
+    const pillY = Math.min(H - 90, heroY + heroH / 2 + 70);
+    const modesBtn = UIPill.create(this, {
+      x: cx, y: pillY,
+      label: t('playModes') || 'CHOOSE A MODE',
+      labelSize: 22,
+      fill: COLORS.pillDark,
+      textColor: '#ffffff',
+      stroke: COLORS.border,
+      borderWidth: 4,
+      height: 54,
+      paddingX: 28,
+    });
+    modesBtn.setDepth(DEPTH.content);
+
+    const modesHit = this.add.rectangle(cx, pillY, modesBtn._w + 30, modesBtn._h + 20, 0x000000, 0)
+      .setDepth(DEPTH.content + 1);
+    this.time.delayedCall(300, () => {
+      if (modesHit && modesHit.scene) modesHit.setInteractive({ useHandCursor: true });
+    });
+    let _mPressed = false;
+    modesHit.on('pointerover', () => this.tweens.add({ targets: modesBtn, scale: 1.05, duration: 120 }));
+    modesHit.on('pointerout', () => { _mPressed = false; this.tweens.add({ targets: modesBtn, scale: 1, duration: 120 }); });
+    modesHit.on('pointerdown', () => { _mPressed = true; this.tweens.add({ targets: modesBtn, scale: 0.95, duration: 80 }); });
+    modesHit.on('pointerupoutside', () => { _mPressed = false; this.tweens.add({ targets: modesBtn, scale: 1, duration: 80 }); });
+    modesHit.on('pointerup', () => {
+      if (!_mPressed) return;
+      this.scene.restart({ mode: null, showModes: true });
+    });
+
+    // Tiny caption under the pill for affordance
+    this.add.text(cx, pillY + 42, t('playModesHint') || '', {
+      fontFamily: FONTS.body,
+      fontSize: '14px',
+      color: '#bbccdd',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(DEPTH.content).setAlpha(0.8);
+
+    // Keyboard shortcuts
+    this.input.keyboard.on('keydown-SPACE', () => this.scene.start('IntroScene', { levelIndex: tutIdx }));
+    this.input.keyboard.on('keydown-ENTER', () => this.scene.start('IntroScene', { levelIndex: tutIdx }));
+    this.input.keyboard.on('keydown-T', () => this.scene.start('IntroScene', { levelIndex: tutIdx }));
+    this.input.keyboard.on('keydown-M', () => this.scene.restart({ mode: null, showModes: true }));
+  }
+
+  _buildTutorialHeroCard(x, y, w, h, m, tutIdx) {
+    const panel = UIPanel.create(this, {
+      x: 0, y: 0, width: w, height: h,
+      tint: m.tint,
+    });
+
+    // Large icon, centered-top
+    const iconSize = Math.min(h * 0.48, w * 0.45);
+    if (this.textures.exists(m.icon)) {
+      const icon = this.add.image(0, -h * 0.16, m.icon).setDisplaySize(iconSize, iconSize);
+      panel.add(icon);
+    }
+
+    // Title pill
+    const titlePillW = Math.min(w * 0.7, 280);
+    const titlePill = UIPanel.create(this, {
+      x: 0, y: h * 0.14,
+      width: titlePillW, height: SIZES.pillH + 6,
+      slicePrefix: 'label',
+      nativeCorner: 31,
+      tint: 0xffffff,
+    });
+    panel.add(titlePill);
+
+    const titleLabel = this.add.text(0, h * 0.14, m.name, {
+      fontFamily: FONTS.display,
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: hex(COLORS.accentStroke),
+      strokeThickness: 5,
+      shadow: { offsetX: 1, offsetY: 2, color: '#000000', blur: 4, fill: true },
+    }).setOrigin(0.5);
+    panel.add(titleLabel);
+
+    // Descriptor line
+    if (m.desc) {
+      const desc = this.add.text(0, h * 0.34, m.desc, {
+        fontFamily: FONTS.body,
+        fontSize: '17px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+        align: 'center',
+        lineSpacing: 4,
+        wordWrap: { width: w - 40 },
+      }).setOrigin(0.5).setAlpha(0.95);
+      panel.add(desc);
+    }
+
+    const card = panel.bake(x, y);
+    card.setDepth(DEPTH.panel);
+    card._pressed = false;
+
+    // Gentle pulse so the user sees this is the recommended starting point
+    this.tweens.add({
+      targets: card,
+      scale: 1.03,
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    const hit = this.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(DEPTH.panel + 1);
+    this.time.delayedCall(300, () => {
+      if (hit && hit.scene) hit.setInteractive({ useHandCursor: true });
+    });
+
+    hit.on('pointerover', () => { try { this.tweens.killTweensOf(card); } catch(e){} this.tweens.add({ targets: card, scale: 1.07, duration: 120 }); });
+    hit.on('pointerout',  () => {
+      card._pressed = false;
+      try { this.tweens.killTweensOf(card); } catch(e){}
+      this.tweens.add({ targets: card, scale: 1.03, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    });
+    hit.on('pointerdown', () => { card._pressed = true; this.tweens.add({ targets: card, scale: 0.96, duration: 80 }); });
+    hit.on('pointerupoutside', () => { card._pressed = false; });
+    hit.on('pointerup', () => {
+      if (!card._pressed) return;
+      card._pressed = false;
+      this.scene.start('IntroScene', { levelIndex: tutIdx });
+    });
+
+    return card;
   }
 
   // === MODE SELECT ===
@@ -121,26 +308,57 @@ export default class LevelSelectScene extends Phaser.Scene {
       this.input.keyboard.on(`keydown-${i + 1}`, () => this._selectMode(m));
     });
 
-    // Tutorial — small ghost link at the bottom
+    // Back button (top-left) — returns to tutorial hub (only if not yet completed)
+    if (!this._tutorialDone) {
+      const backPill = UIPill.create(this, {
+        x: 70, y: 60,
+        label: '< BACK',
+        labelSize: 18,
+        fill: COLORS.pillDark,
+        textColor: '#ffffff',
+        stroke: COLORS.border,
+        borderWidth: 4,
+        height: 44,
+        paddingX: 18,
+      });
+      backPill.setDepth(DEPTH.content);
+      const backHit = this.add.rectangle(70, 60, backPill._w + 20, backPill._h + 20, 0x000000, 0)
+        .setDepth(DEPTH.content + 1);
+      this.time.delayedCall(300, () => {
+        if (backHit && backHit.scene) backHit.setInteractive({ useHandCursor: true });
+      });
+      let _bPressed = false;
+      backHit.on('pointerdown', () => { _bPressed = true; this.tweens.add({ targets: backPill, scale: 0.94, duration: 80 }); });
+      backHit.on('pointerout',  () => { _bPressed = false; this.tweens.add({ targets: backPill, scale: 1, duration: 80 }); });
+      backHit.on('pointerupoutside', () => { _bPressed = false; this.tweens.add({ targets: backPill, scale: 1, duration: 80 }); });
+      backHit.on('pointerup', () => {
+        if (!_bPressed) return;
+        this.scene.restart({ mode: null, showModes: false });
+      });
+    }
+
     const tutIdx = LEVELS.indexOf(LEVEL_TUTORIAL);
     if (tutIdx >= 0) {
-      const tutY = H - 50;
-      const tutBtn = this.add.text(cx, tutY, t('tutorial'), {
-        fontFamily: FONTS.display,
-        fontSize: '24px',
-        fontStyle: 'bold',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 5,
-        shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, fill: true },
-      }).setOrigin(0.5).setDepth(DEPTH.content)
-        .setInteractive({ useHandCursor: true });
+      // Tutorial shortcut at the bottom — only show once hub is retired
+      if (this._tutorialDone) {
+        const tutY = H - 50;
+        const tutBtn = this.add.text(cx, tutY, t('tutorial'), {
+          fontFamily: FONTS.display,
+          fontSize: '22px',
+          fontStyle: 'bold',
+          color: '#aaffdd',
+          stroke: '#000000',
+          strokeThickness: 5,
+          shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, fill: true },
+        }).setOrigin(0.5).setDepth(DEPTH.content).setAlpha(0.85)
+          .setInteractive({ useHandCursor: true });
 
-      tutBtn.on('pointerover', () => this.tweens.add({ targets: tutBtn, scale: 1.08, duration: 120 }));
-      tutBtn.on('pointerout',  () => this.tweens.add({ targets: tutBtn, scale: 1, duration: 120 }));
-      tutBtn.on('pointerup',   () => this.scene.start('GameScene', { levelIndex: tutIdx }));
+        tutBtn.on('pointerover', () => this.tweens.add({ targets: tutBtn, scale: 1.08, alpha: 1, duration: 120 }));
+        tutBtn.on('pointerout',  () => this.tweens.add({ targets: tutBtn, scale: 1, alpha: 0.85, duration: 120 }));
+        tutBtn.on('pointerup',   () => this.scene.start('IntroScene', { levelIndex: tutIdx }));
+      }
 
-      this.input.keyboard.on('keydown-T', () => this.scene.start('GameScene', { levelIndex: tutIdx }));
+      this.input.keyboard.on('keydown-T', () => this.scene.start('IntroScene', { levelIndex: tutIdx }));
     }
   }
 
@@ -163,48 +381,48 @@ export default class LevelSelectScene extends Phaser.Scene {
     }
 
     const pillsX = isRow ? 0 : -w / 2 + iconSize + 32 + (w - iconSize - 50) / 2;
-    const titlePillY = isRow ? h * 0.18 : -h * 0.16;
+    const titlePillY = isRow ? h * 0.16 : -h * 0.12;
 
-    const titlePill = UIPill.create(this, {
+    const titlePillW = Math.min(w * 0.62, 180);
+    const titlePillH = SIZES.pillH;
+    const titlePill = UIPanel.create(this, {
       x: pillsX, y: titlePillY,
-      label: m.name,
-      labelSize: isRow ? 22 : 24,
-      fill: m.pillFill,
-      textColor: m.pillText,
-      textStroke: '#000000',
-      textStrokeWidth: 4,
-      stroke: COLORS.border,
-      borderWidth: 4,
-      height: SIZES.pillH,
-      paddingX: 24,
-    });
-    panel.add(titlePill);
-
-    const lvlCount = m.levels.length;
-    const countText = `${lvlCount} ${lvlCount === 1 ? 'LEVEL' : 'LEVELS'}`;
-    const countY = isRow ? h * 0.36 : h * 0.16;
-
-    const countPillW = Math.min(w * 0.62, 160);
-    const countPillH = 42;
-    const countPill = UIPanel.create(this, {
-      x: pillsX, y: countY,
-      width: countPillW, height: countPillH,
+      width: titlePillW, height: titlePillH,
       slicePrefix: 'label',
       nativeCorner: 31,
       tint: 0xffffff,
     });
-    panel.add(countPill);
+    panel.add(titlePill);
 
-    const countLabel = this.add.text(pillsX, countY, countText, {
+    const titleLabel = this.add.text(pillsX, titlePillY, m.name, {
       fontFamily: FONTS.display,
-      fontSize: '18px',
+      fontSize: `${isRow ? 22 : 24}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: hex(COLORS.accentStroke),
       strokeThickness: 4,
       shadow: { offsetX: 1, offsetY: 2, color: '#000000', blur: 4, fill: true },
     }).setOrigin(0.5);
-    panel.add(countLabel);
+    panel.add(titleLabel);
+
+    const lvlCount = m.levels.length;
+    const countText = `${lvlCount} ${lvlCount === 1 ? 'LEVEL' : 'LEVELS'}`;
+    const countY = isRow ? h * 0.30 : h * 0.20;
+
+    const countPill = UIPill.create(this, {
+      x: pillsX, y: countY,
+      label: countText,
+      labelSize: 18,
+      fill: m.pillFill,
+      textColor: m.pillText,
+      textStroke: '#000000',
+      textStrokeWidth: 4,
+      stroke: COLORS.border,
+      borderWidth: 4,
+      height: 42,
+      paddingX: 20,
+    });
+    panel.add(countPill);
 
     // Flatten to single sprite positioned at (x, y)
     const card = panel.bake(x, y);
@@ -383,5 +601,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       card._pressed = false;
       this.scene.start('IntroScene', { levelIndex: globalIdx });
     });
+
+    return card;
   }
 }

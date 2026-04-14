@@ -44,6 +44,12 @@ export const MODE_COLORS = {
     pillText: '#ff99dd',
     cssText:  '#ff88bb',
   },
+  tutorial: {
+    tint:     0x88ffcc,   // fresh mint green — friendly, welcoming
+    pillFill: 0x05332a,
+    pillText: '#7fffd4',
+    cssText:  '#aaffdd',
+  },
 };
 
 export const PAINT = {

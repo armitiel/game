@@ -1813,7 +1813,15 @@ export default class GameScene extends Phaser.Scene {
     const ld = this.levelData;
 
     // Build physical gates (thin invisible walls)
-    (ld.tutorialGates || []).forEach(g => {
+    const gates = ld.tutorialGates || [];
+    // Total collectibles = number of hint-signs that advance phases.
+    // Final phase's sign is a terminal instruction (not collected).
+    const hints = ld.tutorialHints || [];
+    const totalAdvancing = hints.filter(h => h.phase < hints.length - 1).length;
+    this._tutTotalCheckpoints = Math.max(totalAdvancing, gates.length);
+    this._tutCollectedCheckpoints = 0;
+
+    gates.forEach(g => {
       const gateWall = this.add.rectangle(g.x, 0, 8, ld.worldHeight * 2, 0xff4444, 0)
         .setOrigin(0.5, 0).setDepth(10);
       this.physics.add.existing(gateWall, true);
@@ -1822,9 +1830,15 @@ export default class GameScene extends Phaser.Scene {
       this._tutGates.push(gateWall);
     });
 
-    // Show first hint + overlay
+    // HUD progress indicator
+    this._createTutorialHUD();
+
+    // Show first hint immediately, but delay control overlay until after the
+    // controls intro popup so the player isn't hit with too much at once.
     this._showTutorialHint(0);
-    this._showTutorialOverlay(0);
+    this._showControlsIntroPopup(() => {
+      this._showTutorialOverlay(0);
+    });
 
     // Welcome flash (on UI cam — always crisp)
     this._addingHud = true;
@@ -1839,6 +1853,153 @@ export default class GameScene extends Phaser.Scene {
       targets: welcomeText, alpha: 0, y: welcomeText.y - 30,
       duration: 2500, delay: 1500, onComplete: () => welcomeText.destroy()
     });
+  }
+
+  /**
+   * Pop a collectible tutorial sign: particle burst, squash, fade; then advance phase.
+   * Called from the overlap handler attached to each hint sign in _showTutorialHint.
+   */
+  _collectTutorialSign(phase, img, arrow, haloEls) {
+    const x = img.x, y = img.y;
+
+    // Particle burst — colorful sparks radiating out
+    const colors = [0x00ff88, 0xffdd33, 0xffffff, 0x88ffcc];
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2;
+      const speed = 60 + Math.random() * 100;
+      const size = 3 + Math.random() * 5;
+      const dust = this.add.circle(
+        x + Math.cos(angle) * 6,
+        y + Math.sin(angle) * 6,
+        size,
+        Phaser.Utils.Array.GetRandom(colors),
+        0.9
+      ).setDepth(12);
+      this.tweens.add({
+        targets: dust,
+        x: dust.x + Math.cos(angle) * speed,
+        y: dust.y + Math.sin(angle) * speed - 20,
+        alpha: 0,
+        scale: 0.2,
+        duration: 450 + Math.random() * 250,
+        ease: 'Quad.easeOut',
+        onComplete: () => dust.destroy()
+      });
+    }
+
+    // Squash + shrink the sign image
+    try { this.tweens.killTweensOf(img); } catch (e) {}
+    this.tweens.add({
+      targets: img,
+      scaleX: img.scaleX * 1.3, scaleY: img.scaleY * 1.3,
+      duration: 100, ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: img,
+          scale: 0, alpha: 0,
+          duration: 200, ease: 'Back.easeIn',
+          onComplete: () => img.destroy()
+        });
+      }
+    });
+
+    // Arrow pointer fade-out
+    if (arrow && arrow.scene) {
+      try { this.tweens.killTweensOf(arrow); } catch (e) {}
+      this.tweens.add({
+        targets: arrow, alpha: 0, scale: 0,
+        duration: 250,
+        onComplete: () => arrow.destroy()
+      });
+    }
+
+    // Halo(s) expand + fade
+    (haloEls || []).forEach(h => {
+      if (!h || !h.scene) return;
+      try { this.tweens.killTweensOf(h); } catch (e) {}
+      this.tweens.add({
+        targets: h, scale: 3, alpha: 0,
+        duration: 400, ease: 'Quad.easeOut',
+        onComplete: () => h.destroy()
+      });
+    });
+
+    // Floating "+1 ✓" feedback
+    const floatText = this.add.text(x, y - 10, '✓', {
+      fontFamily: 'Bungee, monospace',
+      fontSize: '28px',
+      color: '#00ff88',
+      stroke: '#003322',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(14).setResolution(this._tutTextRes || 2);
+    this.tweens.add({
+      targets: floatText,
+      y: floatText.y - 50,
+      alpha: 0,
+      scale: 1.4,
+      duration: 800,
+      ease: 'Quad.easeOut',
+      onComplete: () => floatText.destroy()
+    });
+
+    // Sound
+    try { this.sound.play('sfx_pickup', { volume: 0.45 }); } catch (e) {}
+
+    // Bump counter + HUD
+    this._tutCollectedCheckpoints = Math.min(
+      this._tutTotalCheckpoints,
+      (this._tutCollectedCheckpoints || 0) + 1
+    );
+    this._updateTutorialHUD();
+
+    // Advance the tutorial phase (phase param = phase BEFORE collection).
+    // The next phase number is phase + 1.
+    this._advanceTutorialPhase(phase + 1);
+  }
+
+  /**
+   * Small HUD progress indicator: "TUTORIAL  X/N" with tick dots.
+   */
+  _createTutorialHUD() {
+    this._addingHud = true;
+    const gw = this.scale.width;
+    const y = 56;
+
+    const label = this.add.text(gw / 2, y, `TUTORIAL  0/${this._tutTotalCheckpoints}`, {
+      fontFamily: 'Bungee, monospace',
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: '#ffdd33',
+      stroke: '#332200',
+      strokeThickness: 4,
+      shadow: { offsetX: 1, offsetY: 2, color: '#000000', blur: 4, fill: true }
+    }).setOrigin(0.5, 0).setDepth(303).setScrollFactor(0).setResolution(2);
+
+    this._addingHud = false;
+    this.cameras.main.ignore(label);
+    this._tutHudLabel = label;
+  }
+
+  _updateTutorialHUD() {
+    if (!this._tutHudLabel || !this._tutHudLabel.scene) return;
+    const n = this._tutCollectedCheckpoints || 0;
+    const total = this._tutTotalCheckpoints || 0;
+    this._tutHudLabel.setText(`TUTORIAL  ${n}/${total}`);
+    // Flash on update
+    this.tweens.add({
+      targets: this._tutHudLabel,
+      scale: 1.25,
+      duration: 120, yoyo: true, ease: 'Quad.easeOut'
+    });
+
+    // When complete — celebratory flash
+    if (n === total && total > 0) {
+      this.time.delayedCall(400, () => {
+        if (!this._tutHudLabel || !this._tutHudLabel.scene) return;
+        this._tutHudLabel.setColor('#00ff88');
+        this._tutHudLabel.setText(`TUTORIAL  ✓ ${n}/${total}`);
+      });
+    }
   }
 
   /**
@@ -1936,6 +2097,34 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this._tutHintElements.push(img, arrow);
+
+    // Make sign a collectible (except final phase — final is completed by painting)
+    const hasNextPhase = phase < (hints.length - 1);
+    if (hasNextPhase) {
+      const zoneW = Math.max(textW + 40, 80);
+      const zoneH = textH + 160;
+      const zone = this.add.zone(hint.x, hint.y, zoneW, zoneH);
+      this.physics.add.existing(zone, true);
+      zone._collected = false;
+      const overlap = this.physics.add.overlap(this.player, zone, (_p, z) => {
+        if (z._collected) return;
+        z._collected = true;
+        try { overlap.destroy(); } catch (e) {}
+        try { z.destroy(); } catch (e) {}
+        this._collectTutorialSign(phase, img, arrow, []);
+      });
+      this._tutHintElements.push(zone);
+
+      // Subtle glow halo behind sign to hint "collect me"
+      const halo = this.add.circle(hint.x, hint.y, Math.max(textW, textH) * 0.7, 0xffdd33, 0.12)
+        .setDepth(19);
+      this.tweens.add({
+        targets: halo,
+        scaleX: 1.2, scaleY: 1.2, alpha: 0.05,
+        duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+      this._tutHintElements.push(halo);
+    }
   }
 
   /**
@@ -1962,123 +2151,131 @@ export default class GameScene extends Phaser.Scene {
     const els = [];
     this._addingHud = true;
 
-    // Semi-transparent overlay panel at bottom
-    const panelH = 80;
-    const panelY = gh - panelH;
-    const panel = this.add.rectangle(gw / 2, panelY + panelH / 2, gw, panelH, 0x000000, 0.6)
-      .setDepth(290).setScrollFactor(0);
-    els.push(panel);
+    // --- SPOTLIGHT: dim full screen, punch bright hole around the target control ---
+    // Target control positions (mirror TouchControls.js layout)
+    const joyX = 110, joyY = gh - 130;
+    const jumpX = gw - 85, jumpY = gh - 95, jumpR = 58;
+    const actX = gw - 85, actY = gh - 225, actR = 42;
+    const eX = gw - 215, eY = gh - 90, eR = 40;
 
-    // Phase-specific control graphics
+    // Decide spotlight target per phase
+    let spotX, spotY, spotR, spotColor, instructionKey, showHand = true;
+    switch (phase) {
+      case 0: spotX = joyX;  spotY = joyY;  spotR = 90;  spotColor = 0xffdd33; instructionKey = 'tutMoveJoystick'; break;
+      case 1: spotX = jumpX; spotY = jumpY; spotR = jumpR + 28; spotColor = 0x33ff88; instructionKey = 'tutJump'; break;
+      case 2: spotX = eX;    spotY = eY;    spotR = eR + 28;    spotColor = 0xffaa33; instructionKey = 'tutLadderE'; break;
+      case 3: spotX = gw / 2; spotY = gh / 2; spotR = 0; spotColor = 0xffdd33; instructionKey = 'tutCollectPaint'; showHand = false; break;
+      case 4: spotX = actX;  spotY = actY;  spotR = actR + 28;  spotColor = 0x3388ff; instructionKey = 'tutPaintACT'; break;
+    }
+
+    // Build cutout using 4 dark rectangles around the spotlight (leaves a rectangular
+    // bright window) + a soft ring to round off visually.
+    const dim = 0.72;
+    if (spotR > 0) {
+      const L = Math.max(0, spotX - spotR);
+      const R = Math.min(gw, spotX + spotR);
+      const T = Math.max(0, spotY - spotR);
+      const B = Math.min(gh, spotY + spotR);
+      const top    = this.add.rectangle(0, 0, gw, T, 0x000000, dim).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
+      const bottom = this.add.rectangle(0, B, gw, gh - B, 0x000000, dim).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
+      const left   = this.add.rectangle(0, T, L, B - T, 0x000000, dim).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
+      const right  = this.add.rectangle(R, T, gw - R, B - T, 0x000000, dim).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
+      els.push(top, bottom, left, right);
+
+      // Bright pulsing ring around the spotlight
+      const ring = this.add.circle(spotX, spotY, spotR, spotColor, 0)
+        .setStrokeStyle(4, spotColor, 0.95)
+        .setDepth(292).setScrollFactor(0);
+      this.tweens.add({
+        targets: ring, scaleX: 1.12, scaleY: 1.12, alpha: 0.4,
+        duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+      els.push(ring);
+
+      // Animated hand/finger pointer
+      if (showHand) {
+        const handX = spotX + spotR + 30;
+        const handY = spotY + 6;
+        const hand = this.add.text(handX, handY, '👆', {
+          fontSize: '36px'
+        }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
+        this.tweens.add({
+          targets: hand,
+          x: handX - 10, scaleX: 0.9, scaleY: 0.9,
+          duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+        });
+        els.push(hand);
+      }
+    } else {
+      // No spotlight — just dim the whole screen lightly
+      const dimAll = this.add.rectangle(0, 0, gw, gh, 0x000000, 0.45)
+        .setOrigin(0, 0).setDepth(289).setScrollFactor(0);
+      els.push(dimAll);
+    }
+
+    // Phase 0: add left/right motion arrows near joystick spotlight
     if (phase === 0) {
-      // Phase 0: Show joystick area with left/right arrows
-      const joyX = 110;
-      const joyY = panelY + panelH / 2;
-      const ring = this.add.circle(joyX, joyY, 30, 0xffffff, 0.15)
-        .setStrokeStyle(2, 0xffdd33, 0.8).setDepth(291).setScrollFactor(0);
-      const arrowL = this.add.text(joyX - 42, joyY, '◀', {
-        fontSize: '22px', color: '#ffdd33'
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      const arrowR = this.add.text(joyX + 42, joyY, '▶', {
-        fontSize: '22px', color: '#ffdd33'
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      const label = this.add.text(gw / 2, joyY, t('tutMoveJoystick'), {
-        fontFamily: 'Bungee, monospace', fontSize: '16px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      // Animate arrows
+      const arrowL = this.add.text(spotX - spotR + 20, spotY, '◀', {
+        fontSize: '28px', color: '#ffdd33', stroke: '#000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
+      const arrowR = this.add.text(spotX + spotR - 20, spotY, '▶', {
+        fontSize: '28px', color: '#ffdd33', stroke: '#000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
       this.tweens.add({ targets: arrowL, x: arrowL.x - 6, duration: 500, yoyo: true, repeat: -1 });
       this.tweens.add({ targets: arrowR, x: arrowR.x + 6, duration: 500, yoyo: true, repeat: -1 });
-      els.push(ring, arrowL, arrowR, label);
-    } else if (phase === 1) {
-      // Phase 1: Highlight JUMP button
-      const btnX = gw - 85;
-      const btnY = panelY + panelH / 2;
-      const jumpCircle = this.add.circle(btnX, btnY, 34, 0x33ff88, 0.25)
-        .setStrokeStyle(3, 0x33ff88, 0.9).setDepth(291).setScrollFactor(0);
-      const jumpLabel = this.add.text(btnX, btnY, 'JUMP', {
-        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
-        color: '#33ff88', stroke: '#003322', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      const desc = this.add.text(gw / 2 - 40, btnY, t('tutJump'), {
-        fontFamily: 'Bungee, monospace', fontSize: '16px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      // Pulse the button
-      this.tweens.add({
-        targets: jumpCircle, scaleX: 1.15, scaleY: 1.15,
-        duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-      });
-      els.push(jumpCircle, jumpLabel, desc);
-    } else if (phase === 2) {
-      // Phase 2: Show joystick ↑↓ + E button
-      const joyX = 110;
-      const joyY = panelY + panelH / 2;
-      const ring = this.add.circle(joyX, joyY, 30, 0xffffff, 0.15)
-        .setStrokeStyle(2, 0xffaa33, 0.8).setDepth(291).setScrollFactor(0);
-      const arrowU = this.add.text(joyX, joyY - 32, '▲', {
-        fontSize: '18px', color: '#ffaa33'
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      const arrowD = this.add.text(joyX, joyY + 32, '▼', {
-        fontSize: '18px', color: '#ffaa33'
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      this.tweens.add({ targets: arrowU, y: arrowU.y - 4, duration: 500, yoyo: true, repeat: -1 });
-      this.tweens.add({ targets: arrowD, y: arrowD.y + 4, duration: 500, yoyo: true, repeat: -1 });
-
-      const eX = gw - 215;
-      const eCircle = this.add.circle(eX, joyY, 26, 0xffaa33, 0.25)
-        .setStrokeStyle(3, 0xffaa33, 0.9).setDepth(291).setScrollFactor(0);
-      const eLabel = this.add.text(eX, joyY, 'E', {
-        fontFamily: 'Bungee, monospace', fontSize: '18px', fontStyle: 'bold',
-        color: '#ffaa33', stroke: '#332200', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      this.tweens.add({
-        targets: eCircle, scaleX: 1.15, scaleY: 1.15,
-        duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-      });
-
-      const desc = this.add.text(gw / 2, joyY, t('tutLadderE'), {
-        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      els.push(ring, arrowU, arrowD, eCircle, eLabel, desc);
-    } else if (phase === 3) {
-      // Phase 3: Simple text — collect paint
-      const desc = this.add.text(gw / 2, panelY + panelH / 2, t('tutCollectPaint'), {
-        fontFamily: 'Bungee, monospace', fontSize: '16px', fontStyle: 'bold',
-        color: '#ffdd33', stroke: '#332200', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      els.push(desc);
-    } else if (phase === 4) {
-      // Phase 4: Highlight ACT button for painting
-      const btnX = gw - 85;
-      const btnY = panelY + panelH / 2;
-      const actCircle = this.add.circle(btnX, btnY - 10, 30, 0x3388ff, 0.25)
-        .setStrokeStyle(3, 0x3388ff, 0.9).setDepth(291).setScrollFactor(0);
-      const actLabel = this.add.text(btnX, btnY - 10, 'ACT', {
-        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
-        color: '#3388ff', stroke: '#001133', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      this.tweens.add({
-        targets: actCircle, scaleX: 1.15, scaleY: 1.15,
-        duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-      });
-      const desc = this.add.text(gw / 2 - 40, btnY, t('tutPaintACT'), {
-        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      els.push(actCircle, actLabel, desc);
+      els.push(arrowL, arrowR);
     }
+    // Phase 2: up/down arrows on joystick too (ladder uses both joystick + E)
+    if (phase === 2) {
+      const arrowU = this.add.text(joyX, joyY - 54, '▲', {
+        fontSize: '26px', color: '#ffaa33', stroke: '#000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
+      const arrowD = this.add.text(joyX, joyY + 54, '▼', {
+        fontSize: '26px', color: '#ffaa33', stroke: '#000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
+      this.tweens.add({ targets: arrowU, y: arrowU.y - 5, duration: 500, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: arrowD, y: arrowD.y + 5, duration: 500, yoyo: true, repeat: -1 });
+      // Secondary subtle ring on the joystick (not full spotlight)
+      const joyRing = this.add.circle(joyX, joyY, 50, 0xffaa33, 0)
+        .setStrokeStyle(3, 0xffaa33, 0.7).setDepth(292).setScrollFactor(0);
+      this.tweens.add({
+        targets: joyRing, scaleX: 1.15, scaleY: 1.15, alpha: 0.3,
+        duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+      els.push(arrowU, arrowD, joyRing);
+    }
+
+    // --- Instruction card (big, centered, high-contrast) ---
+    const cardW = Math.min(gw - 40, 420);
+    const cardH = 80;
+    const cardY = Math.min(gh * 0.35, 180);
+    const cardBg = this.add.rectangle(gw / 2, cardY, cardW, cardH, 0x0a0a1a, 0.92)
+      .setStrokeStyle(3, spotColor, 1).setDepth(293).setScrollFactor(0);
+    const cardText = this.add.text(gw / 2, cardY, t(instructionKey), {
+      fontFamily: 'Bungee, monospace', fontSize: '20px', fontStyle: 'bold',
+      color: '#ffffff', stroke: '#000000', strokeThickness: 4,
+      align: 'center', wordWrap: { width: cardW - 30 }
+    }).setOrigin(0.5).setDepth(294).setScrollFactor(0).setResolution(2);
+    // Card entry animation
+    cardBg.setAlpha(0); cardText.setAlpha(0);
+    cardBg.y -= 20; cardText.y -= 20;
+    this.tweens.add({
+      targets: [cardBg, cardText],
+      alpha: { from: 0, to: 1 }, y: '+=20',
+      duration: 350, ease: 'Back.easeOut'
+    });
+    els.push(cardBg, cardText);
 
     // Hide all overlay elements from main cam
     els.forEach(el => this.cameras.main.ignore(el));
     this._addingHud = false;
 
-    // Auto-fade after delay
-    this.time.delayedCall(6000, () => {
+    // Auto-fade after delay — spotlight lingers longer than old overlay
+    const fadeDelay = phase === 0 ? 7000 : 5500;
+    this.time.delayedCall(fadeDelay, () => {
       this.tweens.add({
         targets: els.filter(e => e.active), alpha: 0,
-        duration: 800, onComplete: () => {
+        duration: 700, onComplete: () => {
           els.forEach(e => { if (e.active) e.destroy(); });
         }
       });
@@ -2242,14 +2439,28 @@ export default class GameScene extends Phaser.Scene {
         if (progress >= 1) {
           this._showTutorialHint(newPhase);
           this.time.delayedCall(1200, () => {
-            cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
-              if (p2 >= 1) {
-                cam.startFollow(this.player, true, 0.1, 0.1);
-                this._tutTransitioning = false;
-                // Show overlay after camera returns to player
-                this._showTutorialOverlay(newPhase);
-              }
-            });
+            // Phase 3 (collect paint): do a tour of each paint can before returning
+            if (newPhase === 3) {
+              this._tourPaintCans(() => {
+                cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
+                  if (p2 >= 1) {
+                    cam.startFollow(this.player, true, 0.1, 0.1);
+                    this._tutTransitioning = false;
+                    this._showTutorialOverlay(newPhase);
+                    this._showPaintCollectPopup();
+                  }
+                });
+              });
+            } else {
+              cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
+                if (p2 >= 1) {
+                  cam.startFollow(this.player, true, 0.1, 0.1);
+                  this._tutTransitioning = false;
+                  // Show overlay after camera returns to player
+                  this._showTutorialOverlay(newPhase);
+                }
+              });
+            }
           });
         }
       });
@@ -2258,21 +2469,397 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  updateTutorial(delta) {
-    if (this._tutTransitioning) return;
+  /**
+   * Camera tour: pan to each paint can, flash a highlight ring, then proceed.
+   * Calls onDone() when the tour is complete.
+   */
+  _tourPaintCans(onDone) {
+    const cans = this.levelData.paintCans || [];
+    if (cans.length === 0) { onDone && onDone(); return; }
 
-    const px = this.player.x;
-    const phase = this._tutPhase;
+    const cam = this.cameras.main;
+    const colorMap = {
+      red: 0xff3344, blue: 0x3388ff, yellow: 0xffdd33,
+      green: 0x33ff88, black: 0x1a1319,
+    };
 
-    if (phase === 0 && px > 350) {
-      this._advanceTutorialPhase(1);
-    } else if (phase === 1 && px > 700) {
-      this._advanceTutorialPhase(2);
-    } else if (phase === 2 && px > 1150) {
-      this._advanceTutorialPhase(3);
-    } else if (phase === 3 && px > 1550) {
-      this._advanceTutorialPhase(4);
+    const visit = (i) => {
+      if (i >= cans.length) { onDone && onDone(); return; }
+      const c = cans[i];
+      const hex = colorMap[c.color] || 0xffffff;
+      cam.pan(c.x, c.y - 20, 650, 'Sine.easeInOut', false, (_cam, p) => {
+        if (p < 1) return;
+        // Highlight ring around the can
+        const ring = this.add.circle(c.x, c.y, 12, hex, 0)
+          .setStrokeStyle(4, hex, 1).setDepth(50);
+        const glow = this.add.circle(c.x, c.y, 28, hex, 0.25).setDepth(49);
+        this.tweens.add({
+          targets: ring, scaleX: 2.4, scaleY: 2.4, alpha: 0,
+          duration: 700, ease: 'Sine.easeOut'
+        });
+        this.tweens.add({
+          targets: glow, scaleX: 1.8, scaleY: 1.8, alpha: 0,
+          duration: 900, ease: 'Sine.easeOut',
+          onComplete: () => { ring.destroy(); glow.destroy(); }
+        });
+        // Small color badge above the can
+        this._addingHud = false;
+        const badge = this.add.circle(c.x, c.y - 50, 14, hex, 1)
+          .setStrokeStyle(3, 0xffffff, 1).setDepth(51);
+        this.tweens.add({
+          targets: badge, y: badge.y - 10, alpha: { from: 1, to: 0 },
+          duration: 900, delay: 400,
+          onComplete: () => badge.destroy()
+        });
+        this.time.delayedCall(950, () => visit(i + 1));
+      });
+    };
+    visit(0);
+  }
+
+  /**
+   * Popup with color icons showing which paint cans to collect.
+   */
+  _showPaintCollectPopup() {
+    const gw = this.scale.width;
+    const gh = this.scale.height;
+    const cans = this.levelData.paintCans || [];
+    if (cans.length === 0) return;
+
+    const colorMap = {
+      red: 0xff3344, blue: 0x3388ff, yellow: 0xffdd33,
+      green: 0x33ff88, black: 0x1a1319,
+    };
+    const colorNames = {
+      red: 'RED', blue: 'BLUE', yellow: 'YELLOW',
+      green: 'GREEN', black: 'BLACK',
+    };
+
+    const els = [];
+    this._addingHud = true;
+
+    // Dim backdrop
+    const dim = this.add.rectangle(0, 0, gw, gh, 0x000000, 0.55)
+      .setOrigin(0, 0).setDepth(295).setScrollFactor(0);
+    els.push(dim);
+
+    // Popup card
+    const cardW = Math.min(gw - 40, 440);
+    const cardH = 180;
+    const cardX = gw / 2;
+    const cardY = gh / 2;
+    const shadow = this.add.rectangle(cardX + 4, cardY + 6, cardW, cardH, 0x000000, 0.5)
+      .setDepth(296).setScrollFactor(0);
+    const card = this.add.rectangle(cardX, cardY, cardW, cardH, 0x0a0a1a, 0.96)
+      .setStrokeStyle(3, 0xffdd33, 1).setDepth(296).setScrollFactor(0);
+    els.push(shadow, card);
+
+    // Title
+    const title = this.add.text(cardX, cardY - cardH / 2 + 28, t('tutCollectPaint'), {
+      fontFamily: 'Bungee, monospace', fontSize: '18px', fontStyle: 'bold',
+      color: '#ffdd33', stroke: '#000000', strokeThickness: 3,
+      align: 'center', wordWrap: { width: cardW - 30 }
+    }).setOrigin(0.5).setDepth(297).setScrollFactor(0).setResolution(2);
+    els.push(title);
+
+    // Row of color can icons
+    const iconCount = cans.length;
+    const iconSpace = Math.min(80, (cardW - 60) / iconCount);
+    const rowY = cardY + 15;
+    const rowStartX = cardX - (iconSpace * (iconCount - 1)) / 2;
+    cans.forEach((c, i) => {
+      const iconX = rowStartX + i * iconSpace;
+      const hex = colorMap[c.color] || 0xffffff;
+
+      // Glow pulse behind icon
+      const glow = this.add.circle(iconX, rowY, 26, hex, 0.3)
+        .setDepth(297).setScrollFactor(0);
+      this.tweens.add({
+        targets: glow, scaleX: 1.3, scaleY: 1.3, alpha: 0.1,
+        duration: 700, yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut', delay: i * 120
+      });
+
+      // Actual paint can sprite (falls back to colored circle if texture missing)
+      const canKey = `paint_can_sprite_${c.color}`;
+      let canSprite;
+      if (this.textures.exists(canKey)) {
+        canSprite = this.add.image(iconX, rowY, canKey)
+          .setDisplaySize(44, 44)
+          .setDepth(298).setScrollFactor(0);
+      } else {
+        canSprite = this.add.circle(iconX, rowY, 20, hex, 1)
+          .setStrokeStyle(3, 0xffffff, 1).setDepth(298).setScrollFactor(0);
+      }
+
+      // Label below
+      const lbl = this.add.text(iconX, rowY + 36, colorNames[c.color] || c.color, {
+        fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+
+      // Staggered bounce-in
+      [glow, canSprite, lbl].forEach(el => {
+        el.setScale(0);
+        this.tweens.add({
+          targets: el,
+          scaleX: el === canSprite ? 1 : 1, scaleY: el === canSprite ? 1 : 1,
+          duration: 350, delay: 200 + i * 120,
+          ease: 'Back.easeOut'
+        });
+      });
+
+      // Idle wobble on the can
+      this.tweens.add({
+        targets: canSprite,
+        y: rowY - 3,
+        duration: 800 + i * 80, yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut', delay: 600 + i * 120
+      });
+
+      els.push(glow, canSprite, lbl);
+    });
+
+    // Footer hint: "Approach the cans to collect"
+    const footer = this.add.text(cardX, cardY + cardH / 2 - 20, '↓', {
+      fontFamily: 'Bungee, monospace', fontSize: '18px',
+      color: '#ffdd33', stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(297).setScrollFactor(0).setResolution(2);
+    this.tweens.add({
+      targets: footer, y: footer.y + 4,
+      duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    });
+    els.push(footer);
+
+    // Card entry animation
+    card.setScale(0.85); shadow.setScale(0.85);
+    this.tweens.add({
+      targets: [card, shadow], scaleX: 1, scaleY: 1,
+      duration: 300, ease: 'Back.easeOut'
+    });
+
+    els.forEach(el => this.cameras.main.ignore(el));
+    this._addingHud = false;
+
+    // Auto-dismiss after delay
+    this.time.delayedCall(3500, () => {
+      this.tweens.add({
+        targets: els.filter(e => e.active), alpha: 0,
+        duration: 500,
+        onComplete: () => els.forEach(e => { if (e.active) e.destroy(); })
+      });
+    });
+  }
+
+  /**
+   * First-station popup: show the primary controls with icons.
+   * Mobile: joystick + action buttons preview. Desktop: arrow keys + SPACE + E.
+   * Calls onDone() when dismissed so the spotlight overlay can follow.
+   */
+  _showControlsIntroPopup(onDone) {
+    const gw = this.scale.width;
+    const gh = this.scale.height;
+    const isMobile = this._tutIsMobile;
+
+    const els = [];
+    this._addingHud = true;
+
+    // Dim backdrop
+    const dim = this.add.rectangle(0, 0, gw, gh, 0x000000, 0.6)
+      .setOrigin(0, 0).setDepth(295).setScrollFactor(0);
+    els.push(dim);
+
+    // Card
+    const cardW = Math.min(gw - 40, 460);
+    const cardH = 220;
+    const cardX = gw / 2;
+    const cardY = gh / 2;
+    const shadow = this.add.rectangle(cardX + 4, cardY + 6, cardW, cardH, 0x000000, 0.5)
+      .setDepth(296).setScrollFactor(0);
+    const card = this.add.rectangle(cardX, cardY, cardW, cardH, 0x0a0a1a, 0.96)
+      .setStrokeStyle(3, 0x3dccff, 1).setDepth(296).setScrollFactor(0);
+    els.push(shadow, card);
+
+    // Title
+    const title = this.add.text(cardX, cardY - cardH / 2 + 26,
+      isMobile ? 'CONTROLS' : 'CONTROLS', {
+      fontFamily: 'Bungee, monospace', fontSize: '20px', fontStyle: 'bold',
+      color: '#3dccff', stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setDepth(297).setScrollFactor(0).setResolution(2);
+    els.push(title);
+
+    // Row of control icons
+    const rowY = cardY - 5;
+    const makeSlot = (x, builder, label, highlight = false) => {
+      const slotR = 32;
+      const bg = this.add.circle(x, rowY, slotR, 0x1a1a2e, 1)
+        .setStrokeStyle(3, highlight ? 0xffdd33 : 0x3dccff, 1)
+        .setDepth(297).setScrollFactor(0);
+      const inner = builder(x, rowY);
+      const lbl = this.add.text(x, rowY + slotR + 16, label, {
+        fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+      if (highlight) {
+        const glow = this.add.circle(x, rowY, slotR + 6, 0xffdd33, 0.25)
+          .setDepth(296).setScrollFactor(0);
+        this.tweens.add({
+          targets: glow, scaleX: 1.25, scaleY: 1.25, alpha: 0.1,
+          duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+        });
+        els.push(glow);
+      }
+      const items = Array.isArray(inner) ? inner : [inner];
+      [bg, ...items, lbl].forEach(el => {
+        el.setScale(0);
+        this.tweens.add({
+          targets: el, scaleX: 1, scaleY: 1,
+          duration: 320, delay: 250,
+          ease: 'Back.easeOut'
+        });
+      });
+      els.push(bg, ...items, lbl);
+    };
+
+    if (isMobile) {
+      // Mobile: joystick (highlighted) + JUMP + ACT + E
+      const spacing = Math.min(88, (cardW - 60) / 4);
+      const startX = cardX - spacing * 1.5;
+
+      // Joystick icon
+      makeSlot(startX, (x, y) => {
+        const ring = this.add.circle(x, y, 18, 0xffffff, 0.15)
+          .setStrokeStyle(2, 0xffdd33, 0.9).setDepth(298).setScrollFactor(0);
+        const thumb = this.add.circle(x, y, 9, 0xffdd33, 0.9)
+          .setDepth(299).setScrollFactor(0);
+        // Animate thumb sliding left/right
+        this.tweens.add({
+          targets: thumb, x: x + 8,
+          duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 800
+        });
+        return [ring, thumb];
+      }, 'MOVE', true);
+
+      // JUMP button
+      makeSlot(startX + spacing, (x, y) => {
+        return this.add.text(x, y, 'J', {
+          fontFamily: 'Bungee, monospace', fontSize: '20px', fontStyle: 'bold',
+          color: '#33ff88', stroke: '#003322', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+      }, 'JUMP');
+
+      // ACT button (paint)
+      makeSlot(startX + spacing * 2, (x, y) => {
+        if (this.textures.exists('icon_spray')) {
+          return this.add.image(x, y, 'icon_spray')
+            .setDisplaySize(30, 30)
+            .setDepth(299).setScrollFactor(0);
+        }
+        return this.add.text(x, y, 'A', {
+          fontFamily: 'Bungee, monospace', fontSize: '18px', fontStyle: 'bold',
+          color: '#ffdd33', stroke: '#332200', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+      }, 'PAINT');
+
+      // E button (interact)
+      makeSlot(startX + spacing * 3, (x, y) => {
+        if (this.textures.exists('icon_hand')) {
+          return this.add.image(x, y, 'icon_hand')
+            .setDisplaySize(30, 30)
+            .setDepth(299).setScrollFactor(0);
+        }
+        return this.add.text(x, y, 'E', {
+          fontFamily: 'Bungee, monospace', fontSize: '20px', fontStyle: 'bold',
+          color: '#ff8833', stroke: '#331100', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+      }, 'GRAB');
+    } else {
+      // Desktop: arrow keys cluster + SPACE + E
+      const spacing = Math.min(100, (cardW - 60) / 3);
+      const startX = cardX - spacing;
+
+      // Arrow keys (highlighted — it's the first station)
+      makeSlot(startX, (x, y) => {
+        const keyStyle = {
+          fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
+          color: '#ffdd33', stroke: '#000000', strokeThickness: 2
+        };
+        const L = this.add.text(x - 16, y, '←', keyStyle)
+          .setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+        const R = this.add.text(x + 16, y, '→', keyStyle)
+          .setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+        this.tweens.add({ targets: L, x: L.x - 3, duration: 500, yoyo: true, repeat: -1, delay: 800 });
+        this.tweens.add({ targets: R, x: R.x + 3, duration: 500, yoyo: true, repeat: -1, delay: 800 });
+        return [L, R];
+      }, 'MOVE', true);
+
+      // SPACE — jump/paint
+      makeSlot(startX + spacing, (x, y) => {
+        return this.add.text(x, y, '␣', {
+          fontFamily: 'Bungee, monospace', fontSize: '22px', fontStyle: 'bold',
+          color: '#33ff88', stroke: '#003322', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+      }, 'JUMP / PAINT');
+
+      // E
+      makeSlot(startX + spacing * 2, (x, y) => {
+        return this.add.text(x, y, 'E', {
+          fontFamily: 'Bungee, monospace', fontSize: '22px', fontStyle: 'bold',
+          color: '#ff8833', stroke: '#331100', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+      }, 'GRAB');
     }
+
+    // Footer hint
+    const footer = this.add.text(cardX, cardY + cardH / 2 - 22,
+      isMobile ? 'TAP TO CONTINUE' : 'PRESS ANY KEY', {
+      fontFamily: 'Bungee, monospace', fontSize: '12px', fontStyle: 'bold',
+      color: '#88ccff', stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
+    this.tweens.add({
+      targets: footer, alpha: { from: 0.5, to: 1 },
+      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+    });
+    els.push(footer);
+
+    // Card entry animation
+    card.setScale(0.85); shadow.setScale(0.85);
+    this.tweens.add({
+      targets: [card, shadow], scaleX: 1, scaleY: 1,
+      duration: 300, ease: 'Back.easeOut'
+    });
+
+    els.forEach(el => this.cameras.main.ignore(el));
+    this._addingHud = false;
+
+    // Dismissal: tap/click/any key, or auto after 5s
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      try { this.input.off('pointerdown', dismiss); } catch (e) {}
+      try { this.input.keyboard && this.input.keyboard.off('keydown', dismiss); } catch (e) {}
+      this.tweens.add({
+        targets: els.filter(e => e.active), alpha: 0,
+        duration: 350,
+        onComplete: () => {
+          els.forEach(e => { if (e.active) e.destroy(); });
+          onDone && onDone();
+        }
+      });
+    };
+    // Small delay before accepting dismissal so the player can see it
+    this.time.delayedCall(450, () => {
+      this.input.once('pointerdown', dismiss);
+      if (this.input.keyboard) this.input.keyboard.once('keydown', dismiss);
+    });
+    this.time.delayedCall(6000, dismiss);
+  }
+
+  updateTutorial(delta) {
+    // Phase advancement is now driven by collectible checkpoint signs
+    // (_collectTutorialCheckpoint → _advanceTutorialPhase).
+    // This hook remains for any future per-frame tutorial state.
   }
 
   // === HUD ===
@@ -3454,6 +4041,12 @@ export default class GameScene extends Phaser.Scene {
 
     // Check win
     if (this.paintedSpots >= this.totalSpots) {
+      // Mark tutorial as completed for this session so the level-select UI
+      // can skip the tutorial-first hub next time.
+      if (this.mode === 'tutorial') {
+        try { sessionStorage.setItem('st_tutorialDone', '1'); } catch (e) {}
+        try { localStorage.setItem('st_tutorialDone', '1'); } catch (e) {}
+      }
       this.time.delayedCall(1000, () => {
         // Freeze the game view and play win sound before transitioning
         this.physics.pause();

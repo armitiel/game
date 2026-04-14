@@ -26,6 +26,10 @@ const translations = {
     towerDesc: 'Wspinaj sie w gore\nczas ucieka!',
     levelCount: 'Level',
     tutorial: '[ TUTORIAL ]',
+    tutorialName: 'TUTORIAL',
+    tutorialDesc: 'Naucz sie podstaw\nzanim ruszysz dalej',
+    playModes: 'WYBIERZ TRYB',
+    playModesHint: 'albo wybierz tryb gry',
     modeSelectHint: '[ Kliknij tryb lub nacisnij 1-3 | T = tutorial | ESC = menu ]',
     levelSelectHint: '[ Kliknij level | ESC = tryby ]',
 
@@ -141,6 +145,10 @@ const translations = {
     towerDesc: 'Climb up and paint\ntime is running out!',
     levelCount: 'Level',
     tutorial: '[ TUTORIAL ]',
+    tutorialName: 'TUTORIAL',
+    tutorialDesc: 'Learn the basics\nbefore you go further',
+    playModes: 'CHOOSE A MODE',
+    playModesHint: 'or pick a game mode',
     modeSelectHint: '[ Click a mode or press 1-3 | T = tutorial | ESC = menu ]',
     levelSelectHint: '[ Click a level | ESC = modes ]',
 
