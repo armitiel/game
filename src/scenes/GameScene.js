@@ -2726,6 +2726,10 @@ export default class GameScene extends Phaser.Scene {
     const gh = this.scale.height;
     const isMobile = this._tutIsMobile;
 
+    // Freeze player movement while the tutorial popup is visible.
+    // Character stays idle in background; controls re-enable on dismiss.
+    this._tutorialPopupActive = true;
+
     const els = [];
     this._addingHud = true;
 
@@ -2749,27 +2753,17 @@ export default class GameScene extends Phaser.Scene {
     // otherwise the panel visually bleeds past the intended margin on small
     // screens. Margins are also slightly generous to guarantee breathing room
     // on sides / top / bottom.
-    const screenMarginX = Math.max(24, gw * 0.04);
-    const screenMarginY = Math.max(28, gh * 0.05);
-    const cardW = Math.min(gw - screenMarginX * 2, 768);
-    const cardH = Math.min(gh - screenMarginY * 2, 432);
+    const screenMarginX = Math.max(16, gw * 0.025);
+    const screenMarginY = Math.max(18, gh * 0.03);
+    const cardW = Math.min(gw - screenMarginX * 2, 1100);
+    const cardH = Math.min(gh - screenMarginY * 2, 620);
     const cardX = gw / 2;
     const cardY = gh / 2;
-    // Card drawn programmatically — rounded dark panel occupying the FULL
-    // cardW × cardH. This IS the popup (no popup_panel.png). Every element
-    // below is positioned relative to this rect.
-    const card = this.add.graphics().setDepth(295).setScrollFactor(0);
-    const cardRadius = 18;
-    const cardL_ = cardX - cardW / 2, cardT_ = cardY - cardH / 2;
-    // subtle outer glow
-    card.fillStyle(0x000000, 0.35);
-    card.fillRoundedRect(cardL_ - 6, cardT_ - 6, cardW + 12, cardH + 12, cardRadius + 4);
-    // main panel
-    card.fillStyle(0x0a0a14, 1);
-    card.fillRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
-    // thin cyan border
-    card.lineStyle(2, 0x3dccff, 0.85);
-    card.strokeRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
+    // Card — simple dark rectangle occupying FULL cardW × cardH. Same panel
+    // shown on ALL popup screens (intro hands / walk / jump / ladder).
+    const card = this.add.rectangle(cardX, cardY, cardW, cardH, 0x0a0a14, 1)
+      .setStrokeStyle(2, 0x1a1a22, 1)
+      .setDepth(296).setScrollFactor(0);
     els.push(card);
 
     // --- Typography zones (no title / subtitle / footer — illustrations speak for themselves) ---
@@ -3006,42 +3000,59 @@ export default class GameScene extends Phaser.Scene {
     };
 
     // ─── BG LAYER ─── merged into `card` above (the drawn panel IS the bg).
-    // Nothing extra drawn here — elements sit directly on the card.
 
-    // --- LEFT-BOTTOM area: joypad composite (ring + knob built first) ---
-    // T=350 — ring
-    let ring = null, knob = null;
-    if (this.textures.exists('tut_ring')) {
-      ring = this.add.image(leftX, leftY, 'tut_ring')
-        .setDisplaySize(joySize, joySize)
-        .setDepth(297).setScrollFactor(0);
-      fadeIn(ring, 350);
-    }
-    // T=650 — knob lands on top of ring (depth 310 → always above arrows)
-    if (this.textures.exists('tut_knob')) {
-      knob = this.add.image(leftX, leftY, 'tut_knob')
-        .setDisplaySize(joySize * 0.42, joySize * 0.42)
-        .setDepth(310).setScrollFactor(0);
-      fadeIn(knob, 650);
-    }
+    // === INTRO SCREEN (step -1): two hands showing how to hold the phone ===
+    // hand.png on the LEFT, mirrored (flipX) on the RIGHT — pinned to edges.
+    const handAsp = 691 / 932;                       // source asset aspect
+    const handH = Math.min(cardH * 0.18, 75);
+    const handW = handH * handAsp;                   // keep aspect, no stretch
+    const handY = contentCy + cardH * 0.05;
+    const handL = this.textures.exists('tut_hand') ? this.add.image(
+      contentL + handW * 0.5, handY, 'tut_hand'
+    ).setDisplaySize(handW, handH).setDepth(298).setScrollFactor(0) : null;
+    const handR = this.textures.exists('tut_hand') ? this.add.image(
+      contentR - handW * 0.5, handY, 'tut_hand'
+    ).setDisplaySize(handW, handH).setDepth(298).setScrollFactor(0).setFlipX(true) : null;
+    // Fade in WITHOUT touching scale (setDisplaySize already set the scale
+    // — the generic fadeIn() would reset scale to 0.7 and tween to 1 which
+    // would blow the images up to their native 691×932 resolution).
+    const alphaFadeIn = (el, delay = 0, dur = 350) => {
+      if (!el) return;
+      el.setAlpha(0);
+      this.tweens.add({ targets: el, alpha: 1, duration: dur, delay, ease: 'Sine.easeOut' });
+      els.push(el);
+    };
+    alphaFadeIn(handL, 150, 350);
+    alphaFadeIn(handR, 150, 350);
 
-    // T=1100 — left/right arrows (strzałki.png) flank the knob
-    let arrowsLR = null;
-    if (this.textures.exists('tut_arrows_lr')) {
-      arrowsLR = this.add.image(leftX, leftY, 'tut_arrows_lr')
-        .setDisplaySize(joySize * 0.72, joySize * 0.32)
-        .setDepth(298).setScrollFactor(0);
-      fadeIn(arrowsLR, 1100, 400);
-    }
-
-    // T=1100 — RIGHT: walk.png appears as "what L/R does"
-    let rightIllo = null;
-    if (this.textures.exists('tut_walk')) {
-      rightIllo = this.add.image(rightX, rightY, 'tut_walk')
-        .setDisplaySize(illoSize * 1.0, illoSize * 0.48)
-        .setDepth(298).setScrollFactor(0);
-      fadeIn(rightIllo, 1100, 400);
-    }
+    // --- LEFT-BOTTOM area: joypad composite (deferred, shown at step 0) ---
+    let ring = null, knob = null, arrowsLR = null, rightIllo = null;
+    const buildJoyAndWalk = () => {
+      if (this.textures.exists('tut_ring')) {
+        ring = this.add.image(leftX, leftY, 'tut_ring')
+          .setDisplaySize(joySize, joySize)
+          .setDepth(297).setScrollFactor(0);
+        fadeIn(ring, 0);
+      }
+      if (this.textures.exists('tut_knob')) {
+        knob = this.add.image(leftX, leftY, 'tut_knob')
+          .setDisplaySize(joySize * 0.42, joySize * 0.42)
+          .setDepth(310).setScrollFactor(0);
+        fadeIn(knob, 250);
+      }
+      if (this.textures.exists('tut_arrows_lr')) {
+        arrowsLR = this.add.image(leftX, leftY, 'tut_arrows_lr')
+          .setDisplaySize(joySize * 0.72, joySize * 0.32)
+          .setDepth(298).setScrollFactor(0);
+        fadeIn(arrowsLR, 450, 400);
+      }
+      if (this.textures.exists('tut_walk')) {
+        rightIllo = this.add.image(rightX, rightY, 'tut_walk')
+          .setDisplaySize(illoSize * 1.0, illoSize * 0.48)
+          .setDepth(298).setScrollFactor(0);
+        fadeIn(rightIllo, 450, 400);
+      }
+    };
 
     // (Connector arrow removed — illustrations speak on their own.)
 
@@ -3123,7 +3134,7 @@ export default class GameScene extends Phaser.Scene {
       this._addingHud = true;
       // Clamp vertically so up-arrow STAYS inside FRAME L (content rect top)
       const upArrowH = joySize * 0.38;
-      const desiredY = leftY - joySize * 1.85;
+      const desiredY = leftY - joySize * 2.15;
       const minY = contentCy - contentH / 2 + upArrowH / 2 + 2;
       const upArrowY = Math.max(desiredY, minY);
       upArrow = this.add.image(leftX, upArrowY, 'tut_arrow')
@@ -3168,7 +3179,7 @@ export default class GameScene extends Phaser.Scene {
     //   → to advance: press UP (or joystick up)
     // Step 3: close popup
     let dismissed = false;
-    let step = 0;
+    let step = -1;           // -1 = intro "hold phone" screen, 0..2 = existing tutorial flow
     let inputLocked = true;
     let pollEvent = null;
     let keyHandler = null;
@@ -3176,6 +3187,7 @@ export default class GameScene extends Phaser.Scene {
     const dismiss = () => {
       if (dismissed) return;
       dismissed = true;
+      this._tutorialPopupActive = false;   // re-enable player controls
       if (pollEvent) { try { pollEvent.remove(false); } catch(e) {} pollEvent = null; }
       if (keyHandler && this.input.keyboard) {
         try { this.input.keyboard.off('keydown', keyHandler); } catch(e) {}
@@ -3197,7 +3209,16 @@ export default class GameScene extends Phaser.Scene {
       if (dismissed || inputLocked) return;
       inputLocked = true;
       step += 1;
-      if (step === 1) {
+      if (step === 0) {
+        // Transition from intro hands → joystick+walk screen.
+        if (handL) fadeOut(handL, 0, 300);
+        if (handR) fadeOut(handR, 0, 300);
+        this.time.delayedCall(320, () => {
+          buildJoyAndWalk();
+          startKnobWiggleLR();
+          this.time.delayedCall(900, () => { inputLocked = false; });
+        });
+      } else if (step === 1) {
         showUpArrow();
         swapRightTo('tut_jump');
         startKnobWiggleUD();
@@ -3218,6 +3239,7 @@ export default class GameScene extends Phaser.Scene {
       const isLeft  = c === 'arrowleft'  || c === 'keya' || c === 'left'  || c === 'a';
       const isRight = c === 'arrowright' || c === 'keyd' || c === 'right' || c === 'd';
       const isUp    = c === 'arrowup'    || c === 'keyw' || c === 'up'    || c === 'w' || c === 'space' || c === ' ';
+      if (step === -1) return isLeft || isRight || isUp; // any movement key advances intro
       if (step === 0) return isLeft || isRight;
       if (step === 1) return isUp;
       if (step === 2) return isUp;
@@ -3227,14 +3249,15 @@ export default class GameScene extends Phaser.Scene {
     const checkTouch = () => {
       const t = this.touch;
       if (!t) return false;
+      if (step === -1) return !!(t.left || t.right || t.up || t._jumpJustPressed);
       if (step === 0) return !!(t.left || t.right);
       if (step === 1) return !!(t.up || t._jumpJustPressed);
       if (step === 2) return !!t.up;
       return false;
     };
 
-    // After grace period, start listening for the CORRECT input
-    this.time.delayedCall(1700, () => {
+    // After short grace period, start listening for the CORRECT input (starts on intro screen)
+    this.time.delayedCall(600, () => {
       inputLocked = false;
 
       keyHandler = (ev) => {
@@ -5505,7 +5528,13 @@ export default class GameScene extends Phaser.Scene {
     this._bridgeSnap(this.player);
 
     // 3. Player movement & input (uses ladder/shadow state)
-    this.player.update(delta);
+    if (this._tutorialPopupActive) {
+      // Tutorial popup is open — keep player idle in background, ignore input.
+      this.player.setVelocity(0, 0);
+      try { this.player.anims.play('player_idle', true); } catch(e) {}
+    } else {
+      this.player.update(delta);
+    }
 
     // 3a. Ladder-to-platform landing: when climbing down, detect platform under feet
     // NOTE: This is now handled entirely by Player.update() platform-edge detection
