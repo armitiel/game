@@ -2015,7 +2015,10 @@ export default class GameScene extends Phaser.Scene {
     const hint = hints.find(h => h.phase === phase);
     if (!hint) return;
 
-    const text = this._tutIsMobile ? hint.mobile : hint.desktop;
+    // Hint payload is an i18n key — translate it so sign labels respect the
+    // current UI language. Falls back to the raw string if no translation exists.
+    const rawKey = this._tutIsMobile ? hint.mobile : hint.desktop;
+    const text = t(rawKey);
     const RES = this._tutTextRes;  // super-sampling factor
 
     // --- Create canvas texture for crisp world-space text ---
@@ -2265,6 +2268,52 @@ export default class GameScene extends Phaser.Scene {
       duration: 350, ease: 'Back.easeOut'
     });
     els.push(cardBg, cardText);
+
+    // --- Animated trail of dots from the instruction card to the target control.
+    // Strengthens the link between "what to press" (card) and "where it is" (spotlight).
+    // Only for phases with a concrete on-screen button target.
+    if (this._tutIsMobile && spotR > 0 && (phase === 1 || phase === 2 || phase === 4)) {
+      const srcX = gw / 2;
+      const srcY = cardY + cardH / 2;
+      const trailCount = 3;
+      for (let t = 0; t < trailCount; t++) {
+        const dot = this.add.circle(srcX, srcY, 5, spotColor, 1)
+          .setStrokeStyle(2, 0xffffff, 0.9)
+          .setDepth(294).setScrollFactor(0);
+        dot.setAlpha(0);
+        els.push(dot);
+        this.tweens.add({
+          targets: dot,
+          x: spotX, y: spotY,
+          alpha: { from: 0.95, to: 0 },
+          duration: 950,
+          delay: 900 + t * 280,
+          repeat: -1,
+          repeatDelay: trailCount * 280,
+          ease: 'Sine.easeIn',
+          onRepeat: () => { dot.setPosition(srcX, srcY); }
+        });
+      }
+
+      // Big bouncing "HERE" label just beside the spotlight
+      const hereOffsetY = spotY > gh / 2 ? -(spotR + 26) : (spotR + 26);
+      const here = this.add.text(spotX, spotY + hereOffsetY, 'HERE', {
+        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+        backgroundColor: '#000000aa', padding: { x: 6, y: 2 }
+      }).setOrigin(0.5).setDepth(295).setScrollFactor(0).setResolution(2);
+      here.setAlpha(0);
+      this.tweens.add({
+        targets: here, alpha: 1,
+        duration: 300, delay: 700
+      });
+      this.tweens.add({
+        targets: here, y: here.y + (hereOffsetY > 0 ? 4 : -4),
+        duration: 500, yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut', delay: 1000
+      });
+      els.push(here);
+    }
 
     // Hide all overlay elements from main cam
     els.forEach(el => this.cameras.main.ignore(el));
@@ -2523,6 +2572,7 @@ export default class GameScene extends Phaser.Scene {
   _showPaintCollectPopup() {
     const gw = this.scale.width;
     const gh = this.scale.height;
+    const isMobile = this._tutIsMobile;
     const cans = this.levelData.paintCans || [];
     if (cans.length === 0) return;
 
@@ -2543,24 +2593,39 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0).setDepth(295).setScrollFactor(0);
     els.push(dim);
 
-    // Popup card
-    const cardW = Math.min(gw - 40, 440);
-    const cardH = 180;
+    // Popup card — uses the popup_panel asset (includes its own shadow + radial highlight)
+    const cardW = Math.min(gw - 40, 460);
+    const cardH = 200;
     const cardX = gw / 2;
     const cardY = gh / 2;
-    const shadow = this.add.rectangle(cardX + 4, cardY + 6, cardW, cardH, 0x000000, 0.5)
-      .setDepth(296).setScrollFactor(0);
-    const card = this.add.rectangle(cardX, cardY, cardW, cardH, 0x0a0a1a, 0.96)
-      .setStrokeStyle(3, 0xffdd33, 1).setDepth(296).setScrollFactor(0);
-    els.push(shadow, card);
+    let card;
+    if (this.textures.exists('popup_panel')) {
+      card = this.add.image(cardX, cardY, 'popup_panel')
+        .setDisplaySize(cardW + 60, cardH + 40)  // asset has baked-in shadow padding
+        .setDepth(296).setScrollFactor(0);
+    } else {
+      card = this.add.rectangle(cardX, cardY, cardW, cardH, 0x0a0a1a, 0.96)
+        .setStrokeStyle(3, 0xffdd33, 1).setDepth(296).setScrollFactor(0);
+    }
+    // Accent outline ring to signal "tutorial popup"
+    const accent = this.add.rectangle(cardX, cardY, cardW, cardH, 0x000000, 0)
+      .setStrokeStyle(2, 0xffdd33, 0.55).setDepth(296).setScrollFactor(0);
+    els.push(card, accent);
 
-    // Title
-    const title = this.add.text(cardX, cardY - cardH / 2 + 28, t('tutCollectPaint'), {
-      fontFamily: 'Bungee, monospace', fontSize: '18px', fontStyle: 'bold',
+    // Title — platform-agnostic (both phrasings work contextually)
+    const title = this.add.text(cardX, cardY - cardH / 2 + 24,
+      t(isMobile ? 'tutCollectPaint' : 'tutCollectPaintDesktop'), {
+      fontFamily: 'Bungee, monospace', fontSize: '17px', fontStyle: 'bold',
       color: '#ffdd33', stroke: '#000000', strokeThickness: 3,
       align: 'center', wordWrap: { width: cardW - 30 }
     }).setOrigin(0.5).setDepth(297).setScrollFactor(0).setResolution(2);
-    els.push(title);
+    // Subtitle — specific to platform
+    const subtitle = this.add.text(cardX, cardY - cardH / 2 + 46,
+      t(isMobile ? 'tutPaintCollectSubMobile' : 'tutPaintCollectSubDesktop'), {
+      fontFamily: 'ChangaOne, Arial, sans-serif', fontSize: '12px',
+      color: '#ffeecc', stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(297).setScrollFactor(0).setResolution(2);
+    els.push(title, subtitle);
 
     // Row of color can icons
     const iconCount = cans.length;
@@ -2632,9 +2697,9 @@ export default class GameScene extends Phaser.Scene {
     els.push(footer);
 
     // Card entry animation
-    card.setScale(0.85); shadow.setScale(0.85);
+    card.setScale(0.85); accent.setScale(0.85);
     this.tweens.add({
-      targets: [card, shadow], scaleX: 1, scaleY: 1,
+      targets: [card, accent], scaleX: 1, scaleY: 1,
       duration: 300, ease: 'Back.easeOut'
     });
 
@@ -2664,33 +2729,62 @@ export default class GameScene extends Phaser.Scene {
     const els = [];
     this._addingHud = true;
 
+    // Hide the persistent "TUTORIAL x/N" HUD label while this popup is open
+    let _hudLabelWasVisible = false;
+    if (this._tutHudLabel && this._tutHudLabel.visible) {
+      _hudLabelWasVisible = true;
+      this._tutHudLabel.setVisible(false);
+    }
+
     // Dim backdrop
     const dim = this.add.rectangle(0, 0, gw, gh, 0x000000, 0.6)
       .setOrigin(0, 0).setDepth(295).setScrollFactor(0);
     els.push(dim);
 
-    // Card
-    const cardW = Math.min(gw - 40, 460);
-    const cardH = 220;
+    // Card — uses popup_panel asset (includes its own shadow + radial highlight)
+    // Keep the popup to ~60% of the available viewport so it never fills the screen.
+    // ENFORCED viewport margin — card never fills the screen.
+    // NOTE: popup_panel sprite is drawn at (cardW + 60) x (cardH + 40), so the
+    // +60/+40 overhang must be subtracted from the available width/height,
+    // otherwise the panel visually bleeds past the intended margin on small
+    // screens. Margins are also slightly generous to guarantee breathing room
+    // on sides / top / bottom.
+    const screenMarginX = Math.max(24, gw * 0.04);
+    const screenMarginY = Math.max(28, gh * 0.05);
+    const cardW = Math.min(gw - screenMarginX * 2, 768);
+    const cardH = Math.min(gh - screenMarginY * 2, 432);
     const cardX = gw / 2;
     const cardY = gh / 2;
-    const shadow = this.add.rectangle(cardX + 4, cardY + 6, cardW, cardH, 0x000000, 0.5)
-      .setDepth(296).setScrollFactor(0);
-    const card = this.add.rectangle(cardX, cardY, cardW, cardH, 0x0a0a1a, 0.96)
-      .setStrokeStyle(3, 0x3dccff, 1).setDepth(296).setScrollFactor(0);
-    els.push(shadow, card);
+    // Card drawn programmatically — rounded dark panel occupying the FULL
+    // cardW × cardH. This IS the popup (no popup_panel.png). Every element
+    // below is positioned relative to this rect.
+    const card = this.add.graphics().setDepth(295).setScrollFactor(0);
+    const cardRadius = 18;
+    const cardL_ = cardX - cardW / 2, cardT_ = cardY - cardH / 2;
+    // subtle outer glow
+    card.fillStyle(0x000000, 0.35);
+    card.fillRoundedRect(cardL_ - 6, cardT_ - 6, cardW + 12, cardH + 12, cardRadius + 4);
+    // main panel
+    card.fillStyle(0x0a0a14, 1);
+    card.fillRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
+    // thin cyan border
+    card.lineStyle(2, 0x3dccff, 0.85);
+    card.strokeRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
+    els.push(card);
 
-    // Title
-    const title = this.add.text(cardX, cardY - cardH / 2 + 26,
-      isMobile ? 'CONTROLS' : 'CONTROLS', {
-      fontFamily: 'Bungee, monospace', fontSize: '20px', fontStyle: 'bold',
-      color: '#3dccff', stroke: '#000000', strokeThickness: 3
-    }).setOrigin(0.5).setDepth(297).setScrollFactor(0).setResolution(2);
-    els.push(title);
+    // --- Typography zones (no title / subtitle / footer — illustrations speak for themselves) ---
+
+    // Real-screen positions of each control (mirror TouchControls.js layout)
+    const realPos = {
+      joystick: { x: 110, y: gh - 130, r: 48, color: 0xffdd33 },
+      jump:     { x: gw - 85, y: gh - 95, r: 58, color: 0x33ff88 },
+      act:      { x: gw - 85, y: gh - 225, r: 42, color: 0xffdd33 },
+      e:        { x: gw - 215, y: gh - 90, r: 40, color: 0xff8833 },
+    };
 
     // Row of control icons
     const rowY = cardY - 5;
-    const makeSlot = (x, builder, label, highlight = false) => {
+    const makeSlot = (x, builder, label, highlight = false, screenTarget = null, delay = 0) => {
       const slotR = 32;
       const bg = this.add.circle(x, rowY, slotR, 0x1a1a2e, 1)
         .setStrokeStyle(3, highlight ? 0xffdd33 : 0x3dccff, 1)
@@ -2714,146 +2808,449 @@ export default class GameScene extends Phaser.Scene {
         el.setScale(0);
         this.tweens.add({
           targets: el, scaleX: 1, scaleY: 1,
-          duration: 320, delay: 250,
+          duration: 320, delay: 250 + delay,
           ease: 'Back.easeOut'
         });
       });
       els.push(bg, ...items, lbl);
+
+      // --- Real-screen position marker: ring + label + animated trail from popup icon ---
+      if (screenTarget) {
+        const tx = screenTarget.x, ty = screenTarget.y;
+        const col = screenTarget.color;
+
+        // Bright fill so the control is visible above the dim backdrop
+        const realFill = this.add.circle(tx, ty, screenTarget.r, col, 0.18)
+          .setDepth(296).setScrollFactor(0);
+        realFill.setScale(0);
+        this.tweens.add({
+          targets: realFill, scaleX: 1, scaleY: 1,
+          duration: 400, delay: 400 + delay, ease: 'Back.easeOut'
+        });
+        els.push(realFill);
+
+        // Pulsing ring AT the actual control location on screen
+        const realRing = this.add.circle(tx, ty, screenTarget.r, col, 0)
+          .setStrokeStyle(4, col, 1)
+          .setDepth(297).setScrollFactor(0);
+        realRing.setScale(0);
+        this.tweens.add({
+          targets: realRing, scaleX: 1, scaleY: 1,
+          duration: 400, delay: 400 + delay,
+          ease: 'Back.easeOut'
+        });
+        this.tweens.add({
+          targets: realRing, alpha: { from: 1, to: 0.35 },
+          scaleX: { from: 1, to: 1.15 }, scaleY: { from: 1, to: 1.15 },
+          duration: 800, yoyo: true, repeat: -1,
+          ease: 'Sine.easeInOut', delay: 900 + delay
+        });
+
+        // Small "HERE" label near the control
+        const labelOffsetY = ty > gh / 2 ? -(screenTarget.r + 18) : (screenTarget.r + 18);
+        const realLbl = this.add.text(tx, ty + labelOffsetY, label, {
+          fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
+          color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+          backgroundColor: '#000000aa', padding: { x: 6, y: 2 }
+        }).setOrigin(0.5).setDepth(298).setScrollFactor(0).setResolution(2);
+        realLbl.setAlpha(0);
+        this.tweens.add({
+          targets: realLbl, alpha: 1,
+          duration: 350, delay: 600 + delay
+        });
+
+        // Animated dots that travel from the popup icon to the real control — a
+        // "trail" that makes the connection unmistakable.
+        const trail = [];
+        const trailCount = 3;
+        for (let t = 0; t < trailCount; t++) {
+          const dot = this.add.circle(x, rowY + slotR, 4, col, 1)
+            .setStrokeStyle(2, 0xffffff, 0.9)
+            .setDepth(297).setScrollFactor(0);
+          dot.setAlpha(0);
+          trail.push(dot);
+          els.push(dot);
+          this.tweens.add({
+            targets: dot,
+            x: tx, y: ty,
+            alpha: { from: 0.9, to: 0 },
+            duration: 900,
+            delay: 700 + delay + t * 250,
+            repeat: -1,
+            repeatDelay: trailCount * 250,
+            ease: 'Sine.easeIn',
+            onRepeat: () => { dot.setPosition(x, rowY + slotR); }
+          });
+        }
+
+        els.push(realRing, realLbl);
+      }
     };
 
-    if (isMobile) {
-      // Mobile: joystick (highlighted) + JUMP + ACT + E
-      const spacing = Math.min(88, (cardW - 60) / 4);
-      const startX = cardX - spacing * 1.5;
+    // ======================================================================
+    // REGION LAYOUT — explicit frame subdivision (canvas partitioned into
+    // three named frames; every element is bound to one frame and cannot
+    // float into a neighbouring frame).
+    // ----------------------------------------------------------------------
+    //   CARD (popup_panel)                                      depth 296
+    //     └─ BG LAYER          (tlo.png, fills content rect)    depth 296
+    //     └─ CONTENT LAYER     (padded inside card)             depth 297+
+    //           ├─ FRAME L   (40%)  joypad: ring + arrows + knob
+    //           ├─ FRAME M   (15%)  spacer / breathing gutter
+    //           └─ FRAME R   (45%)  illustration: walk/jump/ladder
+    // ======================================================================
+    // Inner padding — more breathing room on top and bottom so the joypad /
+    // illustration never touch the card's top or bottom edge.
+    // popup_panel.png has soft-shadow bleed before the hard frame. Account for
+    // it so content aligns to the VISIBLE frame, not the logical card rect.
+    // Card is now drawn programmatically — NO hidden shadow padding.
+    const panelShadowPctX = 0;
+    const panelShadowPctY = 0;
+    const panelInnerL = cardX - cardW / 2 + cardW * panelShadowPctX;
+    const panelInnerR = cardX + cardW / 2 - cardW * panelShadowPctX;
+    const panelInnerT = cardY - cardH / 2 + cardH * panelShadowPctY;
+    const panelInnerB = cardY + cardH / 2 - cardH * panelShadowPctY;
+    const panelInnerW = panelInnerR - panelInnerL;
+    const panelInnerH = panelInnerB - panelInnerT;
 
-      // Joystick icon
-      makeSlot(startX, (x, y) => {
-        const ring = this.add.circle(x, y, 18, 0xffffff, 0.15)
-          .setStrokeStyle(2, 0xffdd33, 0.9).setDepth(298).setScrollFactor(0);
-        const thumb = this.add.circle(x, y, 9, 0xffdd33, 0.9)
-          .setDepth(299).setScrollFactor(0);
-        // Animate thumb sliding left/right
-        this.tweens.add({
-          targets: thumb, x: x + 8,
-          duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 800
-        });
-        return [ring, thumb];
-      }, 'MOVE', true);
+    const contentPadX = 0;   // zero — joypad hugs the visible frame
+    const contentPadY = 0;   // zero — content fills full vertical space
+    const contentW    = panelInnerW - contentPadX * 2;
+    const contentH    = panelInnerH - contentPadY * 2;
+    const contentL    = panelInnerL + contentPadX;
+    const contentR    = panelInnerR - contentPadX;
+    const contentCy   = cardY;
 
-      // JUMP button
-      makeSlot(startX + spacing, (x, y) => {
-        return this.add.text(x, y, 'J', {
-          fontFamily: 'Bungee, monospace', fontSize: '20px', fontStyle: 'bold',
-          color: '#33ff88', stroke: '#003322', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-      }, 'JUMP');
+    // MIN_GAP — HARD visible breathing-space RULE between joypad and
+    // illustration. Aggressive: both columns must keep at least this much
+    // distance between their NEAREST bounding edges.
+    const MIN_GAP = Math.max(52, contentW * 0.22);
 
-      // ACT button (paint)
-      makeSlot(startX + spacing * 2, (x, y) => {
-        if (this.textures.exists('icon_spray')) {
-          return this.add.image(x, y, 'icon_spray')
-            .setDisplaySize(30, 30)
-            .setDepth(299).setScrollFactor(0);
-        }
-        return this.add.text(x, y, 'A', {
-          fontFamily: 'Bungee, monospace', fontSize: '18px', fontStyle: 'bold',
-          color: '#ffdd33', stroke: '#332200', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-      }, 'PAINT');
+    // Canvas split into TWO EQUAL HALVES with the MIN_GAP gutter centered
+    // between them — LEFT half = joypad, RIGHT half = illustration.
+    const frameMW  = MIN_GAP;                        // gutter == the rule
+    const frameLW  = (contentW - frameMW) * 0.5;
+    const frameRW  = (contentW - frameMW) * 0.5;
 
-      // E button (interact)
-      makeSlot(startX + spacing * 3, (x, y) => {
-        if (this.textures.exists('icon_hand')) {
-          return this.add.image(x, y, 'icon_hand')
-            .setDisplaySize(30, 30)
-            .setDepth(299).setScrollFactor(0);
-        }
-        return this.add.text(x, y, 'E', {
-          fontFamily: 'Bungee, monospace', fontSize: '20px', fontStyle: 'bold',
-          color: '#ff8833', stroke: '#331100', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-      }, 'GRAB');
-    } else {
-      // Desktop: arrow keys cluster + SPACE + E
-      const spacing = Math.min(100, (cardW - 60) / 3);
-      const startX = cardX - spacing;
+    const frameLL  = contentL;                       // LEFT frame: left edge
+    const frameLR  = frameLL + frameLW;              // LEFT frame: right edge
+    const frameML  = frameLR;                        // GUTTER: left edge
+    const frameMR  = frameML + frameMW;              // GUTTER: right edge
+    const frameRL  = frameMR;                        // RIGHT frame: left edge
+    const frameRR  = frameRL + frameRW;              // RIGHT frame: right edge
 
-      // Arrow keys (highlighted — it's the first station)
-      makeSlot(startX, (x, y) => {
-        const keyStyle = {
-          fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
-          color: '#ffdd33', stroke: '#000000', strokeThickness: 2
-        };
-        const L = this.add.text(x - 16, y, '←', keyStyle)
-          .setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-        const R = this.add.text(x + 16, y, '→', keyStyle)
-          .setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-        this.tweens.add({ targets: L, x: L.x - 3, duration: 500, yoyo: true, repeat: -1, delay: 800 });
-        this.tweens.add({ targets: R, x: R.x + 3, duration: 500, yoyo: true, repeat: -1, delay: 800 });
-        return [L, R];
-      }, 'MOVE', true);
+    // Size joypad / illustration to fit strictly inside their own frame with
+    // a small safety inset — nothing may cross into the GUTTER. With the
+    // clamps below the minimum edge-to-edge distance == MIN_GAP.
+    const frameInset = 0;
+    // Reduced fill ratios — joy shrunk 20% vs. previous, illo unchanged.
+    const joySize  = Math.min((frameLW - frameInset * 2) * 0.624, 88);
+    const illoSize = Math.min((frameRW - frameInset * 2) * 0.78, 130);
 
-      // SPACE — jump/paint
-      makeSlot(startX + spacing, (x, y) => {
-        return this.add.text(x, y, '␣', {
-          fontFamily: 'Bungee, monospace', fontSize: '22px', fontStyle: 'bold',
-          color: '#33ff88', stroke: '#003322', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-      }, 'JUMP / PAINT');
+    // LEFT frame: joypad nudged slightly right off the hard-left edge.
+    const leftX  = Math.min(
+      frameLL + joySize * 0.65,
+      frameLR - joySize * 0.5
+    );
+    const leftY  = contentCy + contentH * 0.28;
+    // RIGHT frame: illustration pushed LEFT toward the gutter (not the
+    // column's right edge), but clamped so it doesn't cross into the gutter.
+    const rightX = Math.max(
+      frameRL + illoSize * 0.5 + 4,
+      frameRL + illoSize * 0.5
+    );
+    const rightY = contentCy - contentH * 0.02;
 
-      // E
-      makeSlot(startX + spacing * 2, (x, y) => {
-        return this.add.text(x, y, 'E', {
-          fontFamily: 'Bungee, monospace', fontSize: '22px', fontStyle: 'bold',
-          color: '#ff8833', stroke: '#331100', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-      }, 'GRAB');
+    // Runtime assertion — the gap between the nearest bounding edges must be
+    // at least MIN_GAP. If any future change violates this, it's a bug.
+    const _actualGap = (rightX - illoSize * 0.5) - (leftX + joySize * 0.5);
+    if (_actualGap < MIN_GAP - 0.5) {
+      console.warn('[tutorial popup] joypad↔illustration gap', _actualGap, '< MIN_GAP', MIN_GAP);
     }
 
-    // Footer hint
-    const footer = this.add.text(cardX, cardY + cardH / 2 - 22,
-      isMobile ? 'TAP TO CONTINUE' : 'PRESS ANY KEY', {
-      fontFamily: 'Bungee, monospace', fontSize: '12px', fontStyle: 'bold',
-      color: '#88ccff', stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-    this.tweens.add({
-      targets: footer, alpha: { from: 0.5, to: 1 },
-      duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-    });
-    els.push(footer);
+    // Runtime containment check — verify each element is INSIDE its column.
+    const assertInside = (name, cx, cy, w, h, colL, colR) => {
+      const L = cx - w / 2, R = cx + w / 2;
+      const T = cy - h / 2, B = cy + h / 2;
+      const contentT = contentCy - contentH / 2;
+      const contentB = contentCy + contentH / 2;
+      const ok = L >= colL - 0.5 && R <= colR + 0.5 && T >= contentT - 0.5 && B <= contentB + 0.5;
+      if (!ok) {
+        console.warn(`[tutorial popup] ${name} escapes its column`, { L, R, T, B, colL, colR, contentT, contentB });
+      }
+      return ok;
+    };
+    // (checked for each element at creation below via this helper)
+    this._assertTutInside = assertInside;
+
+    // Back-compat aliases (older refs below still use these names)
+    const leftColL = frameLL, leftColR = frameLR;
+    const rightColL = frameRL, rightColR = frameRR;
+    const colW = Math.max(frameLW, frameRW);
+
+    const fadeIn = (el, delay = 0, dur = 380) => {
+      el.setAlpha(0);
+      el.setScale(0.7);
+      this.tweens.add({
+        targets: el, alpha: 1, scaleX: 1, scaleY: 1,
+        duration: dur, delay, ease: 'Back.easeOut'
+      });
+      els.push(el);
+      return el;
+    };
+    const fadeOut = (el, delay = 0, dur = 350) => {
+      this.tweens.add({
+        targets: el, alpha: 0,
+        duration: dur, delay, ease: 'Sine.easeIn'
+      });
+    };
+
+    // ─── BG LAYER ─── merged into `card` above (the drawn panel IS the bg).
+    // Nothing extra drawn here — elements sit directly on the card.
+
+    // --- LEFT-BOTTOM area: joypad composite (ring + knob built first) ---
+    // T=350 — ring
+    let ring = null, knob = null;
+    if (this.textures.exists('tut_ring')) {
+      ring = this.add.image(leftX, leftY, 'tut_ring')
+        .setDisplaySize(joySize, joySize)
+        .setDepth(297).setScrollFactor(0);
+      fadeIn(ring, 350);
+    }
+    // T=650 — knob lands on top of ring (depth 310 → always above arrows)
+    if (this.textures.exists('tut_knob')) {
+      knob = this.add.image(leftX, leftY, 'tut_knob')
+        .setDisplaySize(joySize * 0.42, joySize * 0.42)
+        .setDepth(310).setScrollFactor(0);
+      fadeIn(knob, 650);
+    }
+
+    // T=1100 — left/right arrows (strzałki.png) flank the knob
+    let arrowsLR = null;
+    if (this.textures.exists('tut_arrows_lr')) {
+      arrowsLR = this.add.image(leftX, leftY, 'tut_arrows_lr')
+        .setDisplaySize(joySize * 0.72, joySize * 0.32)
+        .setDepth(298).setScrollFactor(0);
+      fadeIn(arrowsLR, 1100, 400);
+    }
+
+    // T=1100 — RIGHT: walk.png appears as "what L/R does"
+    let rightIllo = null;
+    if (this.textures.exists('tut_walk')) {
+      rightIllo = this.add.image(rightX, rightY, 'tut_walk')
+        .setDisplaySize(illoSize * 1.0, illoSize * 0.48)
+        .setDepth(298).setScrollFactor(0);
+      fadeIn(rightIllo, 1100, 400);
+    }
+
+    // (Connector arrow removed — illustrations speak on their own.)
+
+    // Knob wiggle — starts L/R, switches to UP/DOWN on step 1 (jump)
+    let knobWiggle = null;
+    const startKnobWiggleLR = () => {
+      if (!knob) return;
+      if (knobWiggle) { try { knobWiggle.stop(); } catch(e) {} }
+      knob.x = leftX; knob.y = leftY;
+      knobWiggle = this.tweens.add({
+        targets: knob, x: leftX + 10,
+        duration: 550, yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    };
+    const startKnobWiggleUD = () => {
+      if (!knob) return;
+      if (knobWiggle) { try { knobWiggle.stop(); } catch(e) {} }
+      knob.x = leftX; knob.y = leftY;
+      knobWiggle = this.tweens.add({
+        targets: knob, y: leftY - 12,
+        duration: 500, yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    };
+    if (knob) this.time.delayedCall(1300, startKnobWiggleLR);
+
+    // Walk sprite bob (persistent, loop)
+    if (rightIllo) {
+      this.tweens.add({
+        targets: rightIllo, y: rightY - 4,
+        duration: 500, yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut', delay: 1400
+      });
+    }
+
+    // --- User-driven step advancement ---
+    // Step 0 (initial): walk illustration + L/R arrows.
+    // Step 1: up arrow (strzałka.png) appears + swap walk → jump.
+    // Step 2: swap jump → ladder.
+    // Step 3: close popup.
+    let upArrow = null;
+    const swapRightTo = (key) => {
+      if (!this.textures.exists(key)) return;
+      if (rightIllo && rightIllo.active) {
+        fadeOut(rightIllo, 0, 200);
+        const prev = rightIllo;
+        this.time.delayedCall(220, () => { if (prev && prev.active) prev.destroy(); });
+      }
+      this._addingHud = true;
+      const dims = key === 'tut_ladder'
+        ? { w: illoSize * 0.7,  h: illoSize * 0.95 }
+        : key === 'tut_jump'
+        ? { w: illoSize * 1.0,  h: illoSize * 0.75 }
+        : { w: illoSize * 0.95, h: illoSize * 0.8 };
+      const ni = this.add.image(rightX, rightY, key)
+        .setDisplaySize(dims.w, dims.h)
+        .setDepth(298).setScrollFactor(0);
+      this._addingHud = false;
+      try { this.cameras.main.ignore(ni); } catch(e) {}
+      ni.setAlpha(0); ni.setScale(0.7);
+      this.tweens.add({
+        targets: ni, alpha: 1, scaleX: 1, scaleY: 1,
+        duration: 360, ease: 'Back.easeOut'
+      });
+      if (key === 'tut_jump') {
+        this.tweens.add({
+          targets: ni, y: rightY - 12,
+          duration: 380, yoyo: true, repeat: -1,
+          ease: 'Sine.easeOut', delay: 400
+        });
+      }
+      rightIllo = ni;
+      els.push(ni);
+    };
+
+    const showUpArrow = () => {
+      if (upArrow || !this.textures.exists('tut_arrow')) return;
+      this._addingHud = true;
+      // Clamp vertically so up-arrow STAYS inside FRAME L (content rect top)
+      const upArrowH = joySize * 0.38;
+      const desiredY = leftY - joySize * 1.85;
+      const minY = contentCy - contentH / 2 + upArrowH / 2 + 2;
+      const upArrowY = Math.max(desiredY, minY);
+      upArrow = this.add.image(leftX, upArrowY, 'tut_arrow')
+        .setDisplaySize(joySize * 0.34, upArrowH)
+        .setDepth(305).setScrollFactor(0);
+      this._addingHud = false;
+      try { this.cameras.main.ignore(upArrow); } catch(e) {}
+      upArrow.setAlpha(0); upArrow.setScale(0.7);
+      this.tweens.add({
+        targets: upArrow, alpha: 1, scaleX: 1, scaleY: 1,
+        duration: 380, ease: 'Back.easeOut'
+      });
+      this.tweens.add({
+        targets: upArrow, y: upArrow.y - 8,
+        duration: 450, yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut', delay: 500
+      });
+      els.push(upArrow);
+    };
+
+    // (Real-screen yellow indicator removed — the actual TouchControls
+    // joystick already sits at its real position; no ghost marker needed.)
+
+    // (Footer dismiss hint removed — popup closes on any user input.)
 
     // Card entry animation
-    card.setScale(0.85); shadow.setScale(0.85);
+    card.setScale(0.85);
     this.tweens.add({
-      targets: [card, shadow], scaleX: 1, scaleY: 1,
+      targets: [card], scaleX: 1, scaleY: 1,
       duration: 300, ease: 'Back.easeOut'
     });
 
     els.forEach(el => this.cameras.main.ignore(el));
     this._addingHud = false;
 
-    // Dismissal: tap/click/any key, or auto after 5s
+    // --- Step progression UNLOCKED by PERFORMING the shown move ---
+    // Step 0 (initial): walk illustration + joypad with L/R arrows
+    //   → to advance: press LEFT or RIGHT (← / → / A / D, or joystick left/right)
+    // Step 1: up arrow + jump.png
+    //   → to advance: press UP / SPACE (or joystick up / jump button)
+    // Step 2: ladder.png
+    //   → to advance: press UP (or joystick up)
+    // Step 3: close popup
     let dismissed = false;
+    let step = 0;
+    let inputLocked = true;
+    let pollEvent = null;
+    let keyHandler = null;
+
     const dismiss = () => {
       if (dismissed) return;
       dismissed = true;
-      try { this.input.off('pointerdown', dismiss); } catch (e) {}
-      try { this.input.keyboard && this.input.keyboard.off('keydown', dismiss); } catch (e) {}
+      if (pollEvent) { try { pollEvent.remove(false); } catch(e) {} pollEvent = null; }
+      if (keyHandler && this.input.keyboard) {
+        try { this.input.keyboard.off('keydown', keyHandler); } catch(e) {}
+      }
       this.tweens.add({
         targets: els.filter(e => e.active), alpha: 0,
         duration: 350,
         onComplete: () => {
           els.forEach(e => { if (e.active) e.destroy(); });
+          if (_hudLabelWasVisible && this._tutHudLabel && this._tutHudLabel.scene) {
+            this._tutHudLabel.setVisible(true);
+          }
           onDone && onDone();
         }
       });
     };
-    // Small delay before accepting dismissal so the player can see it
-    this.time.delayedCall(450, () => {
-      this.input.once('pointerdown', dismiss);
-      if (this.input.keyboard) this.input.keyboard.once('keydown', dismiss);
+
+    const advance = () => {
+      if (dismissed || inputLocked) return;
+      inputLocked = true;
+      step += 1;
+      if (step === 1) {
+        showUpArrow();
+        swapRightTo('tut_jump');
+        startKnobWiggleUD();
+        this.time.delayedCall(550, () => { inputLocked = false; });
+      } else if (step === 2) {
+        swapRightTo('tut_ladder');
+        startKnobWiggleUD();
+        this.time.delayedCall(550, () => { inputLocked = false; });
+      } else {
+        dismiss();
+      }
+    };
+
+    // What counts as "correct input" at the current step?
+    const checkKey = (code) => {
+      if (!code) return false;
+      const c = String(code).toLowerCase();
+      const isLeft  = c === 'arrowleft'  || c === 'keya' || c === 'left'  || c === 'a';
+      const isRight = c === 'arrowright' || c === 'keyd' || c === 'right' || c === 'd';
+      const isUp    = c === 'arrowup'    || c === 'keyw' || c === 'up'    || c === 'w' || c === 'space' || c === ' ';
+      if (step === 0) return isLeft || isRight;
+      if (step === 1) return isUp;
+      if (step === 2) return isUp;
+      return false;
+    };
+
+    const checkTouch = () => {
+      const t = this.touch;
+      if (!t) return false;
+      if (step === 0) return !!(t.left || t.right);
+      if (step === 1) return !!(t.up || t._jumpJustPressed);
+      if (step === 2) return !!t.up;
+      return false;
+    };
+
+    // After grace period, start listening for the CORRECT input
+    this.time.delayedCall(1700, () => {
+      inputLocked = false;
+
+      keyHandler = (ev) => {
+        if (checkKey(ev.code || ev.key)) advance();
+      };
+      if (this.input.keyboard) this.input.keyboard.on('keydown', keyHandler);
+
+      // Poll touch controls every 60ms
+      pollEvent = this.time.addEvent({
+        delay: 60, loop: true,
+        callback: () => {
+          if (dismissed) return;
+          if (checkTouch()) advance();
+        }
+      });
     });
-    this.time.delayedCall(6000, dismiss);
   }
 
   updateTutorial(delta) {

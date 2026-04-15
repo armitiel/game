@@ -126,6 +126,17 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('icon_puzzle', 'assets/sprites/UI/puzle.png');
     this.load.image('icon_tower', 'assets/sprites/UI/tower.png');
     this.load.image('icon_tutorial', 'assets/sprites/UI/tutorial_icon.png');
+    this.load.image('popup_panel',   'assets/sprites/UI/popup_panel.png');
+
+    // Tutorial illustrations (cartoon white + dark outline style)
+    this.load.image('tut_bg',         'assets/sprites/UI/tutorial/tlo.png');
+    this.load.image('tut_knob',       'assets/sprites/UI/tutorial/galka.png');
+    this.load.image('tut_ring',       'assets/sprites/UI/tutorial/okrag.png');
+    this.load.image('tut_arrow',      'assets/sprites/UI/tutorial/strzałka.png');
+    this.load.image('tut_arrows_lr',  'assets/sprites/UI/tutorial/strzałki.png');
+    this.load.image('tut_walk',       'assets/sprites/UI/tutorial/walk.png');
+    this.load.image('tut_jump',       'assets/sprites/UI/tutorial/jump.png');
+    this.load.image('tut_ladder',     'assets/sprites/UI/tutorial/drabina.png');
 
     // === 9-slice card frame (blue base, tintable) ===
     this.load.image('frame_tl', 'assets/sprites/UI/frame/frame_tl.png');

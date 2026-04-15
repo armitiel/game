@@ -61,6 +61,20 @@ const translations = {
     tutLadderE: 'Drabina ↑↓ | E = kosz',
     tutCollectPaint: 'Przejdz obok puszek by je zebrac!',
     tutPaintACT: 'Podejdz do muralu i nacisnij ACT!',
+    tutControlsTitleMobile: 'STEROWANIE DOTYKOWE',
+    tutControlsTitleDesktop: 'KLAWIATURA',
+    tutControlsSubMobile: 'Uzyj tych przyciskow na ekranie',
+    tutControlsSubDesktop: 'Graj klawiatura',
+    tutDismissMobile: 'DOTKNIJ BY KONTYNUOWAC',
+    tutDismissDesktop: 'NACISNIJ DOWOLNY KLAWISZ',
+    tutPaintCollectSubMobile: 'Podejdz do kazdej puszki',
+    tutPaintCollectSubDesktop: 'Przejdz obok puszek by zebrac',
+    // Tutorial sign labels (world-space pickups)
+    tutSignMove: 'RUCH',
+    tutSignJump: 'SKOK',
+    tutSignLadder: 'DRABINA',
+    tutSignCollect: 'ZBIERZ',
+    tutSignPaint: 'MALUJ',
 
     // Game — tutorial overlays (desktop)
     tutMove: 'poruszanie',
@@ -180,6 +194,20 @@ const translations = {
     tutLadderE: 'Ladder ↑↓ | E = crate',
     tutCollectPaint: 'Walk near the cans to collect them!',
     tutPaintACT: 'Approach the mural and press ACT!',
+    tutControlsTitleMobile: 'TOUCH CONTROLS',
+    tutControlsTitleDesktop: 'KEYBOARD',
+    tutControlsSubMobile: 'Use these on-screen buttons',
+    tutControlsSubDesktop: 'Play with your keyboard',
+    tutDismissMobile: 'TAP TO CONTINUE',
+    tutDismissDesktop: 'PRESS ANY KEY',
+    tutPaintCollectSubMobile: 'Walk up to each can',
+    tutPaintCollectSubDesktop: 'Walk near the cans to collect',
+    // Tutorial sign labels (world-space pickups)
+    tutSignMove: 'MOVE',
+    tutSignJump: 'JUMP',
+    tutSignLadder: 'LADDER',
+    tutSignCollect: 'COLLECT',
+    tutSignPaint: 'PAINT',
 
     // Game — tutorial overlays (desktop)
     tutMove: 'movement',
