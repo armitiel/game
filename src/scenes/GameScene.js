@@ -1836,7 +1836,7 @@ export default class GameScene extends Phaser.Scene {
     // Show first hint immediately, but delay control overlay until after the
     // controls intro popup so the player isn't hit with too much at once.
     this._showTutorialHint(0);
-    this._showControlsIntroPopup(() => {
+    this._showTutStepPopup('walk', () => {
       this._showTutorialOverlay(0);
     });
 
@@ -2341,9 +2341,12 @@ export default class GameScene extends Phaser.Scene {
     const panelH = 60;
     const panelY = gh - panelH;
     const cy = panelY + panelH / 2;
-    const panel = this.add.rectangle(gw / 2, cy, gw * 0.5, panelH, 0x000000, 0.6)
-      .setDepth(290).setScrollFactor(0);
-    els.push(panel);
+    const panelW = gw * 0.5;
+    const panelRadius = 14;
+    const panelGfx = this.add.graphics().setDepth(290).setScrollFactor(0);
+    panelGfx.fillStyle(0x000000, 0.6);
+    panelGfx.fillRoundedRect(gw / 2 - panelW / 2, cy - panelH / 2, panelW, panelH, panelRadius);
+    els.push(panelGfx);
 
     // Helper: draw a keyboard key icon
     const drawKey = (x, y, label, highlight) => {
@@ -2377,31 +2380,23 @@ export default class GameScene extends Phaser.Scene {
       drawKey(baseX - 20, cy, '←', false);
       drawKey(baseX + 20, cy, '→', false);
       drawKey(baseX + 70, cy, '↑', true);
-      drawKey(baseX + 130, cy, 'SPACE', true);
-      const desc = this.add.text(baseX + 180, cy, t('tutJumpWord'), {
+      const desc = this.add.text(baseX + 110, cy, t('tutJumpWord'), {
         fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
         color: '#ffffff', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
     } else if (phase === 2) {
-      drawKey(baseX - 20, cy, '↑', true);
-      drawKey(baseX + 20, cy, '↓', true);
-      const lbl1 = this.add.text(baseX + 50, cy, t('tutLadder'), {
-        fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
+      // Ladder only — centered on screen
+      const cx2 = gw / 2;
+      drawKey(cx2 - 30, cy, '↑', true);
+      drawKey(cx2 + 10, cy, '↓', true);
+      const lbl1 = this.add.text(cx2 + 44, cy, t('tutLadder'), {
+        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
         color: '#ffaa33', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      drawKey(baseX + 120, cy, 'E', true);
-      const lbl2 = this.add.text(baseX + 145, cy, t('tutPushCrate'), {
-        fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
-        color: '#ffaa33', stroke: '#000000', strokeThickness: 2
-      }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      els.push(lbl1, lbl2);
+      els.push(lbl1);
     } else if (phase === 3) {
-      const desc = this.add.text(gw / 2, cy, t('tutCollectPaintDesktop'), {
-        fontFamily: 'Bungee, monospace', fontSize: '14px', fontStyle: 'bold',
-        color: '#ffdd33', stroke: '#332200', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(291).setScrollFactor(0).setResolution(2);
-      els.push(desc);
+      // Text shown inside popup card — no duplicate bottom text needed
     } else if (phase === 4) {
       drawKey(gw / 2 - 30, cy, 'SPACE', true);
       const desc = this.add.text(gw / 2 + 20, cy, t('tutPaintMural'), {
@@ -2505,8 +2500,18 @@ export default class GameScene extends Phaser.Scene {
                 if (p2 >= 1) {
                   cam.startFollow(this.player, true, 0.1, 0.1);
                   this._tutTransitioning = false;
-                  // Show overlay after camera returns to player
-                  this._showTutorialOverlay(newPhase);
+                  // Show per-step popup before the overlay for jump/ladder phases
+                  if (newPhase === 1) {
+                    this._showTutStepPopup('jump', () => {
+                      this._showTutorialOverlay(newPhase);
+                    });
+                  } else if (newPhase === 2) {
+                    this._showTutStepPopup('ladder', () => {
+                      this._showTutorialOverlay(newPhase);
+                    });
+                  } else {
+                    this._showTutorialOverlay(newPhase);
+                  }
                 }
               });
             }
@@ -2523,19 +2528,43 @@ export default class GameScene extends Phaser.Scene {
    * Calls onDone() when the tour is complete.
    */
   _tourPaintCans(onDone) {
+    this._tutPopupActive = true;
     const cans = this.levelData.paintCans || [];
-    if (cans.length === 0) { onDone && onDone(); return; }
+    if (cans.length === 0) { this._tutPopupActive = false; onDone && onDone(); return; }
 
     const cam = this.cameras.main;
+    const gw = this.scale.width;
+    const gh = this.scale.height;
+    const colorMap = {
+      red: 0xff3344, blue: 0x3388ff, yellow: 0xffdd33,
+      green: 0x33ff88, black: 0x1a1319,
+    };
 
     const visit = (i) => {
-      if (i >= cans.length) { onDone && onDone(); return; }
+      if (i >= cans.length) { this._tutPopupActive = false; onDone && onDone(); return; }
       const c = cans[i];
+      const hex = colorMap[c.color] || 0xffffff;
       cam.pan(c.x, c.y - 20, 650, 'Sine.easeInOut', false, (_cam, p) => {
         if (p < 1) return;
-        // Colored dots (ring/glow/badge) intentionally hidden per request —
-        // just pan to each can and move on.
-        this._addingHud = false;
+        // Star sparkle burst behind the can in the can's color
+        for (let s = 0; s < 18; s++) {
+          const innerR = Phaser.Math.Between(2, 5);
+          const outerR = Phaser.Math.Between(5, 10);
+          const sx = c.x + Phaser.Math.Between(-16, 16);
+          const sy = c.y + Phaser.Math.Between(-16, 16);
+          const star = this.add.star(sx, sy, 5, innerR, outerR, hex, 1)
+            .setDepth(10);
+          star.setStrokeStyle(1.5, hex, 1);
+          this.tweens.add({
+            targets: star,
+            x: star.x + Phaser.Math.Between(-40, 40),
+            y: star.y + Phaser.Math.Between(-50, -10),
+            alpha: 0, scale: 0.3,
+            angle: Phaser.Math.Between(-180, 180),
+            duration: Phaser.Math.Between(350, 700),
+            onComplete: () => star.destroy()
+          });
+        }
         this.time.delayedCall(950, () => visit(i + 1));
       });
     };
@@ -2546,11 +2575,12 @@ export default class GameScene extends Phaser.Scene {
    * Popup with color icons showing which paint cans to collect.
    */
   _showPaintCollectPopup() {
+    this._tutPopupActive = true;
     const gw = this.scale.width;
     const gh = this.scale.height;
     const isMobile = this._tutIsMobile;
     const cans = this.levelData.paintCans || [];
-    if (cans.length === 0) return;
+    if (cans.length === 0) { this._tutPopupActive = false; return; }
 
     const colorMap = {
       red: 0xff3344, blue: 0x3388ff, yellow: 0xffdd33,
@@ -2569,44 +2599,29 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0).setDepth(295).setScrollFactor(0);
     els.push(dim);
 
-    // Popup card — uses the popup_panel asset (includes its own shadow + radial highlight)
-    const cardW = Math.min(gw - 40, 460);
-    const cardH = 200;
+    // Popup card — compact, no yellow border
+    const iconCount = cans.length;
+    const iconSpace = Math.min(80, 320 / iconCount);
+    const rowWidth = iconSpace * (iconCount - 1) + 60;
+    const cardW = Math.min(gw - 40, Math.max(rowWidth + 120, 380));
+    const cardH = 190;
     const cardX = gw / 2;
     const cardY = gh / 2;
-    let card;
-    if (this.textures.exists('popup_panel')) {
-      card = this.add.image(cardX, cardY, 'popup_panel')
-        .setDisplaySize(cardW + 60, cardH + 40)  // asset has baked-in shadow padding
-        .setDepth(296).setScrollFactor(0);
-    } else {
-      card = this.add.rectangle(cardX, cardY, cardW, cardH, 0x0a0a1a, 0.96)
-        .setStrokeStyle(3, 0xffdd33, 1).setDepth(296).setScrollFactor(0);
-    }
-    // Accent outline ring to signal "tutorial popup"
-    const accent = this.add.rectangle(cardX, cardY, cardW, cardH, 0x000000, 0)
-      .setStrokeStyle(2, 0xffdd33, 0.55).setDepth(296).setScrollFactor(0);
-    els.push(card, accent);
+    const card = this.add.rectangle(cardX, cardY, cardW, cardH, 0x0a0a14, 0.96)
+      .setStrokeStyle(2, 0x1a1a22, 1).setDepth(296).setScrollFactor(0);
+    els.push(card);
 
-    // Title — platform-agnostic (both phrasings work contextually)
-    const title = this.add.text(cardX, cardY - cardH / 2 + 24,
-      t(isMobile ? 'tutCollectPaint' : 'tutCollectPaintDesktop'), {
-      fontFamily: 'Bungee, monospace', fontSize: '17px', fontStyle: 'bold',
+    // Single title line
+    const title = this.add.text(cardX, cardY - cardH / 2 + 22,
+      'ZBIERZ WSZYSTKIE POTRZEBNE KOLORY', {
+      fontFamily: 'Bungee, monospace', fontSize: '15px', fontStyle: 'bold',
       color: '#ffdd33', stroke: '#000000', strokeThickness: 3,
       align: 'center', wordWrap: { width: cardW - 30 }
     }).setOrigin(0.5).setDepth(297).setScrollFactor(0).setResolution(2);
-    // Subtitle — specific to platform
-    const subtitle = this.add.text(cardX, cardY - cardH / 2 + 46,
-      t(isMobile ? 'tutPaintCollectSubMobile' : 'tutPaintCollectSubDesktop'), {
-      fontFamily: 'ChangaOne, Arial, sans-serif', fontSize: '12px',
-      color: '#ffeecc', stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(297).setScrollFactor(0).setResolution(2);
-    els.push(title, subtitle);
+    els.push(title);
 
     // Row of color can icons
-    const iconCount = cans.length;
-    const iconSpace = Math.min(80, (cardW - 60) / iconCount);
-    const rowY = cardY + 15;
+    const rowY = cardY + 10;
     const rowStartX = cardX - (iconSpace * (iconCount - 1)) / 2;
     cans.forEach((c, i) => {
       const iconX = rowStartX + i * iconSpace;
@@ -2673,9 +2688,9 @@ export default class GameScene extends Phaser.Scene {
     els.push(footer);
 
     // Card entry animation
-    card.setScale(0.85); accent.setScale(0.85);
+    card.setScale(0.85);
     this.tweens.add({
-      targets: [card, accent], scaleX: 1, scaleY: 1,
+      targets: [card], scaleX: 1, scaleY: 1,
       duration: 300, ease: 'Back.easeOut'
     });
 
@@ -2687,17 +2702,211 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({
         targets: els.filter(e => e.active), alpha: 0,
         duration: 500,
-        onComplete: () => els.forEach(e => { if (e.active) e.destroy(); })
+        onComplete: () => {
+          els.forEach(e => { if (e.active) e.destroy(); });
+          this._tutPopupActive = false;
+        }
       });
     });
   }
 
   /**
-   * First-station popup: show the primary controls with icons.
-   * Mobile: joystick + action buttons preview. Desktop: arrow keys + SPACE + E.
-   * Calls onDone() when dismissed so the spotlight overlay can follow.
+   * Per-step tutorial popup. Shows ONE control at a time:
+   *  'walk'   → joystick L/R + walk illustration (dismiss on L/R input)
+   *  'jump'   → joystick UP  + jump illustration (dismiss on UP input)
+   *  'ladder' → joystick UP  + ladder illustration (dismiss on UP input)
+   */
+  _showTutStepPopup(stepType, onDone) {
+    this._tutPopupActive = true;
+    const gw = this.scale.width;
+    const gh = this.scale.height;
+    const els = [];
+    this._addingHud = true;
+
+    // Hide HUD label
+    let _hudLabelWasVisible = false;
+    if (this._tutHudLabel && this._tutHudLabel.visible) {
+      _hudLabelWasVisible = true;
+      this._tutHudLabel.setVisible(false);
+    }
+
+    // Dim backdrop
+    const dim = this.add.rectangle(0, 0, gw, gh, 0x000000, 0.6)
+      .setOrigin(0, 0).setDepth(295).setScrollFactor(0);
+    els.push(dim);
+
+    // Card
+    const screenMarginX = Math.max(24, gw * 0.04);
+    const screenMarginY = Math.max(28, gh * 0.05);
+    const cardW = Math.min(gw - screenMarginX * 2, 768);
+    const cardH = Math.min(gh - screenMarginY * 2, 432);
+    const cardX = gw / 2;
+    const cardY = gh / 2;
+    const card = this.add.graphics().setDepth(295).setScrollFactor(0);
+    const cardRadius = 18;
+    const cardL_ = cardX - cardW / 2, cardT_ = cardY - cardH / 2;
+    card.fillStyle(0x000000, 0.35);
+    card.fillRoundedRect(cardL_ - 6, cardT_ - 6, cardW + 12, cardH + 12, cardRadius + 4);
+    card.fillStyle(0x0a0a14, 1);
+    card.fillRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
+    card.lineStyle(2, 0x2a2a34, 0.85);
+    card.strokeRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
+    els.push(card);
+
+    // Layout — same split as original popup
+    const contentW = cardW;
+    const contentH = cardH;
+    const contentCy = cardY;
+    const MIN_GAP = Math.max(52, contentW * 0.22);
+    const frameMW = MIN_GAP;
+    const frameLW = (contentW - frameMW) * 0.5;
+    const frameLL = cardX - cardW / 2;
+    const frameLR = frameLL + frameLW;
+    const frameRL = frameLR + frameMW;
+
+    const joySize = Math.min(frameLW * 0.82, 150);
+    const illoSize = Math.min(((contentW - frameMW) * 0.5) * 0.9, 200);
+
+    const leftX = frameLL + frameLW * 0.5;
+    const leftY = contentCy + contentH * 0.15;
+    const rightX = frameRL + ((contentW - frameMW) * 0.5) * 0.5;
+    const rightY = contentCy;
+
+    // Alpha-only fade helper
+    const alphaIn = (el, delay = 0, dur = 350) => {
+      el.setAlpha(0);
+      this.tweens.add({ targets: el, alpha: 1, duration: dur, delay, ease: 'Sine.easeOut' });
+      els.push(el);
+    };
+
+    // Joystick ring + knob (always shown)
+    if (this.textures.exists('tut_ring')) {
+      const ring = this.add.image(leftX, leftY, 'tut_ring')
+        .setDisplaySize(joySize, joySize).setDepth(297).setScrollFactor(0);
+      alphaIn(ring, 300);
+    }
+    let knob = null;
+    if (this.textures.exists('tut_knob')) {
+      knob = this.add.image(leftX, leftY, 'tut_knob')
+        .setDisplaySize(joySize * 0.38, joySize * 0.38).setDepth(310).setScrollFactor(0);
+      alphaIn(knob, 500);
+    }
+
+    // Step-specific arrows + knob wiggle
+    if (stepType === 'walk') {
+      // L/R arrows
+      if (this.textures.exists('tut_arrows_lr')) {
+        const arrowsLR = this.add.image(leftX, leftY, 'tut_arrows_lr')
+          .setDisplaySize(joySize * 0.85, joySize * 0.38).setDepth(298).setScrollFactor(0);
+        alphaIn(arrowsLR, 800, 400);
+      }
+      // Knob wiggle L/R
+      if (knob) {
+        this.time.delayedCall(900, () => {
+          if (knob && knob.active) {
+            this.tweens.add({ targets: knob, x: leftX + 14, duration: 550, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          }
+        });
+      }
+    } else {
+      // UP arrow for jump/ladder
+      if (this.textures.exists('tut_arrow')) {
+        const upArrowH = joySize * 0.35;
+        const desiredY = leftY - joySize * 0.85;
+        const minY = contentCy - contentH / 2 + upArrowH / 2 + 8;
+        const upArrowY = Math.max(desiredY, minY);
+        const upArrow = this.add.image(leftX, upArrowY, 'tut_arrow')
+          .setDisplaySize(joySize * 0.3, upArrowH).setDepth(305).setScrollFactor(0);
+        alphaIn(upArrow, 800, 380);
+        this.tweens.add({ targets: upArrow, y: upArrow.y - 10, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1300 });
+      }
+      // Knob wiggle UP
+      if (knob) {
+        this.time.delayedCall(900, () => {
+          if (knob && knob.active) {
+            this.tweens.add({ targets: knob, y: leftY - 16, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          }
+        });
+      }
+    }
+
+    // Right illustration
+    const illoKey = stepType === 'walk' ? 'tut_walk' : stepType === 'jump' ? 'tut_jump' : 'tut_ladder';
+    if (this.textures.exists(illoKey)) {
+      const dims = illoKey === 'tut_ladder'
+        ? { w: illoSize * 0.75, h: illoSize * 1.0 }
+        : illoKey === 'tut_jump'
+        ? { w: illoSize * 1.0, h: illoSize * 0.8 }
+        : { w: illoSize * 1.0, h: illoSize * 0.55 };
+      const illo = this.add.image(rightX, rightY, illoKey)
+        .setDisplaySize(dims.w, dims.h).setDepth(298).setScrollFactor(0);
+      alphaIn(illo, 800, 400);
+      if (illoKey === 'tut_jump') {
+        this.tweens.add({ targets: illo, y: rightY - 14, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeOut', delay: 1200 });
+      }
+    }
+
+    // Card entry animation
+    card.setScale(0.85);
+    this.tweens.add({ targets: [card], scaleX: 1, scaleY: 1, duration: 300, ease: 'Back.easeOut' });
+
+    els.forEach(el => this.cameras.main.ignore(el));
+    this._addingHud = false;
+
+    // --- Input: dismiss on correct input ---
+    let dismissed = false;
+    let inputLocked = true;
+    let pollEvent = null;
+    let keyHandler = null;
+
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      if (pollEvent) { try { pollEvent.remove(false); } catch (e) {} }
+      if (keyHandler && this.input.keyboard) { try { this.input.keyboard.off('keydown', keyHandler); } catch (e) {} }
+      this.tweens.add({
+        targets: els.filter(e => e.active), alpha: 0, duration: 350,
+        onComplete: () => {
+          els.forEach(e => { if (e.active) e.destroy(); });
+          if (_hudLabelWasVisible && this._tutHudLabel && this._tutHudLabel.scene) this._tutHudLabel.setVisible(true);
+          this._tutPopupActive = false;
+          onDone && onDone();
+        }
+      });
+    };
+
+    const checkKey = (code) => {
+      const c = String(code).toLowerCase();
+      if (stepType === 'walk') {
+        return c === 'arrowleft' || c === 'keya' || c === 'arrowright' || c === 'keyd';
+      }
+      return c === 'arrowup' || c === 'keyw' || c === 'space';
+    };
+
+    const checkTouch = () => {
+      const tc = this.touch;
+      if (!tc) return false;
+      if (stepType === 'walk') return !!(tc.left || tc.right);
+      return !!(tc.up || tc._jumpJustPressed);
+    };
+
+    this.time.delayedCall(1500, () => {
+      inputLocked = false;
+      keyHandler = (ev) => { if (checkKey(ev.code || ev.key)) dismiss(); };
+      if (this.input.keyboard) this.input.keyboard.on('keydown', keyHandler);
+      pollEvent = this.time.addEvent({
+        delay: 60, loop: true,
+        callback: () => { if (!dismissed && checkTouch()) dismiss(); }
+      });
+    });
+  }
+
+  /**
+   * LEGACY — original multi-step controls intro popup (kept for reference).
+   * Now replaced by per-step _showTutStepPopup calls.
    */
   _showControlsIntroPopup(onDone) {
+    this._tutPopupActive = true;
     const gw = this.scale.width;
     const gh = this.scale.height;
     const isMobile = this._tutIsMobile;
@@ -2743,8 +2952,8 @@ export default class GameScene extends Phaser.Scene {
     // main panel
     card.fillStyle(0x0a0a14, 1);
     card.fillRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
-    // thin cyan border
-    card.lineStyle(2, 0x3dccff, 0.85);
+    // thin dark grey border
+    card.lineStyle(2, 0x2a2a34, 0.85);
     card.strokeRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
     els.push(card);
 
@@ -2763,7 +2972,7 @@ export default class GameScene extends Phaser.Scene {
     const makeSlot = (x, builder, label, highlight = false, screenTarget = null, delay = 0) => {
       const slotR = 32;
       const bg = this.add.circle(x, rowY, slotR, 0x1a1a2e, 1)
-        .setStrokeStyle(3, highlight ? 0xffdd33 : 0x3dccff, 1)
+        .setStrokeStyle(3, highlight ? 0xffdd33 : 0x2a2a34, 1)
         .setDepth(297).setScrollFactor(0);
       const inner = builder(x, rowY);
       const lbl = this.add.text(x, rowY + slotR + 16, label, {
@@ -3164,6 +3373,7 @@ export default class GameScene extends Phaser.Scene {
           if (_hudLabelWasVisible && this._tutHudLabel && this._tutHudLabel.scene) {
             this._tutHudLabel.setVisible(true);
           }
+          this._tutPopupActive = false;
           onDone && onDone();
         }
       });
@@ -5481,7 +5691,16 @@ export default class GameScene extends Phaser.Scene {
     this._bridgeSnap(this.player);
 
     // 3. Player movement & input (uses ladder/shadow state)
-    this.player.update(delta);
+    if (this._tutPopupActive) {
+      this.player.setVelocity(0, 0);
+      if (this.player.body) this.player.body.allowGravity = false;
+      try { this.player.anims.play('player_idle', true); } catch(e) {}
+    } else {
+      if (this.player.body && !this.player.body.allowGravity && !this.player.isOnLadder) {
+        this.player.body.allowGravity = true;
+      }
+      this.player.update(delta);
+    }
 
     // 3a. Ladder-to-platform landing: when climbing down, detect platform under feet
     // NOTE: This is now handled entirely by Player.update() platform-edge detection
@@ -5575,15 +5794,22 @@ export default class GameScene extends Phaser.Scene {
             }
           }
         } else {
-          // Desktop: mouse click inside mural bounds
-          if (floodPtr.isDown && !this._floodPointerWasDown) {
-            if (handPos && this.pbn) {
-              const b = this.pbn.bounds;
-              const wp = this.cameras.main.getWorldPoint(floodPtr.x, floodPtr.y);
-              const inBounds = wp.x >= b.x && wp.x <= b.x + b.w &&
-                               wp.y >= b.y && wp.y <= b.y + b.h;
-              if (inBounds) {
+          // Desktop: mouse click OR held drag inside mural bounds
+          if (floodPtr.isDown && handPos && this.pbn) {
+            const b = this.pbn.bounds;
+            const wp = this.cameras.main.getWorldPoint(floodPtr.x, floodPtr.y);
+            const inBounds = wp.x >= b.x && wp.x <= b.x + b.w &&
+                             wp.y >= b.y && wp.y <= b.y + b.h;
+            if (inBounds) {
+              // On first press OR when hovering a new matching-color region while held
+              if (!this._floodPointerWasDown) {
                 this.tryFloodFill();
+              } else if (this._armFloodRegion) {
+                // Continuous paint: fill adjacent same-color regions while held
+                const reg = this._armFloodRegion;
+                if (reg.colorIndex === this.pbn.selectedColorIndex) {
+                  this.tryFloodFill();
+                }
               }
             }
           }
