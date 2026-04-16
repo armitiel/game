@@ -137,7 +137,6 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('tut_walk',       'assets/sprites/UI/tutorial/walk.png');
     this.load.image('tut_jump',       'assets/sprites/UI/tutorial/jump.png');
     this.load.image('tut_ladder',     'assets/sprites/UI/tutorial/drabina.png');
-    this.load.image('tut_hand',       'assets/sprites/UI/tutorial/hand.png');
 
     // === 9-slice card frame (blue base, tintable) ===
     this.load.image('frame_tl', 'assets/sprites/UI/frame/frame_tl.png');
