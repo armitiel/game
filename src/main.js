@@ -205,7 +205,8 @@ const isMobileDevice = isIOS || isAndroid;
 
 let deferredInstallPrompt = null;
 
-// Chrome/Edge/Samsung on Android: real install via beforeinstallprompt
+// PWA install banner disabled — hidden per request.
+/*
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
@@ -220,6 +221,7 @@ if (isIOSSafari && !isStandalone) {
 if (isIOS && !isIOSSafari && !isStandalone) {
   setTimeout(() => showInstallBanner('ios-other'), 2500);
 }
+*/
 
 function showInstallBanner(type) {
   if (isStandalone) return;

@@ -901,21 +901,6 @@ function draw() {
     drawLabel(lm.x, lm.y - 155, 'LAMPA', s);
   });
 
-  // Checkpoint
-  if (level.checkpoint) {
-    const cp = level.checkpoint;
-    ctx.fillStyle = COLORS.checkpoint;
-    ctx.beginPath();
-    ctx.moveTo(cp.x * s, (cp.y - 20) * s);
-    ctx.lineTo((cp.x + 8) * s, cp.y * s);
-    ctx.lineTo((cp.x - 8) * s, cp.y * s);
-    ctx.closePath(); ctx.fill();
-    if (isSelected('checkpoint', 0)) {
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-    }
-    drawLabel(cp.x, cp.y - 26, 'START', s);
-  }
-
   // Foreground wires
   (level.foregroundWires || []).forEach((w, i) => {
     ctx.strokeStyle = COLORS.wire;
@@ -958,6 +943,28 @@ function draw() {
     const label = h.desktop ? h.desktop.slice(0, 20) : `Hint P${h.phase}`;
     drawLabel(h.x, h.y, `H${h.phase}: ${label}`, s);
   });
+
+  // Checkpoint — drawn last so it's always on top and visible
+  if (level.checkpoint) {
+    const cp = level.checkpoint;
+    // Dark circle background for contrast against any wall
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.beginPath();
+    ctx.arc(cp.x * s, (cp.y - 10) * s, 18 * s, 0, Math.PI * 2);
+    ctx.fill();
+    // Triangle marker
+    ctx.fillStyle = COLORS.checkpoint;
+    ctx.beginPath();
+    ctx.moveTo(cp.x * s, (cp.y - 24) * s);
+    ctx.lineTo((cp.x + 10) * s, cp.y * s);
+    ctx.lineTo((cp.x - 10) * s, cp.y * s);
+    ctx.closePath(); ctx.fill();
+    // Selection border
+    if (isSelected('checkpoint', 0)) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    drawLabel(cp.x, cp.y - 30, 'START', s);
+  }
 
   // Drawing preview
   if (drawing && drawRect) {
@@ -1140,7 +1147,19 @@ function hitTest(mx, my) {
   // Checkpoint
   if (level.checkpoint) {
     const cp = level.checkpoint;
-    if (Math.abs(mx - cp.x) < 15 && Math.abs(my - cp.y) < 25) return { type: 'checkpoint', index: 0 };
+    if (Math.abs(mx - cp.x) < 22 && Math.abs(my - cp.y) < 30) return { type: 'checkpoint', index: 0 };
+  }
+
+  // Tutorial hints — before large rects (walls/shadows) so they're always grabbable
+  for (let i = (level.tutorialHints || []).length - 1; i >= 0; i--) {
+    const h = level.tutorialHints[i];
+    if (Math.abs(mx - h.x) < 60 && Math.abs(my - h.y) < 20) return { type: 'tutHint', index: i };
+  }
+
+  // Tutorial gates — before large rects so they're always grabbable
+  for (let i = (level.tutorialGates || []).length - 1; i >= 0; i--) {
+    const g = level.tutorialGates[i];
+    if (Math.abs(mx - g.x) < 12) return { type: 'tutGate', index: i };
   }
 
   // Paint cans (explicit)
@@ -1241,18 +1260,6 @@ function hitTest(mx, my) {
   for (let i = (level.fillWalls || []).length - 1; i >= 0; i--) {
     const fw = level.fillWalls[i];
     if (mx >= fw.x && mx <= fw.x + fw.w && my >= fw.y && my <= fw.y + fw.h) return { type: 'fillWall', index: i };
-  }
-
-  // Tutorial gates
-  for (let i = (level.tutorialGates || []).length - 1; i >= 0; i--) {
-    const g = level.tutorialGates[i];
-    if (Math.abs(mx - g.x) < 12) return { type: 'tutGate', index: i };
-  }
-
-  // Tutorial hints
-  for (let i = (level.tutorialHints || []).length - 1; i >= 0; i--) {
-    const h = level.tutorialHints[i];
-    if (Math.abs(mx - h.x) < 60 && Math.abs(my - h.y) < 20) return { type: 'tutHint', index: i };
   }
 
   // Wires

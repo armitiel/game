@@ -3,7 +3,7 @@ import { GAME } from './gameConfig.js';
 const H = GAME.HEIGHT;
 const W = GAME.WIDTH;
 
-const TW = 1800;
+const TW = 3000;
 const TH = 720;
 
 export const LEVEL_TUTORIAL = {
@@ -16,64 +16,69 @@ export const LEVEL_TUTORIAL = {
   paintings: ['painting_heart'],
 
   platforms: [
-    { x: 470, y: TH - 80, w: 70 },
-    { x: 1050, y: TH - 280, w: 350 },
-    { x: 1450, y: TH - 280, w: 300 },
+    { x: 1010, y: TH - 80, w: 400 },
+    { x: 1560, y: TH - 280, w: 350 },
+    { x: 2100, y: TH - 340, w: 300 },
+    { x: 1780, y: TH - 530, w: 350 },
+    { x: 2150, y: TH - 630, w: 350 },
   ],
   ground: [
-    { x: 0, y: TH - 32, w: 420 },
-    { x: 590, y: TH - 30, w: 300 },
-    { x: 940, y: TH - 32, w: 860 },
+    { x: 0, y: TH - 30, w: 1000 },
+    { x: 2260, y: TH - 40, w: 800 },
+    { x: 1450, y: TH, w: 500 },
+    { x: 1450, y: TH - 30, w: 500 },
   ],
   ladders: [
-    { x: 1073, topY: TH - 280, bottomY: TH - 32, minX: 973, maxX: 1173 },
+    { x: 1570, topY: TH - 270, bottomY: TH - 22, minX: 1470, maxX: 1670 },
+    { x: 1700, topY: TH - 530, bottomY: TH - 282, minX: 1600, maxX: 1800 },
   ],
   shadows: [
   ],
   fillWalls: [
-    { x: 1050, y: TH - 440, w: 700, h: 408 },
+    { x: 2270, y: TH - 440, w: 700, h: 408 },
   ],
   paintCans: [
-    { x: 1160, y: TH - 60, color: 'red' },
-    { x: 1090, y: TH - 310, color: 'yellow' },
-    { x: 1370, y: TH - 62, color: 'blue' },
+    { x: 2370, y: TH - 660, color: 'red' },
+    { x: 2080, y: TH - 560, color: 'yellow' },
+    { x: 2190, y: TH - 660, color: 'blue' },
   ],
   paintSpots: [
-    { x: 1540, y: TH - 350, w: 120, h: 120, paintingKey: 'painting_heart' },
+    { x: 2690, y: TH - 100, w: 120, h: 120, paintingKey: 'painting_heart' },
   ],
   trashCans: [
   ],
   cops: [
   ],
   lamps: [
-    { x: 200, y: TH - 23, radius: 100, intensity: 0.5 },
-    { x: 700, y: TH - 23, radius: 100, intensity: 0.5 },
-    { x: 1300, y: TH - 273, radius: 120, intensity: 0.6 },
+    { x: 510, y: TH - 22, radius: 100, intensity: 0.5 },
+    { x: 1210, y: TH - 74, radius: 100, intensity: 0.5 },
+    { x: 1750, y: TH - 26, radius: 120, intensity: 0.6 },
+    { x: 1970, y: TH - 540, radius: 120, intensity: 0.6 },
   ],
   papers: [
-    { x: 150, y: TH - 25 },
+    { x: 630, y: TH - 20 },
   ],
   bottles: [
     { x: 350, y: TH - 25 },
   ],
   cartons: [
-    { x: 630, y: TH - 30 },
+    { x: 1240, y: TH - 80 },
   ],
   foregroundWires: [
     { x1: -10, y1: TH - 520, x2: 1810, y2: TH - 550 },
   ],
   tutorialGates: [
-    { x: 350, phase: 1 },
-    { x: 810, phase: 2 },
-    { x: 1410, phase: 3 },
-    { x: 1440, phase: 4 },
+    { x: 930, phase: 1 },
+    { x: 1460, phase: 2 },
+    { x: 1940, phase: 3 },
+    { x: 2500, phase: 4 },
   ],
   tutorialHints: [
-    { phase: 0, x: 200, y: TH - 100, desktop: 'tutSignMove', mobile: 'tutSignMove' },
-    { phase: 1, x: 500, y: TH - 140, desktop: 'tutSignJump', mobile: 'tutSignJump' },
-    { phase: 2, x: 980, y: TH - 120, desktop: 'tutSignLadder', mobile: 'tutSignLadder' },
-    { phase: 3, x: 1250, y: TH - 340, desktop: 'tutSignCollect', mobile: 'tutSignCollect' },
-    { phase: 4, x: 1700, y: TH - 320, desktop: 'tutSignPaint', mobile: 'tutSignPaint' },
+    { phase: 0, x: 390, y: TH - 70, desktop: 'tutSignMove', mobile: 'tutSignMove' },
+    { phase: 1, x: 1100, y: TH - 110, desktop: 'tutSignJump', mobile: 'tutSignJump' },
+    { phase: 2, x: 1580, y: TH - 180, desktop: 'tutSignLadder', mobile: 'tutSignLadder' },
+    { phase: 3, x: 2010, y: TH - 560, desktop: 'tutSignCollect', mobile: 'tutSignCollect' },
+    { phase: 4, x: 2430, y: TH - 90, desktop: 'tutSignPaint', mobile: 'tutSignPaint' },
   ],
   mapWidth: TW,
   mapHeight: TH,

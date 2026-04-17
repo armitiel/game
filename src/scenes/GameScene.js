@@ -1833,11 +1833,17 @@ export default class GameScene extends Phaser.Scene {
     // HUD progress indicator
     this._createTutorialHUD();
 
-    // Show first hint immediately, but delay control overlay until after the
-    // controls intro popup so the player isn't hit with too much at once.
+    // Freeze player from the very start
+    this._tutPopupActive = true;
+
+    // Show hint + overlay first as a signal on the blurred map,
+    // then after a short delay show the popup on top.
     this._showTutorialHint(0);
-    this._showTutStepPopup('walk', () => {
-      this._showTutorialOverlay(0);
+    this._showTutorialOverlay(0);
+    this.time.delayedCall(1800, () => {
+      this._showTutStepPopup('walk', () => {
+        // Overlay already shown — just unfreeze
+      });
     });
 
     // Welcome flash (on UI cam — always crisp)
@@ -2171,19 +2177,34 @@ export default class GameScene extends Phaser.Scene {
       case 4: spotX = actX;  spotY = actY;  spotR = actR + 28;  spotColor = 0x3388ff; instructionKey = 'tutPaintACT'; break;
     }
 
-    // Build cutout using 4 dark rectangles around the spotlight (leaves a rectangular
-    // bright window) + a soft ring to round off visually.
+    // Build cutout with soft radial-gradient edge around the spotlight circle.
     const dim = 0.72;
     if (spotR > 0) {
-      const L = Math.max(0, spotX - spotR);
-      const R = Math.min(gw, spotX + spotR);
-      const T = Math.max(0, spotY - spotR);
-      const B = Math.min(gh, spotY + spotR);
-      const top    = this.add.rectangle(0, 0, gw, T, 0x000000, dim).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
-      const bottom = this.add.rectangle(0, B, gw, gh - B, 0x000000, dim).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
-      const left   = this.add.rectangle(0, T, L, B - T, 0x000000, dim).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
-      const right  = this.add.rectangle(R, T, gw - R, B - T, 0x000000, dim).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
-      els.push(top, bottom, left, right);
+      // Create a canvas texture with a radial gradient hole
+      const spotKey = '__spot_' + Date.now();
+      const canvasTex = this.textures.createCanvas(spotKey, gw, gh);
+      const ctx = canvasTex.context;
+      // Fill entire canvas with dim black
+      ctx.fillStyle = `rgba(0,0,0,${dim})`;
+      ctx.fillRect(0, 0, gw, gh);
+      // Punch a soft circular hole using 'destination-out' compositing
+      ctx.globalCompositeOperation = 'destination-out';
+      const fadeR = spotR * 1.45;  // outer edge of fade
+      const grad = ctx.createRadialGradient(spotX, spotY, spotR * 0.55, spotX, spotY, fadeR);
+      grad.addColorStop(0, 'rgba(0,0,0,1)');   // fully transparent center
+      grad.addColorStop(0.6, 'rgba(0,0,0,0.9)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');   // fully opaque edge (no punch)
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(spotX, spotY, fadeR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      canvasTex.refresh();
+      const dimImg = this.add.image(0, 0, spotKey).setOrigin(0, 0).setDepth(289).setScrollFactor(0);
+      els.push(dimImg);
+      // Clean up texture when elements are destroyed
+      const origDestroy = dimImg.destroy.bind(dimImg);
+      dimImg.destroy = (...args) => { origDestroy(...args); try { this.textures.remove(spotKey); } catch(e) {} };
 
       // Bright pulsing ring around the spotlight
       const ring = this.add.circle(spotX, spotY, spotR, spotColor, 0)
@@ -2228,8 +2249,38 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: arrowR, x: arrowR.x + 6, duration: 500, yoyo: true, repeat: -1 });
       els.push(arrowL, arrowR);
     }
-    // Phase 2: up/down arrows on joystick too (ladder uses both joystick + E)
+    // Phase 1: bouncing arrow pointing at the JUMP button
+    if (phase === 1) {
+      const jArrowX = jumpX;
+      const jArrowY = jumpY - jumpR - 20;
+      const jArrow = this.add.text(jArrowX, jArrowY, '▼', {
+        fontSize: '30px', color: '#33ff88', stroke: '#000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
+      this.tweens.add({ targets: jArrow, y: jArrowY + 8, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      // "JUMP" label above arrow
+      const jLabel = this.add.text(jArrowX, jArrowY - 28, 'JUMP', {
+        fontFamily: 'Bungee, monospace', fontSize: '16px', fontStyle: 'bold',
+        color: '#33ff88', stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
+      this.tweens.add({ targets: jLabel, alpha: { from: 1, to: 0.5 }, duration: 600, yoyo: true, repeat: -1 });
+      els.push(jArrow, jLabel);
+    }
+    // Phase 2: bouncing arrow + label on the E/interact button, plus up/down on joystick
     if (phase === 2) {
+      // Bouncing arrow pointing at the E button
+      const eArrowX = eX;
+      const eArrowY = eY - eR - 20;
+      const eArrow = this.add.text(eArrowX, eArrowY, '▼', {
+        fontSize: '30px', color: '#ffaa33', stroke: '#000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
+      this.tweens.add({ targets: eArrow, y: eArrowY + 8, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      // "E" label above arrow
+      const eLabel = this.add.text(eArrowX, eArrowY - 28, 'E', {
+        fontFamily: 'Bungee, monospace', fontSize: '18px', fontStyle: 'bold',
+        color: '#ffaa33', stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
+      this.tweens.add({ targets: eLabel, alpha: { from: 1, to: 0.5 }, duration: 600, yoyo: true, repeat: -1 });
+      els.push(eArrow, eLabel);
       const arrowU = this.add.text(joyX, joyY - 54, '▲', {
         fontSize: '26px', color: '#ffaa33', stroke: '#000', strokeThickness: 3
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
@@ -2500,14 +2551,15 @@ export default class GameScene extends Phaser.Scene {
                 if (p2 >= 1) {
                   cam.startFollow(this.player, true, 0.1, 0.1);
                   this._tutTransitioning = false;
-                  // Show per-step popup before the overlay for jump/ladder phases
-                  if (newPhase === 1) {
-                    this._showTutStepPopup('jump', () => {
-                      this._showTutorialOverlay(newPhase);
-                    });
-                  } else if (newPhase === 2) {
-                    this._showTutStepPopup('ladder', () => {
-                      this._showTutorialOverlay(newPhase);
+                  // Freeze player, show overlay first, then popup after delay
+                  if (newPhase === 1 || newPhase === 2) {
+                    this._tutPopupActive = true;
+                    this._showTutorialOverlay(newPhase);
+                    const stepType = newPhase === 1 ? 'jump' : 'ladder';
+                    this.time.delayedCall(1800, () => {
+                      this._showTutStepPopup(stepType, () => {
+                        // Overlay already shown — just unfreeze
+                      });
                     });
                   } else {
                     this._showTutorialOverlay(newPhase);
@@ -2764,12 +2816,36 @@ export default class GameScene extends Phaser.Scene {
     const frameLR = frameLL + frameLW;
     const frameRL = frameLR + frameMW;
 
-    const joySize = Math.min(frameLW * 0.82, 150);
-    const illoSize = Math.min(((contentW - frameMW) * 0.5) * 0.9, 200);
+    // Joystick enlarged 30%. The L/R arrows sit on the ring's circumference —
+    // arrow CENTER is at leftX ± joySize/2, arrow SIZE is joySize * ARR_K,
+    // so the arrow outer edge is at leftX ± joySize * (0.5 + ARR_K/2).
+    const joySize = Math.min(frameLW * 0.82 * 1.3, 195);
+    const ARR_K = 0.7;                          // arrow size relative to ring (was 0.42)
+    const ARR_OUTER = 0.5 + ARR_K / 2;          // 0.85  — outer edge factor
 
-    const leftX = frameLL + frameLW * 0.5;
+    // Shift joystick right on tight screens so the LEFT arrow always stays
+    // inside the card (arrow outer edge = leftX - joySize * ARR_OUTER).
+    const leftX = Math.max(frameLL + joySize * ARR_OUTER + 4, frameLL + frameLW * 0.5);
     const leftY = contentCy + contentH * 0.15;
-    const rightX = frameRL + ((contentW - frameMW) * 0.5) * 0.5;
+    const arrRightEdge = leftX + joySize * ARR_OUTER;
+
+    // Illustration enlarged 50%, then clamped so it fits in the space that
+    // remains after the joystick + arrows (with a 20px breathing gap).
+    const MIN_ILLO_GAP = 20;
+    const cardRX = frameLL + cardW;
+    const illoSize = Math.max(60, Math.min(
+      ((contentW - frameMW) * 0.5) * 0.9 * 1.5,
+      300,
+      // Hard fit: illo width <= (cardRX - 4) - (arrRightEdge + gap)
+      (cardRX - 4) - arrRightEdge - MIN_ILLO_GAP
+    ));
+
+    // Push illustration as far LEFT as possible — sit just past the arrows
+    // (gutter constraint removed so the illo can cross into / past the gutter).
+    const rightX = Math.min(
+      cardRX - 4 - illoSize * 0.5,
+      arrRightEdge + MIN_ILLO_GAP + illoSize * 0.5
+    );
     const rightY = contentCy;
 
     // Alpha-only fade helper
@@ -2794,10 +2870,26 @@ export default class GameScene extends Phaser.Scene {
 
     // Step-specific arrows + knob wiggle
     if (stepType === 'walk') {
-      // L/R arrows
-      if (this.textures.exists('tut_arrows_lr')) {
+      // L/R arrows — each arrow sits ON the ring (on the circle) itself.
+      // We use two copies of the up-arrow sprite, rotated to point left/right,
+      // and place each one so its CENTER is exactly on the ring's circumference.
+      if (this.textures.exists('tut_arrow')) {
+        const arrSize = joySize * ARR_K;
+        // LEFT arrow — on the left edge of the ring, pointing left
+        const arrL = this.add.image(leftX - joySize * 0.5, leftY, 'tut_arrow')
+          .setDisplaySize(arrSize, arrSize).setAngle(-90).setDepth(298).setScrollFactor(0);
+        alphaIn(arrL, 800, 400);
+        // RIGHT arrow — on the right edge of the ring, pointing right
+        const arrR = this.add.image(leftX + joySize * 0.5, leftY, 'tut_arrow')
+          .setDisplaySize(arrSize, arrSize).setAngle(90).setDepth(298).setScrollFactor(0);
+        alphaIn(arrR, 800, 400);
+      } else if (this.textures.exists('tut_arrows_lr')) {
+        // Fallback (legacy sprite): stretch the combined L/R arrows sprite so
+        // each arrow's center lands on the ring circumference (±joySize/2).
+        // Arrow centers in strzałki.png are at ±0.277 of image width from
+        // image center, so displayWidth = joySize / (2 * 0.277) ≈ joySize * 1.8.
         const arrowsLR = this.add.image(leftX, leftY, 'tut_arrows_lr')
-          .setDisplaySize(joySize * 0.85, joySize * 0.38).setDepth(298).setScrollFactor(0);
+          .setDisplaySize(joySize * 1.8, joySize * 0.75).setDepth(298).setScrollFactor(0);
         alphaIn(arrowsLR, 800, 400);
       }
       // Knob wiggle L/R
@@ -2808,15 +2900,38 @@ export default class GameScene extends Phaser.Scene {
           }
         });
       }
-    } else {
-      // UP arrow for jump/ladder
+    } else if (stepType === 'ladder') {
+      // UP + DOWN arrows for ladder
       if (this.textures.exists('tut_arrow')) {
-        const upArrowH = joySize * 0.35;
-        const desiredY = leftY - joySize * 0.85;
-        const minY = contentCy - contentH / 2 + upArrowH / 2 + 8;
-        const upArrowY = Math.max(desiredY, minY);
+        const arrSize = joySize * ARR_K;
+        // UP arrow
+        const upArrowY = leftY - joySize * 0.5;
         const upArrow = this.add.image(leftX, upArrowY, 'tut_arrow')
-          .setDisplaySize(joySize * 0.3, upArrowH).setDepth(305).setScrollFactor(0);
+          .setDisplaySize(arrSize, arrSize).setDepth(305).setScrollFactor(0);
+        alphaIn(upArrow, 800, 380);
+        this.tweens.add({ targets: upArrow, y: upArrow.y - 10, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1300 });
+        // DOWN arrow (flipped)
+        const downArrowY = leftY + joySize * 0.5;
+        const downArrow = this.add.image(leftX, downArrowY, 'tut_arrow')
+          .setDisplaySize(arrSize, arrSize).setFlipY(true).setDepth(305).setScrollFactor(0);
+        alphaIn(downArrow, 900, 380);
+        this.tweens.add({ targets: downArrow, y: downArrow.y + 10, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1400 });
+      }
+      // Knob wiggle UP/DOWN
+      if (knob) {
+        this.time.delayedCall(900, () => {
+          if (knob && knob.active) {
+            this.tweens.add({ targets: knob, y: leftY - 16, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          }
+        });
+      }
+    } else {
+      // UP arrow only for jump
+      if (this.textures.exists('tut_arrow')) {
+        const arrSize = joySize * ARR_K;
+        const upArrowY = leftY - joySize * 0.5;
+        const upArrow = this.add.image(leftX, upArrowY, 'tut_arrow')
+          .setDisplaySize(arrSize, arrSize).setDepth(305).setScrollFactor(0);
         alphaIn(upArrow, 800, 380);
         this.tweens.add({ targets: upArrow, y: upArrow.y - 10, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1300 });
       }
@@ -2841,7 +2956,10 @@ export default class GameScene extends Phaser.Scene {
       const illo = this.add.image(rightX, rightY, illoKey)
         .setDisplaySize(dims.w, dims.h).setDepth(298).setScrollFactor(0);
       alphaIn(illo, 800, 400);
-      if (illoKey === 'tut_jump') {
+      if (illoKey === 'tut_walk') {
+        // Gentle pulse (shimmer) on the shoes illustration
+        this.tweens.add({ targets: illo, alpha: { from: 1, to: 0.55 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1200 });
+      } else if (illoKey === 'tut_jump') {
         this.tweens.add({ targets: illo, y: rightY - 14, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeOut', delay: 1200 });
       }
     }
@@ -3306,13 +3424,11 @@ export default class GameScene extends Phaser.Scene {
     const showUpArrow = () => {
       if (upArrow || !this.textures.exists('tut_arrow')) return;
       this._addingHud = true;
-      // Clamp vertically so up-arrow STAYS inside FRAME L (content rect top)
-      const upArrowH = joySize * 0.38;
-      const desiredY = leftY - joySize * 2.15;
-      const minY = contentCy - contentH / 2 + upArrowH / 2 + 2;
-      const upArrowY = Math.max(desiredY, minY);
+      // Up arrow — same size as L/R arrows, sitting on the ring top
+      const arrSizeUp = joySize * ARR_K;
+      const upArrowY = leftY - joySize * 0.5;
       upArrow = this.add.image(leftX, upArrowY, 'tut_arrow')
-        .setDisplaySize(joySize * 0.34, upArrowH)
+        .setDisplaySize(arrSizeUp, arrSizeUp)
         .setDepth(305).setScrollFactor(0);
       this._addingHud = false;
       try { this.cameras.main.ignore(upArrow); } catch(e) {}
@@ -5403,6 +5519,11 @@ export default class GameScene extends Phaser.Scene {
     // Tutorial transition — freeze player during camera pans
     if (this._tutTransitioning) {
       this.player.setVelocity(0, 0);
+      if (this.player.body) {
+        this.player.body.allowGravity = false;
+        this.player.body.moves = false;
+        this.player.body.setAcceleration(0, 0);
+      }
       this.playerInShadow = false;
       this.playerOnLadderThisFrame = false;
       this.interactablePaintSpot = null;
@@ -5693,9 +5814,16 @@ export default class GameScene extends Phaser.Scene {
     // 3. Player movement & input (uses ladder/shadow state)
     if (this._tutPopupActive) {
       this.player.setVelocity(0, 0);
-      if (this.player.body) this.player.body.allowGravity = false;
+      if (this.player.body) {
+        this.player.body.allowGravity = false;
+        this.player.body.moves = false;        // freeze physics completely — no sliding
+        this.player.body.setAcceleration(0, 0);
+      }
       try { this.player.anims.play('player_idle', true); } catch(e) {}
     } else {
+      if (this.player.body && !this.player.body.moves) {
+        this.player.body.moves = true;          // re-enable physics movement
+      }
       if (this.player.body && !this.player.body.allowGravity && !this.player.isOnLadder) {
         this.player.body.allowGravity = true;
       }
