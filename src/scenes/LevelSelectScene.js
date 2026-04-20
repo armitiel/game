@@ -364,8 +364,8 @@ export default class LevelSelectScene extends Phaser.Scene {
     const pillsX = isRow ? 0 : -w / 2 + iconSize + Math.round(32 * ss) + (w - iconSize - Math.round(50 * ss)) / 2;
     const titlePillY = isRow ? h * 0.16 : -h * 0.12;
 
-    const titlePillW = Math.min(w * 0.62, Math.round(180 * ss));
-    const titlePillH = Math.round(SIZES.pillH * ss);
+    const titlePillW = Math.min(w * 0.80, Math.round(260 * ss));
+    const titlePillH = Math.round(SIZES.pillH * 1.35 * ss);
     const titlePill = UIPanel.create(this, {
       x: pillsX, y: titlePillY,
       width: titlePillW, height: titlePillH,
@@ -375,14 +375,14 @@ export default class LevelSelectScene extends Phaser.Scene {
     });
     panel.add(titlePill);
 
-    const titleFontSize = Math.round((isRow ? 22 : 24) * ss);
+    const titleFontSize = Math.round((isRow ? 30 : 32) * ss);
     const titleLabel = this.add.text(pillsX, titlePillY, m.name, {
       fontFamily: FONTS.display,
       fontSize: `${titleFontSize}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: hex(COLORS.accentStroke),
-      strokeThickness: Math.round(4 * ss),
+      strokeThickness: Math.round(5 * ss),
       shadow: { offsetX: 1 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true },
     }).setOrigin(0.5);
     panel.add(titleLabel);
