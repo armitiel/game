@@ -105,39 +105,42 @@ export default class WinScene extends Phaser.Scene {
       );
     }
 
-    // Win text — responsive sizes
-    const titleSize = Math.min(96, gw * 0.18);
-    const subSize = Math.min(28, gw * 0.06);
-    const replaySize = Math.min(24, gw * 0.05);
-    const menuSize = Math.min(20, gw * 0.04);
+    // Responsive scale factor — design base is 1280×720
+    const ss = Math.min(gw / 1280, gh / 720);
 
-    this.add.text(cx, cy - 70, t('levelComplete'), {
+    // Win text — responsive sizes
+    const titleSize = Math.min(Math.round(96 * ss), gw * 0.18);
+    const subSize = Math.min(Math.round(28 * ss), gw * 0.06);
+    const replaySize = Math.min(Math.round(24 * ss), gw * 0.05);
+    const menuSize = Math.min(Math.round(20 * ss), gw * 0.04);
+
+    this.add.text(cx, cy - Math.round(70 * ss), t('levelComplete'), {
       font: `bold ${titleSize}px Bungee, monospace`,
       fill: '#00ff88',
       stroke: '#003322',
-      strokeThickness: 8
+      strokeThickness: Math.round(8 * ss)
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 20, t('winSubtitle'), {
+    this.add.text(cx, cy + Math.round(20 * ss), t('winSubtitle'), {
       font: `${subSize}px Bungee, monospace`,
       fill: '#667788',
-      stroke: '#000000', strokeThickness: 4
+      stroke: '#000000', strokeThickness: Math.round(4 * ss)
     }).setOrigin(0.5);
 
     // Restart prompt
     const isMobile = this.sys.game.device.input.touch;
-    const restartText = this.add.text(cx, cy + 100,
+    const restartText = this.add.text(cx, cy + Math.round(100 * ss),
       isMobile ? t('tapReplay') : t('spaceReplay'), {
       font: `${replaySize}px Bungee, monospace`,
       fill: '#ffdd33',
-      stroke: '#332200', strokeThickness: 4
+      stroke: '#332200', strokeThickness: Math.round(4 * ss)
     }).setOrigin(0.5);
 
     if (!isMobile) {
-      this.add.text(cx, cy + 140, t('mainMenu'), {
+      this.add.text(cx, cy + Math.round(140 * ss), t('mainMenu'), {
         font: `${menuSize}px Bungee, monospace`,
         fill: '#556677',
-        stroke: '#000000', strokeThickness: 3
+        stroke: '#000000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5);
     }
 

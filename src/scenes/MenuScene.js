@@ -43,12 +43,16 @@ export default class MenuScene extends Phaser.Scene {
     this.input.once('pointerdown', tryAmbience);
     this.input.keyboard.once('keydown', tryAmbience);
 
-    const cx = this.scale.width / 2;
-    const cy = this.scale.height / 2;
+    const gw = this.scale.width;
+    const gh = this.scale.height;
+    const cx = gw / 2;
+    const cy = gh / 2;
+    // Responsive scale factor — design base is 1280×720
+    const ss = Math.min(gw / 1280, gh / 720);
 
     // Background image stretched to fill
     const bg = this.add.image(cx, cy, 'bckg');
-    bg.setDisplaySize(this.scale.width, this.scale.height);
+    bg.setDisplaySize(gw, gh);
 
     // Particle glow behind logo
     const gfx = this.make.graphics({ add: false });
@@ -57,10 +61,10 @@ export default class MenuScene extends Phaser.Scene {
     gfx.generateTexture('_glow_particle', 32, 32);
     gfx.destroy();
 
-    const logoY = cy - 60;
+    const logoY = cy - Math.round(60 * ss);
     const particles = this.add.particles(cx, logoY, '_glow_particle', {
-      speed: { min: 8, max: 50 },
-      scale: { start: 1.2, end: 0 },
+      speed: { min: 8 * ss, max: 50 * ss },
+      scale: { start: 1.2 * ss, end: 0 },
       alpha: { start: 0.6, end: 0 },
       lifespan: { min: 2000, max: 4000 },
       frequency: 40,
@@ -69,27 +73,29 @@ export default class MenuScene extends Phaser.Scene {
       tint: [0xff66aa, 0xff88cc, 0xffaadd, 0xffdd44, 0xffee66],
       emitZone: {
         type: 'random',
-        source: new Phaser.Geom.Ellipse(0, 0, 550, 220)
+        source: new Phaser.Geom.Ellipse(0, 0, Math.round(550 * ss), Math.round(220 * ss))
       }
     });
 
-    // Logo
+    // Logo — scale to fit ~47% of screen width (max 600 design px)
     const logo = this.add.image(cx, logoY, 'logo').setOrigin(0.5);
-    // Scale logo to fit nicely (max width ~600px)
-    const maxW = 600;
-    if (logo.width > maxW) {
-      logo.setScale(maxW / logo.width);
+    const maxLogoW = Math.min(gw * 0.47, 600 * ss);
+    if (logo.width > maxLogoW) {
+      logo.setScale(maxLogoW / logo.width);
+    } else {
+      logo.setScale(ss);
     }
 
     // Start button
     const isMobile = this.sys.game.device.input.touch;
-    const startText = this.add.text(cx, this.scale.height - 140,
+    const startFontSize = Math.round(24 * ss);
+    const startText = this.add.text(cx, gh - Math.round(140 * ss),
       isMobile ? t('tapToStart') : t('spaceToStart'), {
       fontFamily: 'Bungee, monospace',
-      fontSize: '24px',
+      fontSize: `${startFontSize}px`,
       fontStyle: 'bold',
       fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 4
+      stroke: '#003322', strokeThickness: Math.round(4 * ss)
     }).setOrigin(0.5);
 
     // Blink effect
@@ -103,17 +109,19 @@ export default class MenuScene extends Phaser.Scene {
 
     // Last update date (bottom-left)
     const buildDate = __BUILD_DATE__ || '';
-    this.add.text(16, this.scale.height - 16, buildDate ? `${t('lastUpdate')}: ${buildDate}` : '', {
-      font: 'bold 18px Calibri, sans-serif',
+    const smallFont = Math.max(12, Math.round(18 * ss));
+    this.add.text(Math.round(16 * ss), gh - Math.round(16 * ss),
+      buildDate ? `${t('lastUpdate')}: ${buildDate}` : '', {
+      font: `bold ${smallFont}px Calibri, sans-serif`,
       fill: '#778899',
-      stroke: '#000000', strokeThickness: 3
+      stroke: '#000000', strokeThickness: Math.round(3 * ss)
     }).setOrigin(0, 1).setDepth(10).setResolution(2);
 
     // Visitor counter (bottom-right)
-    const counterText = this.add.text(this.scale.width - 16, this.scale.height - 16, '', {
-      font: 'bold 18px Calibri, sans-serif',
+    const counterText = this.add.text(gw - Math.round(16 * ss), gh - Math.round(16 * ss), '', {
+      font: `bold ${smallFont}px Calibri, sans-serif`,
       fill: '#556677',
-      stroke: '#000000', strokeThickness: 3
+      stroke: '#000000', strokeThickness: Math.round(3 * ss)
     }).setOrigin(1, 1);
 
     // ?owner=SECRET sets localStorage flag to exclude self from counter

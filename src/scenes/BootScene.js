@@ -11,6 +11,8 @@ export default class BootScene extends Phaser.Scene {
     // === Progress bar with loading_frame.png ===
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
+    // Responsive scale factor — design base is 1280×720
+    const ss = Math.min(width / 1280, height / 720);
 
     // Phase 1: load the frame image first, then set up fancy progress bar
     const frameKey = '__loading_frame';
@@ -19,17 +21,17 @@ export default class BootScene extends Phaser.Scene {
     // Temporary simple bar while frame loads
     const progressBar = this.add.graphics();
     const progressGlow = this.add.graphics();
-    const barW = 320, barH = 30;
+    const barW = Math.round(320 * ss), barH = Math.round(30 * ss);
     const barX = width / 2 - barW / 2;
     const barY = height / 2 - barH / 2;
 
     let frameImg = null;
 
-    const loadingText = this.add.text(width / 2, barY - 62, t('loading'), {
-      font: '36px Bungee, monospace',
+    const loadingText = this.add.text(width / 2, barY - Math.round(62 * ss), t('loading'), {
+      font: `${Math.round(36 * ss)}px Bungee, monospace`,
       fill: '#00ff88',
-      stroke: '#003322', strokeThickness: 3,
-      shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 4, fill: true }
+      stroke: '#003322', strokeThickness: Math.round(3 * ss),
+      shadow: { offsetX: 2 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true }
     }).setOrigin(0.5);
 
     // Once frame texture is ready, show it behind the bar

@@ -34,6 +34,9 @@ export default class LevelSelectScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
     const cx = W / 2;
+    // Responsive scale factor — design base is 1280×720
+    const ss = Math.min(W / 1280, H / 720);
+    this._ss = ss; // store for sub-methods
 
     // Background — cartoon city night
     const bgKey = this.textures.exists('bg_menu') ? 'bg_menu' : 'bckg';
@@ -88,18 +91,19 @@ export default class LevelSelectScene extends Phaser.Scene {
   // Keyboard: SPACE/ENTER → tutorial, M → modes. ESC → main menu.
   showTutorialHub(W, H) {
     const cx = W / 2;
+    const ss = this._ss;
     const isPortrait = H > W;
 
-    const titleY = Math.max(60, H * 0.085);
-    const titleSize = Math.min(60, W * 0.07);
+    const titleY = Math.max(Math.round(60 * ss), H * 0.085);
+    const titleSize = Math.min(Math.round(60 * ss), W * 0.07);
     this.add.text(cx, titleY, t('chooseMode'), {
       fontFamily: FONTS.display,
       fontSize: `${titleSize}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: hex(COLORS.borderDeep),
-      strokeThickness: 7,
-      shadow: { offsetX: 3, offsetY: 4, color: '#000000', blur: 12, fill: true, stroke: true },
+      strokeThickness: Math.round(7 * ss),
+      shadow: { offsetX: 3 * ss, offsetY: 4 * ss, color: '#000000', blur: 12 * ss, fill: true, stroke: true },
     }).setOrigin(0.5).setDepth(DEPTH.content)
       .setTint(0xffffff, 0xffffff, COLORS.accent, COLORS.accent);
 
@@ -114,23 +118,23 @@ export default class LevelSelectScene extends Phaser.Scene {
     };
 
     // Hero card: large, centered, with gentle pulsing glow to invite interaction.
-    const heroW = Math.min(isPortrait ? W * 0.86 : 460, 520);
-    const heroH = Math.min(isPortrait ? H * 0.48 : 340, 380);
-    const heroY = titleY + 60 + heroH / 2;
+    const heroW = Math.min(isPortrait ? W * 0.86 : Math.round(460 * ss), Math.round(520 * ss));
+    const heroH = Math.min(isPortrait ? H * 0.48 : Math.round(340 * ss), Math.round(380 * ss));
+    const heroY = titleY + Math.round(60 * ss) + heroH / 2;
     this._buildTutorialHeroCard(cx, heroY, heroW, heroH, tutorialMode, tutIdx);
 
     // Secondary action: "Choose a mode" pill button — smaller, below hero.
-    const pillY = Math.min(H - 90, heroY + heroH / 2 + 70);
+    const pillY = Math.min(H - Math.round(90 * ss), heroY + heroH / 2 + Math.round(70 * ss));
     const modesBtn = UIPill.create(this, {
       x: cx, y: pillY,
       label: t('playModes') || 'CHOOSE A MODE',
-      labelSize: 22,
+      labelSize: Math.round(22 * ss),
       fill: COLORS.pillDark,
       textColor: '#ffffff',
       stroke: COLORS.border,
-      borderWidth: 4,
-      height: 54,
-      paddingX: 28,
+      borderWidth: Math.round(4 * ss),
+      height: Math.round(54 * ss),
+      paddingX: Math.round(28 * ss),
     });
     modesBtn.setDepth(DEPTH.content);
 
@@ -150,12 +154,12 @@ export default class LevelSelectScene extends Phaser.Scene {
     });
 
     // Tiny caption under the pill for affordance
-    this.add.text(cx, pillY + 42, t('playModesHint') || '', {
+    this.add.text(cx, pillY + Math.round(42 * ss), t('playModesHint') || '', {
       fontFamily: FONTS.body,
-      fontSize: '14px',
+      fontSize: `${Math.round(14 * ss)}px`,
       color: '#bbccdd',
       stroke: '#000000',
-      strokeThickness: 3,
+      strokeThickness: Math.round(3 * ss),
     }).setOrigin(0.5).setDepth(DEPTH.content).setAlpha(0.8);
 
     // Keyboard shortcuts
@@ -166,6 +170,7 @@ export default class LevelSelectScene extends Phaser.Scene {
   }
 
   _buildTutorialHeroCard(x, y, w, h, m, tutIdx) {
+    const ss = this._ss;
     const panel = UIPanel.create(this, {
       x: 0, y: 0, width: w, height: h,
       tint: m.tint,
@@ -179,10 +184,10 @@ export default class LevelSelectScene extends Phaser.Scene {
     }
 
     // Title pill
-    const titlePillW = Math.min(w * 0.7, 280);
+    const titlePillW = Math.min(w * 0.7, Math.round(280 * ss));
     const titlePill = UIPanel.create(this, {
       x: 0, y: h * 0.14,
-      width: titlePillW, height: SIZES.pillH + 6,
+      width: titlePillW, height: Math.round((SIZES.pillH + 6) * ss),
       slicePrefix: 'label',
       nativeCorner: 31,
       tint: 0xffffff,
@@ -191,12 +196,12 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     const titleLabel = this.add.text(0, h * 0.14, m.name, {
       fontFamily: FONTS.display,
-      fontSize: '30px',
+      fontSize: `${Math.round(30 * ss)}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: hex(COLORS.accentStroke),
-      strokeThickness: 5,
-      shadow: { offsetX: 1, offsetY: 2, color: '#000000', blur: 4, fill: true },
+      strokeThickness: Math.round(5 * ss),
+      shadow: { offsetX: 1 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true },
     }).setOrigin(0.5);
     panel.add(titleLabel);
 
@@ -204,14 +209,14 @@ export default class LevelSelectScene extends Phaser.Scene {
     if (m.desc) {
       const desc = this.add.text(0, h * 0.34, m.desc, {
         fontFamily: FONTS.body,
-        fontSize: '17px',
+        fontSize: `${Math.round(17 * ss)}px`,
         fontStyle: 'bold',
         color: '#ffffff',
         stroke: '#000000',
-        strokeThickness: 3,
+        strokeThickness: Math.round(3 * ss),
         align: 'center',
-        lineSpacing: 4,
-        wordWrap: { width: w - 40 },
+        lineSpacing: Math.round(4 * ss),
+        wordWrap: { width: w - Math.round(40 * ss) },
       }).setOrigin(0.5).setAlpha(0.95);
       panel.add(desc);
     }
@@ -256,19 +261,20 @@ export default class LevelSelectScene extends Phaser.Scene {
 
   showModeSelect(W, H) {
     const cx = W / 2;
+    const ss = this._ss;
     const isPortrait = H > W;
 
     // Title — bold Bungee with white→accent gradient + dark stroke
-    const titleY = Math.max(60, H * 0.085);
-    const titleSize = Math.min(60, W * 0.07);
+    const titleY = Math.max(Math.round(60 * ss), H * 0.085);
+    const titleSize = Math.min(Math.round(60 * ss), W * 0.07);
     this.add.text(cx, titleY, t('chooseMode'), {
       fontFamily: FONTS.display,
       fontSize: `${titleSize}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: hex(COLORS.borderDeep),
-      strokeThickness: 7,
-      shadow: { offsetX: 3, offsetY: 4, color: '#000000', blur: 12, fill: true, stroke: true },
+      strokeThickness: Math.round(7 * ss),
+      shadow: { offsetX: 3 * ss, offsetY: 4 * ss, color: '#000000', blur: 12 * ss, fill: true, stroke: true },
     }).setOrigin(0.5).setDepth(DEPTH.content)
       .setTint(0xffffff, 0xffffff, COLORS.accent, COLORS.accent);
 
@@ -278,31 +284,32 @@ export default class LevelSelectScene extends Phaser.Scene {
       { key: 'tower',   name: t('towerName'),   icon: 'icon_tower',   ...MODE_COLORS.tower,   levels: this.getLevelsForMode('tower')   },
     ];
 
-    // Layout
-    const tutH = 60;
-    const availH = H - titleY - tutH - 80;
-    const availW = W - 40;
+    // Layout — scale card sizes with ss
+    const gap = Math.round(SIZES.cardGap * ss);
+    const tutH = Math.round(60 * ss);
+    const availH = H - titleY - tutH - Math.round(80 * ss);
+    const availW = W - Math.round(40 * ss);
 
     let cardW, cardH, layout;
     if (isPortrait) {
       layout = 'column';
-      cardW = Math.min(380, availW);
-      cardH = Math.min(180, (availH - 2 * SIZES.cardGap) / 3);
+      cardW = Math.min(Math.round(380 * ss), availW);
+      cardH = Math.min(Math.round(180 * ss), (availH - 2 * gap) / 3);
     } else {
       layout = 'row';
-      const totalGap = 2 * SIZES.cardGap;
-      cardW = Math.min(SIZES.cardW, (availW - totalGap) / 3);
-      cardH = Math.min(SIZES.cardH, availH);
+      const totalGap = 2 * gap;
+      cardW = Math.min(Math.round(SIZES.cardW * ss), (availW - totalGap) / 3);
+      cardH = Math.min(Math.round(SIZES.cardH * ss), availH);
     }
 
-    const startY = titleY + 70 + cardH / 2;
+    const startY = titleY + Math.round(70 * ss) + cardH / 2;
     const startX = layout === 'row'
-      ? cx - (3 * cardW + 2 * SIZES.cardGap) / 2 + cardW / 2
+      ? cx - (3 * cardW + 2 * gap) / 2 + cardW / 2
       : cx;
 
     modes.forEach((m, i) => {
-      const x = layout === 'row' ? startX + i * (cardW + SIZES.cardGap) : cx;
-      const y = layout === 'row' ? startY : startY + i * (cardH + SIZES.cardGap);
+      const x = layout === 'row' ? startX + i * (cardW + gap) : cx;
+      const y = layout === 'row' ? startY : startY + i * (cardH + gap);
       this._buildModeCard(x, y, cardW, cardH, m, layout);
 
       this.input.keyboard.on(`keydown-${i + 1}`, () => this._selectMode(m));
@@ -311,18 +318,18 @@ export default class LevelSelectScene extends Phaser.Scene {
     // Back button (top-left) — returns to tutorial hub (only if not yet completed)
     if (!this._tutorialDone) {
       const backPill = UIPill.create(this, {
-        x: 70, y: 60,
+        x: Math.round(70 * ss), y: Math.round(60 * ss),
         label: '< BACK',
-        labelSize: 18,
+        labelSize: Math.round(18 * ss),
         fill: COLORS.pillDark,
         textColor: '#ffffff',
         stroke: COLORS.border,
-        borderWidth: 4,
-        height: 44,
-        paddingX: 18,
+        borderWidth: Math.round(4 * ss),
+        height: Math.round(44 * ss),
+        paddingX: Math.round(18 * ss),
       });
       backPill.setDepth(DEPTH.content);
-      const backHit = this.add.rectangle(70, 60, backPill._w + 20, backPill._h + 20, 0x000000, 0)
+      const backHit = this.add.rectangle(Math.round(70 * ss), Math.round(60 * ss), backPill._w + 20, backPill._h + 20, 0x000000, 0)
         .setDepth(DEPTH.content + 1);
       this.time.delayedCall(300, () => {
         if (backHit && backHit.scene) backHit.setInteractive({ useHandCursor: true });
@@ -341,15 +348,15 @@ export default class LevelSelectScene extends Phaser.Scene {
     if (tutIdx >= 0) {
       // Tutorial shortcut at the bottom — only show once hub is retired
       if (this._tutorialDone) {
-        const tutY = H - 50;
+        const tutY = H - Math.round(50 * ss);
         const tutBtn = this.add.text(cx, tutY, t('tutorial'), {
           fontFamily: FONTS.display,
-          fontSize: '22px',
+          fontSize: `${Math.round(22 * ss)}px`,
           fontStyle: 'bold',
           color: '#aaffdd',
           stroke: '#000000',
-          strokeThickness: 5,
-          shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 6, fill: true },
+          strokeThickness: Math.round(5 * ss),
+          shadow: { offsetX: 2 * ss, offsetY: 2 * ss, color: '#000000', blur: 6 * ss, fill: true },
         }).setOrigin(0.5).setDepth(DEPTH.content).setAlpha(0.85)
           .setInteractive({ useHandCursor: true });
 
@@ -363,8 +370,7 @@ export default class LevelSelectScene extends Phaser.Scene {
   }
 
   _buildModeCard(x, y, w, h, m, layout) {
-    // Build panel + children at local (0,0), then flatten to a single RenderTexture.
-    // Scaling one sprite on hover avoids subpixel seams between 9-slice pieces.
+    const ss = this._ss;
     const panel = UIPanel.create(this, {
       x: 0, y: 0, width: w, height: h,
       tint: m.tint,
@@ -372,7 +378,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     const isRow = (layout === 'row');
     const iconSize = isRow ? Math.min(h * 0.45, w * 0.55) : Math.min(h * 0.7, w * 0.32);
-    const iconX = isRow ? 0 : -w / 2 + iconSize * 0.7 + 14;
+    const iconX = isRow ? 0 : -w / 2 + iconSize * 0.7 + Math.round(14 * ss);
     const iconY = isRow ? -h * 0.18 : 0;
 
     if (this.textures.exists(m.icon)) {
@@ -380,11 +386,11 @@ export default class LevelSelectScene extends Phaser.Scene {
       panel.add(icon);
     }
 
-    const pillsX = isRow ? 0 : -w / 2 + iconSize + 32 + (w - iconSize - 50) / 2;
+    const pillsX = isRow ? 0 : -w / 2 + iconSize + Math.round(32 * ss) + (w - iconSize - Math.round(50 * ss)) / 2;
     const titlePillY = isRow ? h * 0.16 : -h * 0.12;
 
-    const titlePillW = Math.min(w * 0.62, 180);
-    const titlePillH = SIZES.pillH;
+    const titlePillW = Math.min(w * 0.62, Math.round(180 * ss));
+    const titlePillH = Math.round(SIZES.pillH * ss);
     const titlePill = UIPanel.create(this, {
       x: pillsX, y: titlePillY,
       width: titlePillW, height: titlePillH,
@@ -394,14 +400,15 @@ export default class LevelSelectScene extends Phaser.Scene {
     });
     panel.add(titlePill);
 
+    const titleFontSize = Math.round((isRow ? 22 : 24) * ss);
     const titleLabel = this.add.text(pillsX, titlePillY, m.name, {
       fontFamily: FONTS.display,
-      fontSize: `${isRow ? 22 : 24}px`,
+      fontSize: `${titleFontSize}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: hex(COLORS.accentStroke),
-      strokeThickness: 4,
-      shadow: { offsetX: 1, offsetY: 2, color: '#000000', blur: 4, fill: true },
+      strokeThickness: Math.round(4 * ss),
+      shadow: { offsetX: 1 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true },
     }).setOrigin(0.5);
     panel.add(titleLabel);
 
@@ -412,15 +419,15 @@ export default class LevelSelectScene extends Phaser.Scene {
     const countPill = UIPill.create(this, {
       x: pillsX, y: countY,
       label: countText,
-      labelSize: 18,
+      labelSize: Math.round(18 * ss),
       fill: m.pillFill,
       textColor: m.pillText,
       textStroke: '#000000',
-      textStrokeWidth: 4,
+      textStrokeWidth: Math.round(4 * ss),
       stroke: COLORS.border,
-      borderWidth: 4,
-      height: 42,
-      paddingX: 20,
+      borderWidth: Math.round(4 * ss),
+      height: Math.round(42 * ss),
+      paddingX: Math.round(20 * ss),
     });
     panel.add(countPill);
 
@@ -468,26 +475,28 @@ export default class LevelSelectScene extends Phaser.Scene {
 
   showLevelCards(W, H, modeKey) {
     const cx = W / 2;
+    const ss = this._ss;
     const isPortrait = H > W;
     const levels = this.getLevelsForMode(modeKey);
     const modeNames = { stealth: t('stealthName'), puzzle: t('puzzleName'), tower: t('towerName') };
     const mc = MODE_COLORS[modeKey] || MODE_COLORS.stealth;
+    const gap = Math.round(SIZES.cardGap * ss);
 
     // Home (back) button — top-left
     const homePill = UIPill.create(this, {
-      x: 70, y: 60,
+      x: Math.round(70 * ss), y: Math.round(60 * ss),
       label: '< BACK',
-      labelSize: 18,
+      labelSize: Math.round(18 * ss),
       fill: COLORS.pillDark,
       textColor: '#ffffff',
       stroke: COLORS.border,
-      borderWidth: 4,
-      height: 44,
-      paddingX: 18,
+      borderWidth: Math.round(4 * ss),
+      height: Math.round(44 * ss),
+      paddingX: Math.round(18 * ss),
     });
     homePill.setDepth(DEPTH.content);
 
-    const homeHit = this.add.rectangle(70, 60, homePill._w + 20, homePill._h + 20, 0x000000, 0)
+    const homeHit = this.add.rectangle(Math.round(70 * ss), Math.round(60 * ss), homePill._w + 20, homePill._h + 20, 0x000000, 0)
       .setDepth(DEPTH.content);
     this.time.delayedCall(300, () => {
       if (homeHit && homeHit.scene) homeHit.setInteractive({ useHandCursor: true });
@@ -502,41 +511,41 @@ export default class LevelSelectScene extends Phaser.Scene {
     });
 
     // Title
-    const titleY = Math.max(70, H * 0.09);
+    const titleY = Math.max(Math.round(70 * ss), H * 0.09);
     this.add.text(cx, titleY, modeNames[modeKey] || modeKey.toUpperCase(), {
       fontFamily: FONTS.display,
-      fontSize: `${Math.min(54, W * 0.06)}px`,
+      fontSize: `${Math.min(Math.round(54 * ss), W * 0.06)}px`,
       fontStyle: 'bold',
       color: mc.cssText,
       stroke: hex(COLORS.borderDeep),
-      strokeThickness: 7,
-      shadow: { offsetX: 3, offsetY: 4, color: '#000000', blur: 10, fill: true, stroke: true },
+      strokeThickness: Math.round(7 * ss),
+      shadow: { offsetX: 3 * ss, offsetY: 4 * ss, color: '#000000', blur: 10 * ss, fill: true, stroke: true },
     }).setOrigin(0.5).setDepth(DEPTH.content);
 
     // Layout
-    const availH = H - titleY - 120;
-    const availW = W - 80;
+    const availH = H - titleY - Math.round(120 * ss);
+    const availW = W - Math.round(80 * ss);
 
     let cols, cardW, cardH;
     if (isPortrait) {
       cols = Math.min(2, levels.length);
-      cardW = Math.min(360, (availW - (cols - 1) * SIZES.cardGap) / cols);
+      cardW = Math.min(Math.round(360 * ss), (availW - (cols - 1) * gap) / cols);
       cardH = cardW * 1.2;
     } else {
       cols = Math.min(levels.length, 4);
-      cardW = Math.min(SIZES.cardW, (availW - (cols - 1) * SIZES.cardGap) / cols);
-      cardH = Math.min(SIZES.cardH, availH * 0.85);
+      cardW = Math.min(Math.round(SIZES.cardW * ss), (availW - (cols - 1) * gap) / cols);
+      cardH = Math.min(Math.round(SIZES.cardH * ss), availH * 0.85);
     }
 
-    const startY = titleY + 80 + cardH / 2;
-    const totalRowW = cols * cardW + (cols - 1) * SIZES.cardGap;
+    const startY = titleY + Math.round(80 * ss) + cardH / 2;
+    const totalRowW = cols * cardW + (cols - 1) * gap;
     const startX = cx - totalRowW / 2 + cardW / 2;
 
     levels.forEach((level, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x = startX + col * (cardW + SIZES.cardGap);
-      const y = startY + row * (cardH + SIZES.cardGap);
+      const x = startX + col * (cardW + gap);
+      const y = startY + row * (cardH + gap);
       const globalIdx = LEVELS.indexOf(level);
 
       this._buildLevelCard(x, y, cardW, cardH, level, globalIdx, mc);
@@ -550,6 +559,7 @@ export default class LevelSelectScene extends Phaser.Scene {
   }
 
   _buildLevelCard(x, y, w, h, level, globalIdx, mc) {
+    const ss = this._ss;
     const panel = UIPanel.create(this, {
       x: 0, y: 0, width: w, height: h,
       tint: mc.tint,
@@ -557,27 +567,27 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     const name = this.add.text(0, -h * 0.15, t(level.name), {
       fontFamily: FONTS.display,
-      fontSize: `${Math.min(36, w * 0.14)}px`,
+      fontSize: `${Math.min(Math.round(36 * ss), w * 0.14)}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: hex(COLORS.borderDeep),
-      strokeThickness: 6,
-      shadow: { offsetX: 2, offsetY: 3, color: '#000000', blur: 6, fill: true },
+      strokeThickness: Math.round(6 * ss),
+      shadow: { offsetX: 2 * ss, offsetY: 3 * ss, color: '#000000', blur: 6 * ss, fill: true },
       align: 'center',
-      wordWrap: { width: w - 30 },
+      wordWrap: { width: w - Math.round(30 * ss) },
     }).setOrigin(0.5);
     panel.add(name);
 
     const desc = this.add.text(0, h * 0.18, t(level.description), {
       fontFamily: FONTS.body,
-      fontSize: `${Math.min(18, w * 0.07)}px`,
+      fontSize: `${Math.min(Math.round(18 * ss), w * 0.07)}px`,
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 3,
+      strokeThickness: Math.round(3 * ss),
       align: 'center',
-      lineSpacing: 5,
-      wordWrap: { width: w - 30 },
+      lineSpacing: Math.round(5 * ss),
+      wordWrap: { width: w - Math.round(30 * ss) },
     }).setOrigin(0.5).setAlpha(0.92);
     panel.add(desc);
 
