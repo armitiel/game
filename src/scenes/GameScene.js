@@ -2162,20 +2162,30 @@ export default class GameScene extends Phaser.Scene {
     this._addingHud = true;
 
     // --- SPOTLIGHT: dim full screen, punch bright hole around the target control ---
-    // Target control positions (mirror TouchControls.js layout)
-    const joyX = 110, joyY = gh - 130;
-    const jumpX = gw - 85, jumpY = gh - 95, jumpR = 58;
-    const actX = gw - 85, actY = gh - 225, actR = 42;
-    const eX = gw - 215, eY = gh - 90, eR = 40;
+    // Read actual control positions from TouchControls (scaled for RESIZE mode)
+    const L = this.touch && this.touch.layout ? this.touch.layout : {};
+    const ss = L.ss || 1;
+    const joyX = L.joyX || Math.round(110 * ss);
+    const joyY = L.joyY || (gh - Math.round(130 * ss));
+    const jumpX = L.jumpX || (gw - Math.round(85 * ss));
+    const jumpY = L.jumpY || (gh - Math.round(95 * ss));
+    const jumpR = L.jumpR || Math.round(58 * ss);
+    const actX = L.actX || (gw - Math.round(85 * ss));
+    const actY = L.actY || (gh - Math.round(225 * ss));
+    const actR = L.actR || Math.round(42 * ss);
+    const eX = L.eX || (gw - Math.round(215 * ss));
+    const eY = L.eY || (gh - Math.round(90 * ss));
+    const eR = L.eR || Math.round(40 * ss);
 
     // Decide spotlight target per phase
     let spotX, spotY, spotR, spotColor, instructionKey, showHand = true;
+    const pad = Math.round(28 * ss);
     switch (phase) {
-      case 0: spotX = joyX;  spotY = joyY;  spotR = 90;  spotColor = 0xffdd33; instructionKey = 'tutMoveJoystick'; break;
-      case 1: spotX = jumpX; spotY = jumpY; spotR = jumpR + 28; spotColor = 0x33ff88; instructionKey = 'tutJump'; break;
-      case 2: spotX = eX;    spotY = eY;    spotR = eR + 28;    spotColor = 0xffaa33; instructionKey = 'tutLadderE'; break;
+      case 0: spotX = joyX;  spotY = joyY;  spotR = Math.round(90 * ss);  spotColor = 0xffdd33; instructionKey = 'tutMoveJoystick'; break;
+      case 1: spotX = jumpX; spotY = jumpY; spotR = jumpR + pad; spotColor = 0x33ff88; instructionKey = 'tutJump'; break;
+      case 2: spotX = eX;    spotY = eY;    spotR = eR + pad;    spotColor = 0xffaa33; instructionKey = 'tutLadderE'; break;
       case 3: spotX = gw / 2; spotY = gh / 2; spotR = 0; spotColor = 0xffdd33; instructionKey = 'tutCollectPaint'; showHand = false; break;
-      case 4: spotX = actX;  spotY = actY;  spotR = actR + 28;  spotColor = 0x3388ff; instructionKey = 'tutPaintACT'; break;
+      case 4: spotX = actX;  spotY = actY;  spotR = actR + pad;  spotColor = 0x3388ff; instructionKey = 'tutPaintACT'; break;
     }
 
     // Build cutout with soft radial-gradient edge around the spotlight circle.
@@ -2209,7 +2219,7 @@ export default class GameScene extends Phaser.Scene {
 
       // Bright pulsing ring around the spotlight
       const ring = this.add.circle(spotX, spotY, spotR, spotColor, 0)
-        .setStrokeStyle(4, spotColor, 0.95)
+        .setStrokeStyle(Math.round(4 * ss), spotColor, 0.95)
         .setDepth(292).setScrollFactor(0);
       this.tweens.add({
         targets: ring, scaleX: 1.12, scaleY: 1.12, alpha: 0.4,
@@ -2219,14 +2229,14 @@ export default class GameScene extends Phaser.Scene {
 
       // Animated hand/finger pointer
       if (showHand) {
-        const handX = spotX + spotR + 30;
-        const handY = spotY + 6;
+        const handX = spotX + spotR + Math.round(30 * ss);
+        const handY = spotY + Math.round(6 * ss);
         const hand = this.add.text(handX, handY, '👆', {
-          fontSize: '36px'
+          fontSize: `${Math.round(36 * ss)}px`
         }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
         this.tweens.add({
           targets: hand,
-          x: handX - 10, scaleX: 0.9, scaleY: 0.9,
+          x: handX - Math.round(10 * ss), scaleX: 0.9, scaleY: 0.9,
           duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
         els.push(hand);
@@ -2240,59 +2250,60 @@ export default class GameScene extends Phaser.Scene {
 
     // Phase 0: add left/right motion arrows near joystick spotlight
     if (phase === 0) {
-      const arrowL = this.add.text(spotX - spotR + 20, spotY, '◀', {
-        fontSize: '28px', color: '#ffdd33', stroke: '#000', strokeThickness: 3
+      const arrFS = `${Math.round(28 * ss)}px`;
+      const arrST = Math.round(3 * ss);
+      const arrowL = this.add.text(spotX - spotR + Math.round(20 * ss), spotY, '◀', {
+        fontSize: arrFS, color: '#ffdd33', stroke: '#000', strokeThickness: arrST
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-      const arrowR = this.add.text(spotX + spotR - 20, spotY, '▶', {
-        fontSize: '28px', color: '#ffdd33', stroke: '#000', strokeThickness: 3
+      const arrowR = this.add.text(spotX + spotR - Math.round(20 * ss), spotY, '▶', {
+        fontSize: arrFS, color: '#ffdd33', stroke: '#000', strokeThickness: arrST
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-      this.tweens.add({ targets: arrowL, x: arrowL.x - 6, duration: 500, yoyo: true, repeat: -1 });
-      this.tweens.add({ targets: arrowR, x: arrowR.x + 6, duration: 500, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: arrowL, x: arrowL.x - Math.round(6 * ss), duration: 500, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: arrowR, x: arrowR.x + Math.round(6 * ss), duration: 500, yoyo: true, repeat: -1 });
       els.push(arrowL, arrowR);
     }
     // Phase 1: bouncing arrow pointing at the JUMP button
     if (phase === 1) {
+      const gap20 = Math.round(20 * ss);
       const jArrowX = jumpX;
-      const jArrowY = jumpY - jumpR - 20;
+      const jArrowY = jumpY - jumpR - gap20;
       const jArrow = this.add.text(jArrowX, jArrowY, '▼', {
-        fontSize: '30px', color: '#33ff88', stroke: '#000', strokeThickness: 3
+        fontSize: `${Math.round(30 * ss)}px`, color: '#33ff88', stroke: '#000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-      this.tweens.add({ targets: jArrow, y: jArrowY + 8, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      // "JUMP" label above arrow
-      const jLabel = this.add.text(jArrowX, jArrowY - 28, 'JUMP', {
-        fontFamily: 'Bungee, monospace', fontSize: '16px', fontStyle: 'bold',
-        color: '#33ff88', stroke: '#000000', strokeThickness: 3
+      this.tweens.add({ targets: jArrow, y: jArrowY + Math.round(8 * ss), duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      const jLabel = this.add.text(jArrowX, jArrowY - Math.round(28 * ss), 'JUMP', {
+        fontFamily: 'Bungee, monospace', fontSize: `${Math.round(16 * ss)}px`, fontStyle: 'bold',
+        color: '#33ff88', stroke: '#000000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
       this.tweens.add({ targets: jLabel, alpha: { from: 1, to: 0.5 }, duration: 600, yoyo: true, repeat: -1 });
       els.push(jArrow, jLabel);
     }
     // Phase 2: bouncing arrow + label on the E/interact button, plus up/down on joystick
     if (phase === 2) {
-      // Bouncing arrow pointing at the E button
+      const gap20 = Math.round(20 * ss);
       const eArrowX = eX;
-      const eArrowY = eY - eR - 20;
+      const eArrowY = eY - eR - gap20;
       const eArrow = this.add.text(eArrowX, eArrowY, '▼', {
-        fontSize: '30px', color: '#ffaa33', stroke: '#000', strokeThickness: 3
+        fontSize: `${Math.round(30 * ss)}px`, color: '#ffaa33', stroke: '#000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-      this.tweens.add({ targets: eArrow, y: eArrowY + 8, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      // "E" label above arrow
-      const eLabel = this.add.text(eArrowX, eArrowY - 28, 'E', {
-        fontFamily: 'Bungee, monospace', fontSize: '18px', fontStyle: 'bold',
-        color: '#ffaa33', stroke: '#000000', strokeThickness: 3
+      this.tweens.add({ targets: eArrow, y: eArrowY + Math.round(8 * ss), duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      const eLabel = this.add.text(eArrowX, eArrowY - Math.round(28 * ss), 'E', {
+        fontFamily: 'Bungee, monospace', fontSize: `${Math.round(18 * ss)}px`, fontStyle: 'bold',
+        color: '#ffaa33', stroke: '#000000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
       this.tweens.add({ targets: eLabel, alpha: { from: 1, to: 0.5 }, duration: 600, yoyo: true, repeat: -1 });
       els.push(eArrow, eLabel);
-      const arrowU = this.add.text(joyX, joyY - 54, '▲', {
-        fontSize: '26px', color: '#ffaa33', stroke: '#000', strokeThickness: 3
+      const joyOff = Math.round(54 * ss);
+      const arrowU = this.add.text(joyX, joyY - joyOff, '▲', {
+        fontSize: `${Math.round(26 * ss)}px`, color: '#ffaa33', stroke: '#000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-      const arrowD = this.add.text(joyX, joyY + 54, '▼', {
-        fontSize: '26px', color: '#ffaa33', stroke: '#000', strokeThickness: 3
+      const arrowD = this.add.text(joyX, joyY + joyOff, '▼', {
+        fontSize: `${Math.round(26 * ss)}px`, color: '#ffaa33', stroke: '#000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-      this.tweens.add({ targets: arrowU, y: arrowU.y - 5, duration: 500, yoyo: true, repeat: -1 });
-      this.tweens.add({ targets: arrowD, y: arrowD.y + 5, duration: 500, yoyo: true, repeat: -1 });
-      // Secondary subtle ring on the joystick (not full spotlight)
-      const joyRing = this.add.circle(joyX, joyY, 50, 0xffaa33, 0)
-        .setStrokeStyle(3, 0xffaa33, 0.7).setDepth(292).setScrollFactor(0);
+      this.tweens.add({ targets: arrowU, y: arrowU.y - Math.round(5 * ss), duration: 500, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: arrowD, y: arrowD.y + Math.round(5 * ss), duration: 500, yoyo: true, repeat: -1 });
+      const joyRing = this.add.circle(joyX, joyY, Math.round(50 * ss), 0xffaa33, 0)
+        .setStrokeStyle(Math.round(3 * ss), 0xffaa33, 0.7).setDepth(292).setScrollFactor(0);
       this.tweens.add({
         targets: joyRing, scaleX: 1.15, scaleY: 1.15, alpha: 0.3,
         duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
@@ -2301,15 +2312,15 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // --- Instruction card (big, centered, high-contrast) ---
-    const cardW = Math.min(gw - 40, 420);
-    const cardH = 80;
-    const cardY = Math.min(gh * 0.35, 180);
+    const cardW = Math.min(gw - Math.round(40 * ss), Math.round(420 * ss));
+    const cardH = Math.round(80 * ss);
+    const cardY = Math.min(gh * 0.35, Math.round(180 * ss));
     const cardBg = this.add.rectangle(gw / 2, cardY, cardW, cardH, 0x0a0a1a, 0.92)
-      .setStrokeStyle(3, spotColor, 1).setDepth(293).setScrollFactor(0);
+      .setStrokeStyle(Math.round(3 * ss), spotColor, 1).setDepth(293).setScrollFactor(0);
     const cardText = this.add.text(gw / 2, cardY, t(instructionKey), {
-      fontFamily: 'Bungee, monospace', fontSize: '20px', fontStyle: 'bold',
-      color: '#ffffff', stroke: '#000000', strokeThickness: 4,
-      align: 'center', wordWrap: { width: cardW - 30 }
+      fontFamily: 'Bungee, monospace', fontSize: `${Math.round(20 * ss)}px`, fontStyle: 'bold',
+      color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(4 * ss),
+      align: 'center', wordWrap: { width: cardW - Math.round(30 * ss) }
     }).setOrigin(0.5).setDepth(294).setScrollFactor(0).setResolution(2);
     // Card entry animation
     cardBg.setAlpha(0); cardText.setAlpha(0);
@@ -2329,8 +2340,8 @@ export default class GameScene extends Phaser.Scene {
       const srcY = cardY + cardH / 2;
       const trailCount = 3;
       for (let t = 0; t < trailCount; t++) {
-        const dot = this.add.circle(srcX, srcY, 5, spotColor, 1)
-          .setStrokeStyle(2, 0xffffff, 0.9)
+        const dot = this.add.circle(srcX, srcY, Math.round(5 * ss), spotColor, 1)
+          .setStrokeStyle(Math.round(2 * ss), 0xffffff, 0.9)
           .setDepth(294).setScrollFactor(0);
         dot.setAlpha(0);
         els.push(dot);
@@ -2348,11 +2359,12 @@ export default class GameScene extends Phaser.Scene {
       }
 
       // Big bouncing "HERE" label just beside the spotlight
-      const hereOffsetY = spotY > gh / 2 ? -(spotR + 26) : (spotR + 26);
+      const herePad = Math.round(26 * ss);
+      const hereOffsetY = spotY > gh / 2 ? -(spotR + herePad) : (spotR + herePad);
       const here = this.add.text(spotX, spotY + hereOffsetY, 'HERE', {
-        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-        backgroundColor: '#000000aa', padding: { x: 6, y: 2 }
+        fontFamily: 'Bungee, monospace', fontSize: `${Math.round(13 * ss)}px`, fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(3 * ss),
+        backgroundColor: '#000000aa', padding: { x: Math.round(6 * ss), y: Math.round(2 * ss) }
       }).setOrigin(0.5).setDepth(295).setScrollFactor(0).setResolution(2);
       here.setAlpha(0);
       this.tweens.add({
@@ -2388,13 +2400,14 @@ export default class GameScene extends Phaser.Scene {
   _showDesktopOverlay(phase, gw, gh) {
     const els = [];
     this._addingHud = true;
+    const ss = Math.min(gw / 1280, gh / 720);
 
     // Desktop: show key icons at bottom-center
-    const panelH = 60;
+    const panelH = Math.round(60 * ss);
     const panelY = gh - panelH;
     const cy = panelY + panelH / 2;
     const panelW = gw * 0.5;
-    const panelRadius = 14;
+    const panelRadius = Math.round(14 * ss);
     const panelGfx = this.add.graphics().setDepth(290).setScrollFactor(0);
     panelGfx.fillStyle(0x000000, 0.6);
     panelGfx.fillRoundedRect(gw / 2 - panelW / 2, cy - panelH / 2, panelW, panelH, panelRadius);
@@ -2402,15 +2415,15 @@ export default class GameScene extends Phaser.Scene {
 
     // Helper: draw a keyboard key icon
     const drawKey = (x, y, label, highlight) => {
-      const keyW = label.length > 2 ? 54 : 32;
-      const keyH = 28;
+      const keyW = Math.round((label.length > 2 ? 54 : 32) * ss);
+      const keyH = Math.round(28 * ss);
       const bg = this.add.rectangle(x, y, keyW, keyH, highlight ? 0x332200 : 0x222222, 0.9)
-        .setStrokeStyle(2, highlight ? 0xffdd33 : 0x555555, 1)
+        .setStrokeStyle(Math.round(2 * ss), highlight ? 0xffdd33 : 0x555555, 1)
         .setDepth(291).setScrollFactor(0);
       const txt = this.add.text(x, y, label, {
-        fontFamily: 'Bungee, monospace', fontSize: '12px', fontStyle: 'bold',
+        fontFamily: 'Bungee, monospace', fontSize: `${Math.round(12 * ss)}px`, fontStyle: 'bold',
         color: highlight ? '#ffdd33' : '#888888',
-        stroke: '#000000', strokeThickness: 2
+        stroke: '#000000', strokeThickness: Math.round(2 * ss)
       }).setOrigin(0.5).setDepth(292).setScrollFactor(0).setResolution(2);
       if (highlight) {
         this.tweens.add({ targets: bg, scaleX: 1.1, scaleY: 1.1, duration: 500, yoyo: true, repeat: -1 });
@@ -2418,42 +2431,44 @@ export default class GameScene extends Phaser.Scene {
       els.push(bg, txt);
     };
 
-    const baseX = gw / 2 - 80;
+    const kGap = Math.round(40 * ss);
+    const baseX = gw / 2 - Math.round(80 * ss);
+    const descFS = `${Math.round(13 * ss)}px`;
+    const descST = Math.round(2 * ss);
 
     if (phase === 0) {
       drawKey(baseX, cy, '←', true);
-      drawKey(baseX + 40, cy, '→', true);
-      const desc = this.add.text(baseX + 100, cy, t('tutMove'), {
-        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 2
+      drawKey(baseX + kGap, cy, '→', true);
+      const desc = this.add.text(baseX + Math.round(100 * ss), cy, t('tutMove'), {
+        fontFamily: 'Bungee, monospace', fontSize: descFS, fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: descST
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
     } else if (phase === 1) {
-      drawKey(baseX - 20, cy, '←', false);
-      drawKey(baseX + 20, cy, '→', false);
-      drawKey(baseX + 70, cy, '↑', true);
-      const desc = this.add.text(baseX + 110, cy, t('tutJumpWord'), {
-        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 2
+      drawKey(baseX - Math.round(20 * ss), cy, '←', false);
+      drawKey(baseX + Math.round(20 * ss), cy, '→', false);
+      drawKey(baseX + Math.round(70 * ss), cy, '↑', true);
+      const desc = this.add.text(baseX + Math.round(110 * ss), cy, t('tutJumpWord'), {
+        fontFamily: 'Bungee, monospace', fontSize: descFS, fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: descST
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
     } else if (phase === 2) {
-      // Ladder only — centered on screen
       const cx2 = gw / 2;
-      drawKey(cx2 - 30, cy, '↑', true);
-      drawKey(cx2 + 10, cy, '↓', true);
-      const lbl1 = this.add.text(cx2 + 44, cy, t('tutLadder'), {
-        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
-        color: '#ffaa33', stroke: '#000000', strokeThickness: 2
+      drawKey(cx2 - Math.round(30 * ss), cy, '↑', true);
+      drawKey(cx2 + Math.round(10 * ss), cy, '↓', true);
+      const lbl1 = this.add.text(cx2 + Math.round(44 * ss), cy, t('tutLadder'), {
+        fontFamily: 'Bungee, monospace', fontSize: descFS, fontStyle: 'bold',
+        color: '#ffaa33', stroke: '#000000', strokeThickness: descST
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(lbl1);
     } else if (phase === 3) {
       // Text shown inside popup card — no duplicate bottom text needed
     } else if (phase === 4) {
-      drawKey(gw / 2 - 30, cy, 'SPACE', true);
-      const desc = this.add.text(gw / 2 + 20, cy, t('tutPaintMural'), {
-        fontFamily: 'Bungee, monospace', fontSize: '13px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 2
+      drawKey(gw / 2 - Math.round(30 * ss), cy, 'SPACE', true);
+      const desc = this.add.text(gw / 2 + Math.round(20 * ss), cy, t('tutPaintMural'), {
+        fontFamily: 'Bungee, monospace', fontSize: descFS, fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: descST
       }).setOrigin(0, 0.5).setDepth(291).setScrollFactor(0).setResolution(2);
       els.push(desc);
     }

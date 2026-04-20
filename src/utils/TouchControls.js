@@ -50,8 +50,11 @@ export default class TouchControls {
    */
   createMovementZone(scene) {
     const cam = scene.cameras.main;
-    // Responsive scale factor — design base is 1280×720
-    const ss = Math.min(cam.width / 1280, cam.height / 720);
+    // Responsive scale factor for touch controls.
+    // Use height-based scaling with a mobile boost so buttons stay
+    // finger-friendly on small screens (minimum ~70% of design size).
+    const rawSS = Math.min(cam.width / 1280, cam.height / 720);
+    const ss = Math.max(rawSS * 1.4, 0.7);
     this._ss = ss;
 
     const zoneW = cam.width * 0.45;
@@ -245,6 +248,15 @@ export default class TouchControls {
     const JUMP_R = Math.round(58 * ss);
     const ACT_R  = Math.round(42 * ss);
     const E_R    = Math.round(40 * ss);
+
+    // Expose positions for tutorial overlay alignment
+    this.layout = {
+      joyX: Math.round(110 * ss), joyY: cam.height - Math.round(130 * ss),
+      jumpX, jumpY, jumpR: JUMP_R,
+      actX, actY, actR: ACT_R,
+      eX, eY, eR: E_R,
+      ss
+    };
 
     // Helper: creates a pressable circle button with icon or text label
     const makeBtn = (x, y, r, color, label, iconKey) => {
