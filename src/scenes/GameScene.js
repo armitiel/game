@@ -46,18 +46,19 @@ export default class GameScene extends Phaser.Scene {
     const ld = this.levelData;
     this.cameras.main.setBackgroundColor(GAME.BACKGROUND_COLOR);
     // CRITICAL: explicitly size the main camera to the current canvas.
-    // When scene.start() boots GameScene from another scene, Phaser does NOT
-    // automatically resize cameras.main to match ScaleManager — it stays at
-    // the Phaser.Game config size (1280x720). TouchControls and HUD read
-    // cam.width/height to position buttons, so if we skip this, controls end
-    // up positioned for 1280x720 and are invisible off the actual canvas.
+    // In RESIZE mode the canvas matches the device screen, so cameras
+    // must be sized to the actual scale dimensions (not 1280×720 defaults).
     this.cameras.main.setSize(this.scale.width, this.scale.height);
     const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    // With Phaser.Scale.FIT the canvas is always virtually 1280x720,
-    // so we use the original fixed zoom values — no runtime scaling.
-    this.cameras.main.setZoom(isMobile ? 2.7 : 1.95);
+    // RESIZE mode: canvas matches device pixels. Scale zoom so the same
+    // amount of world is visible as the original 1280×720 design.
+    // Base zoom designed for 1280×720; scale proportionally to actual size.
+    const designZoom = isMobile ? 2.7 : 1.95;
+    const scaleRatio = Math.min(this.scale.width / 1280, this.scale.height / 720);
+    this.cameras.main.setZoom(designZoom * scaleRatio);
     this.cameras.main.setRoundPixels(true);
     this._baseZoom = this.cameras.main.zoom;  // remember base zoom for paint restore
+    this._designZoom = designZoom; // store for resize recalculation
     this.cameras.main.setBounds(0, 0, ld.worldWidth, ld.worldHeight);
     // Remember initial size so we can detect post-create scale drift
     this._initialScaleW = this.scale.width;
@@ -3603,16 +3604,22 @@ export default class GameScene extends Phaser.Scene {
       // appears frozen / cropped.
       if (this.cameras && this.cameras.main) {
         this.cameras.main.setSize(w, h);
+        // RESIZE mode: recalculate zoom to keep same world view
+        if (this._designZoom) {
+          const newRatio = Math.min(w / 1280, h / 720);
+          this.cameras.main.setZoom(this._designZoom * newRatio);
+          this._baseZoom = this.cameras.main.zoom;
+        }
       }
       // Only touch uiCam if it belongs to THIS scene instance
       if (this.uiCam && this.uiCam.scene === this) {
         this.uiCam.setSize(w, h);
       }
-      // HUD uses absolute pixel positions computed from initial size.
+      // HUD uses absolute pixel positions computed from scale size.
       // If size changed significantly we rebuild the HUD from scratch so
       // layout math re-runs with the correct dimensions.
-      const iw = this._initialScaleW || w;
-      const ih = this._initialScaleH || h;
+      const iw = this._lastHudW || this._initialScaleW || w;
+      const ih = this._lastHudH || this._initialScaleH || h;
       const sizeChanged = Math.abs(w - iw) > 2 || Math.abs(h - ih) > 2;
       if (sizeChanged && !this._hudRebuildScheduled && this._hudElements) {
         this._hudRebuildScheduled = true;
@@ -4073,9 +4080,9 @@ export default class GameScene extends Phaser.Scene {
       this.uiCam = null;
     }
 
-    // Update initial size tracker so we don't immediately re-trigger
-    this._initialScaleW = this.scale.width;
-    this._initialScaleH = this.scale.height;
+    // Update size tracker so we don't immediately re-trigger
+    this._lastHudW = this.scale.width;
+    this._lastHudH = this.scale.height;
 
     // Rebuild
     try {
