@@ -53,7 +53,7 @@ export default class GameScene extends Phaser.Scene {
     // RESIZE mode: canvas matches device pixels. Scale zoom so the same
     // amount of world is visible as the original 1280×720 design.
     // Base zoom designed for 1280×720; scale proportionally to actual size.
-    const designZoom = isMobile ? 2.7 : 1.95;
+    const designZoom = isMobile ? 3.2 : 1.95;
     const scaleRatio = Math.min(this.scale.width / 1280, this.scale.height / 720);
     this.cameras.main.setZoom(designZoom * scaleRatio);
     this.cameras.main.setRoundPixels(true);
@@ -1970,16 +1970,20 @@ export default class GameScene extends Phaser.Scene {
   _createTutorialHUD() {
     this._addingHud = true;
     const gw = this.scale.width;
-    const y = 56;
+    const gh = this.scale.height;
+    const ss = Math.min(gw / 1280, gh / 720);
+    const isMob = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    // On mobile push closer to the top edge
+    const y = isMob ? Math.round(10 * ss) : Math.round(56 * ss);
 
     const label = this.add.text(gw / 2, y, `TUTORIAL  0/${this._tutTotalCheckpoints}`, {
       fontFamily: 'Bungee, monospace',
-      fontSize: '18px',
+      fontSize: `${Math.round(18 * ss)}px`,
       fontStyle: 'bold',
       color: '#ffdd33',
       stroke: '#332200',
-      strokeThickness: 4,
-      shadow: { offsetX: 1, offsetY: 2, color: '#000000', blur: 4, fill: true }
+      strokeThickness: Math.round(4 * ss),
+      shadow: { offsetX: 1 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true }
     }).setOrigin(0.5, 0).setDepth(303).setScrollFactor(0).setResolution(2);
 
     this._addingHud = false;
