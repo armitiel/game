@@ -21,25 +21,29 @@ export default class BootScene extends Phaser.Scene {
     // Temporary simple bar while frame loads
     const progressBar = this.add.graphics();
     const progressGlow = this.add.graphics();
-    const barW = Math.round(320 * ss), barH = Math.round(30 * ss);
+    // Bar width: ~40% of screen (min 240px), height proportional
+    const barW = Math.max(240, Math.round(width * 0.4));
+    const barH = Math.max(24, Math.round(barW * 0.09));
     const barX = width / 2 - barW / 2;
     const barY = height / 2 - barH / 2;
 
     let frameImg = null;
 
     const loadingText = this.add.text(width / 2, barY - Math.round(62 * ss), t('loading'), {
-      font: `${Math.round(36 * ss)}px Bungee, monospace`,
+      font: `${Math.max(20, Math.round(36 * ss))}px Bungee, monospace`,
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: Math.round(3 * ss),
       shadow: { offsetX: 2 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true }
     }).setOrigin(0.5);
 
-    // Once frame texture is ready, show it behind the bar
+    // Once frame texture is ready, show it behind the bar — preserve aspect ratio
     this.load.on('filecomplete-image-' + frameKey, () => {
       frameImg = this.add.image(width / 2, height / 2, frameKey);
-      // Scale frame to fit around the bar with some padding
       const fw = frameImg.width, fh = frameImg.height;
-      const targetW = barW + 40, targetH = barH + 40;
+      const frameAspect = fw / fh;
+      // Fit the frame around the bar while keeping its native proportions
+      const targetW = barW + Math.round(40 * ss);
+      const targetH = targetW / frameAspect;
       frameImg.setDisplaySize(targetW, targetH);
       frameImg.setDepth(0);
       progressBar.setDepth(1);

@@ -565,9 +565,10 @@ export default class TouchControls {
     const cam = scene.cameras.main;
     const isMobile = this.enabled;
 
-    // Responsive scale: use device-based ss, scale down on desktop
+    // Responsive scale: color buttons don't need the big touch boost —
+    // use a gentler multiplier so they don't dominate the paint screen.
     const rawSS = Math.min(cam.width / 1280, cam.height / 720);
-    const ss = isMobile ? Math.max(rawSS * 1.4, 0.7) : rawSS;
+    const ss = isMobile ? Math.max(rawSS * 0.95, 0.45) : rawSS;
     const scale = isMobile ? ss : ss * 0.85;
     const ORBIT_R = Math.round(140 * scale);
     const BTN_R   = Math.round(56 * scale);

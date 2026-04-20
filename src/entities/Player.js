@@ -700,8 +700,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // === Jump ===
-    // Skip jump if near ladder and walking slowly — let ladder grab handle UP instead
-    const skipJumpForLadder = this.onLadder && this.ladderCooldown <= 0 && Math.abs(this.body.velocity.x) < PLAYER.SPEED * 0.6;
+    // Check if player's feet are at the top of a ladder — needed for both
+    // jump and ladder-enter logic (computed here so jump can use it).
+    const playerFeetAtTop = this.ladderTopY && (this.y + PLAYER.BODY_H / 2) <= this.ladderTopY + 10;
+    // Skip jump if near ladder and walking slowly — let ladder grab handle UP instead.
+    // BUT allow jump if feet are at ladder top (standing ON the platform) or already climbing,
+    // because ladder-enter also rejects that case — player would be stuck otherwise.
+    const skipJumpForLadder = this.onLadder && this.ladderCooldown <= 0
+      && Math.abs(this.body.velocity.x) < PLAYER.SPEED * 0.6
+      && !playerFeetAtTop;
     if (jump && onGround && !skipJumpForLadder) {
       this._ladderDownHoldFrames = 0;
       this._hasJumped = true;
@@ -723,8 +730,6 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (!onGround && up) this._midAirUpBuffer = Math.max(this._midAirUpBuffer, 4);
     if (this._midAirUpBuffer > 0) this._midAirUpBuffer--;
     if (onGround) this._midAirUpBuffer = 0; // clear on landing
-
-    const playerFeetAtTop = this.ladderTopY && (this.y + PLAYER.BODY_H / 2) <= this.ladderTopY + 10;
     const absVxUp = Math.abs(this.body.velocity.x);
     const midAirDescending = !onGround && this.body.velocity.y > 20;
     const midAirAscending = !onGround && this.body.velocity.y <= 20;
