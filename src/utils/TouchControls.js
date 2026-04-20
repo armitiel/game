@@ -565,8 +565,10 @@ export default class TouchControls {
     const cam = scene.cameras.main;
     const isMobile = this.enabled;
 
-    // Scale down 30% on desktop
-    const scale = isMobile ? 1.0 : 0.7;
+    // Responsive scale: use device-based ss, scale down on desktop
+    const rawSS = Math.min(cam.width / 1280, cam.height / 720);
+    const ss = isMobile ? Math.max(rawSS * 1.4, 0.7) : rawSS;
+    const scale = isMobile ? ss : ss * 0.85;
     const ORBIT_R = Math.round(140 * scale);
     const BTN_R   = Math.round(56 * scale);
     const EXIT_R  = Math.round(44 * scale);

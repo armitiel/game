@@ -3006,6 +3006,16 @@ export default class GameScene extends Phaser.Scene {
       dismissed = true;
       if (pollEvent) { try { pollEvent.remove(false); } catch (e) {} }
       if (keyHandler && this.input.keyboard) { try { this.input.keyboard.off('keydown', keyHandler); } catch (e) {} }
+      // Also immediately fade out the tutorial overlay (spotlight on controls)
+      // so the user doesn't walk around with a stale overlay still showing.
+      if (this._tutOverlayElements && this._tutOverlayElements.length) {
+        const overlayEls = this._tutOverlayElements.slice();
+        this._tutOverlayElements = [];
+        this.tweens.add({
+          targets: overlayEls.filter(e => e.active), alpha: 0, duration: 350,
+          onComplete: () => { overlayEls.forEach(e => { if (e.active) e.destroy(); }); }
+        });
+      }
       this.tweens.add({
         targets: els.filter(e => e.active), alpha: 0, duration: 350,
         onComplete: () => {
@@ -4579,7 +4589,8 @@ export default class GameScene extends Phaser.Scene {
       this._preZoom = this._baseZoom || cam.zoom;
     }
 
-    const targetZoom = isMobile ? 5.0 : 3.5;
+    // Zoom relative to base — shows from player's legs to arm reach
+    const targetZoom = isMobile ? this._baseZoom * 1.6 : 3.5;
 
     // Focus camera on the mural center (mobile) or slightly below player (desktop)
     // so the full paint area is visible on screen
