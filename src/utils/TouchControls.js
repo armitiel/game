@@ -50,6 +50,10 @@ export default class TouchControls {
    */
   createMovementZone(scene) {
     const cam = scene.cameras.main;
+    // Responsive scale factor — design base is 1280×720
+    const ss = Math.min(cam.width / 1280, cam.height / 720);
+    this._ss = ss;
+
     const zoneW = cam.width * 0.45;
     const zoneH = cam.height;
 
@@ -63,10 +67,10 @@ export default class TouchControls {
     this._moveZoneFullW = cam.width;
 
     // --- Floating virtual joystick ---
-    const BASE_RADIUS_NORMAL = 52;   // outer ring radius (normal mode)
-    const BASE_RADIUS_PAINT = 120;   // outer ring radius (paint mode — bigger for precision)
-    const THUMB_RADIUS = 22;  // inner knob radius
-    const HINT_RADIUS = 14;   // small direction hint circles
+    const BASE_RADIUS_NORMAL = Math.round(52 * ss);
+    const BASE_RADIUS_PAINT = Math.round(120 * ss);
+    const THUMB_RADIUS = Math.round(22 * ss);
+    const HINT_RADIUS = Math.round(14 * ss);
 
     // Dynamic radius — grows in paint mode for more precise control
     const getRadius = () => this._paintMode ? BASE_RADIUS_PAINT : BASE_RADIUS_NORMAL;
@@ -75,11 +79,11 @@ export default class TouchControls {
     // Orbit track — shows the path the thumb travels on
     this._joyOrbit = scene.add.circle(0, 0, getMaxDist(), 0x000000, 0)
       .setScrollFactor(0).setDepth(199).setVisible(false)
-      .setStrokeStyle(2, 0xffffff, 0.3);
+      .setStrokeStyle(Math.round(2 * ss), 0xffffff, 0.3);
     // Base ring — appears at touch origin
     this._joyBase = scene.add.circle(0, 0, getRadius(), 0xffffff, 0.15)
       .setScrollFactor(0).setDepth(199).setVisible(false)
-      .setStrokeStyle(2.5, 0xffffff, 0.4);
+      .setStrokeStyle(Math.round(2.5 * ss), 0xffffff, 0.4);
     // Thumb knob — follows finger within the ring
     this._joyThumb = scene.add.circle(0, 0, THUMB_RADIUS, 0xffffff, 0.45)
       .setScrollFactor(0).setDepth(200).setVisible(false);
@@ -89,8 +93,8 @@ export default class TouchControls {
     this._getMaxDist = getMaxDist;
 
     // Initial position — bottom-left corner, will move to touch point on first use
-    const hintX = 110;
-    const hintY = cam.height - 130;
+    const hintX = Math.round(110 * ss);
+    const hintY = cam.height - Math.round(130 * ss);
     this._joyOrbit.setPosition(hintX, hintY).setVisible(true).setAlpha(0.25);
     this._joyBase.setPosition(hintX, hintY).setVisible(true).setAlpha(0.18);
     this._joyBase.setStrokeStyle(2.5, 0xffffff, 0.4);
@@ -228,24 +232,25 @@ export default class TouchControls {
 
   createActionButtons(scene) {
     const cam = scene.cameras.main;
+    const ss = this._ss || Math.min(cam.width / 1280, cam.height / 720);
 
-    // Fixed button positions — triangle layout in bottom-right corner
-    const jumpX = cam.width - 85;
-    const jumpY = cam.height - 95;
-    const actX  = cam.width - 85;
-    const actY  = cam.height - 225;
-    const eX    = cam.width - 215;
-    const eY    = cam.height - 90;
+    // Button positions — triangle layout in bottom-right corner, scaled
+    const jumpX = cam.width - Math.round(85 * ss);
+    const jumpY = cam.height - Math.round(95 * ss);
+    const actX  = cam.width - Math.round(85 * ss);
+    const actY  = cam.height - Math.round(225 * ss);
+    const eX    = cam.width - Math.round(215 * ss);
+    const eY    = cam.height - Math.round(90 * ss);
 
-    const JUMP_R = 58;
-    const ACT_R  = 42;
-    const E_R    = 40;
+    const JUMP_R = Math.round(58 * ss);
+    const ACT_R  = Math.round(42 * ss);
+    const E_R    = Math.round(40 * ss);
 
     // Helper: creates a pressable circle button with icon or text label
     const makeBtn = (x, y, r, color, label, iconKey) => {
       const bg = scene.add.circle(x, y, r, color, 0.15)
         .setScrollFactor(0).setDepth(200)
-        .setStrokeStyle(2, color, 0.4)
+        .setStrokeStyle(Math.round(2 * ss), color, 0.4)
         .setInteractive();
       let el;
       if (iconKey) {
@@ -256,8 +261,8 @@ export default class TouchControls {
         const hex = '#' + color.toString(16).padStart(6, '0');
         el = scene.add.text(x, y, label, {
           fontFamily: 'Bungee, monospace', fontSize: `${Math.floor(r * 0.56)}px`, fontStyle: 'bold',
-          color: hex, stroke: '#000000', strokeThickness: 4,
-          padding: { x: 4, y: 4 }
+          color: hex, stroke: '#000000', strokeThickness: Math.round(4 * ss),
+          padding: { x: Math.round(4 * ss), y: Math.round(4 * ss) }
         }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(0.55);
       }
       const restAlpha  = iconKey ? 0.5  : 0.55;
@@ -307,8 +312,8 @@ export default class TouchControls {
     // Pre-create "✕" exit labels (hidden by default) for grab and paint buttons
     const exitStyle = {
       fontFamily: 'Bungee, monospace', fontStyle: 'bold',
-      color: '#ff4444', stroke: '#110000', strokeThickness: 4,
-      padding: { x: 4, y: 4 }
+      color: '#ff4444', stroke: '#110000', strokeThickness: Math.round(4 * ss),
+      padding: { x: Math.round(4 * ss), y: Math.round(4 * ss) }
     };
     this._eExitLabel = scene.add.text(eX, eY, '✕', {
       ...exitStyle, fontSize: `${Math.floor(E_R * 0.7)}px`
