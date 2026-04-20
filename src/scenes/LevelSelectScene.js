@@ -261,20 +261,20 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     // Layout — scale card sizes with ss
     const gap = Math.round(SIZES.cardGap * ss);
-    const tutH = Math.round(60 * ss);
+    const tutH = Math.round(75 * ss);
     const availH = H - titleY - tutH - Math.round(80 * ss);
     const availW = W - Math.round(40 * ss);
 
     let cardW, cardH, layout;
     if (isPortrait) {
       layout = 'column';
-      cardW = Math.min(Math.round(380 * ss), availW);
-      cardH = Math.min(Math.round(180 * ss), (availH - 2 * gap) / 3);
+      cardW = Math.min(Math.round(460 * ss), availW);
+      cardH = Math.min(Math.round(220 * ss), (availH - 2 * gap) / 3);
     } else {
       layout = 'row';
       const totalGap = 2 * gap;
-      cardW = Math.min(Math.round(SIZES.cardW * ss), (availW - totalGap) / 3);
-      cardH = Math.min(Math.round(SIZES.cardH * ss), availH);
+      cardW = Math.min(Math.round(380 * ss), (availW - totalGap) / 3);
+      cardH = Math.min(Math.round(480 * ss), availH);
     }
 
     const startY = titleY + Math.round(70 * ss) + cardH / 2;
@@ -323,14 +323,14 @@ export default class LevelSelectScene extends Phaser.Scene {
     if (tutIdx >= 0) {
       // Tutorial shortcut at the bottom — only show once hub is retired
       if (this._tutorialDone) {
-        const tutY = H - Math.round(50 * ss);
+        const tutY = H - Math.round(45 * ss);
         const tutBtn = this.add.text(cx, tutY, t('tutorial'), {
           fontFamily: FONTS.display,
-          fontSize: `${Math.round(22 * ss)}px`,
+          fontSize: `${Math.round(34 * ss)}px`,
           fontStyle: 'bold',
           color: '#aaffdd',
           stroke: '#000000',
-          strokeThickness: Math.round(5 * ss),
+          strokeThickness: Math.round(6 * ss),
           shadow: { offsetX: 2 * ss, offsetY: 2 * ss, color: '#000000', blur: 6 * ss, fill: true },
         }).setOrigin(0.5).setDepth(DEPTH.content).setAlpha(0.85)
           .setInteractive({ useHandCursor: true });

@@ -4592,10 +4592,10 @@ export default class GameScene extends Phaser.Scene {
     // Zoom relative to base — fill more of the screen with the mural
     const targetZoom = isMobile ? this._baseZoom * 2.0 : 3.5;
 
-    // Focus camera on mural center, shifted slightly DOWN on mobile
-    // so the mural uses the upper screen space (controls are at bottom)
+    // Focus camera on mural — on mobile anchor near bottom of the paint area
+    // so the view starts from the player's feet downward, showing the full mural
     const anchorX = isMobile ? (bounds.x + bounds.w / 2) : this.player.x;
-    const anchorY = isMobile ? (bounds.y + bounds.h * 0.4) : this.player.y;
+    const anchorY = isMobile ? (bounds.y + bounds.h * 0.65) : this.player.y;
     const camOffsetY = isMobile ? 0 : -18;
 
     this._paintCamAnchor = this.add.rectangle(anchorX, anchorY, 1, 1)
