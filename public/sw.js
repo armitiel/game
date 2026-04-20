@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shadow-tagger-v499';
+const CACHE_NAME = 'shadow-tagger-v501';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

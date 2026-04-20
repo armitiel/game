@@ -90,6 +90,8 @@ export default class UIPanel {
       const w = cfg.width, h = cfg.height;
       const rt = scene.add.renderTexture(worldX, worldY, w, h).setOrigin(0.5);
       rt.draw(container, w / 2, h / 2);
+      // Use LINEAR filtering so baked panels don't look pixelated when scaled
+      if (rt.texture) rt.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
       container.destroy();
       return rt;
     };

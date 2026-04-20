@@ -696,6 +696,24 @@ export default class BootScene extends Phaser.Scene {
     // === Register palette colors from painting JSONs ===
     this.registerPaintingPalettes();
 
+    // === Set LINEAR filtering on UI textures so they don't look pixelated ===
+    // (pixelArt: true sets NEAREST globally — great for game sprites, bad for UI)
+    const uiKeys = [
+      'logo', 'bckg', 'bg_menu', 'popup_panel',
+      'icon_stealth', 'icon_puzzle', 'icon_tower', 'icon_tutorial',
+      'frame_tl', 'frame_t', 'frame_tr', 'frame_l', 'frame_c', 'frame_r', 'frame_bl', 'frame_b', 'frame_br',
+      'label_tl', 'label_t', 'label_tr', 'label_l', 'label_c', 'label_r', 'label_bl', 'label_b', 'label_br',
+      'tut_bg', 'tut_knob', 'tut_ring', 'tut_arrow', 'tut_arrows_lr',
+      'tut_walk', 'tut_jump', 'tut_ladder',
+      'icon_home', 'icon_wall', 'icon_music',
+      'heart_icon', 'can_shell', 'can_fill', 'spray_can_base',
+    ];
+    for (const key of uiKeys) {
+      if (this.textures.exists(key)) {
+        this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+    }
+
     // Force-load Bungee font (CSS @font-face only loads when used in DOM, not Canvas)
     document.fonts.load('bold 20px Bungee').then(() => {
       this.scene.start('MenuScene');

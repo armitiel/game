@@ -2795,6 +2795,9 @@ export default class GameScene extends Phaser.Scene {
     const els = [];
     this._addingHud = true;
 
+    // Responsive scale factor — design base 1280×720
+    const ss = Math.min(gw / 1280, gh / 720);
+
     // Hide HUD label
     let _hudLabelWasVisible = false;
     if (this._tutHudLabel && this._tutHudLabel.visible) {
@@ -2808,20 +2811,21 @@ export default class GameScene extends Phaser.Scene {
     els.push(dim);
 
     // Card
-    const screenMarginX = Math.max(24, gw * 0.04);
-    const screenMarginY = Math.max(28, gh * 0.05);
-    const cardW = Math.min(gw - screenMarginX * 2, 768);
-    const cardH = Math.min(gh - screenMarginY * 2, 432);
+    const screenMarginX = Math.max(24 * ss, gw * 0.04);
+    const screenMarginY = Math.max(28 * ss, gh * 0.05);
+    const cardW = Math.min(gw - screenMarginX * 2, 768 * ss);
+    const cardH = Math.min(gh - screenMarginY * 2, 432 * ss);
     const cardX = gw / 2;
     const cardY = gh / 2;
     const card = this.add.graphics().setDepth(295).setScrollFactor(0);
-    const cardRadius = 18;
+    const cardRadius = Math.round(18 * ss);
     const cardL_ = cardX - cardW / 2, cardT_ = cardY - cardH / 2;
+    const shadowOff = Math.round(6 * ss);
     card.fillStyle(0x000000, 0.35);
-    card.fillRoundedRect(cardL_ - 6, cardT_ - 6, cardW + 12, cardH + 12, cardRadius + 4);
+    card.fillRoundedRect(cardL_ - shadowOff, cardT_ - shadowOff, cardW + shadowOff * 2, cardH + shadowOff * 2, cardRadius + Math.round(4 * ss));
     card.fillStyle(0x0a0a14, 1);
     card.fillRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
-    card.lineStyle(2, 0x2a2a34, 0.85);
+    card.lineStyle(Math.max(1, Math.round(2 * ss)), 0x2a2a34, 0.85);
     card.strokeRoundedRect(cardL_, cardT_, cardW, cardH, cardRadius);
     els.push(card);
 
@@ -2829,7 +2833,7 @@ export default class GameScene extends Phaser.Scene {
     const contentW = cardW;
     const contentH = cardH;
     const contentCy = cardY;
-    const MIN_GAP = Math.max(52, contentW * 0.22);
+    const MIN_GAP = Math.max(52 * ss, contentW * 0.22);
     const frameMW = MIN_GAP;
     const frameLW = (contentW - frameMW) * 0.5;
     const frameLL = cardX - cardW / 2;
@@ -2839,31 +2843,31 @@ export default class GameScene extends Phaser.Scene {
     // Joystick enlarged 30%. The L/R arrows sit on the ring's circumference —
     // arrow CENTER is at leftX ± joySize/2, arrow SIZE is joySize * ARR_K,
     // so the arrow outer edge is at leftX ± joySize * (0.5 + ARR_K/2).
-    const joySize = Math.min(frameLW * 0.82 * 1.3, 195);
+    const joySize = Math.min(frameLW * 0.82 * 1.3, 195 * ss);
     const ARR_K = 0.7;                          // arrow size relative to ring (was 0.42)
     const ARR_OUTER = 0.5 + ARR_K / 2;          // 0.85  — outer edge factor
 
     // Shift joystick right on tight screens so the LEFT arrow always stays
     // inside the card (arrow outer edge = leftX - joySize * ARR_OUTER).
-    const leftX = Math.max(frameLL + joySize * ARR_OUTER + 4, frameLL + frameLW * 0.5);
+    const leftX = Math.max(frameLL + joySize * ARR_OUTER + 4 * ss, frameLL + frameLW * 0.5);
     const leftY = contentCy + contentH * 0.15;
     const arrRightEdge = leftX + joySize * ARR_OUTER;
 
     // Illustration enlarged 50%, then clamped so it fits in the space that
-    // remains after the joystick + arrows (with a 20px breathing gap).
-    const MIN_ILLO_GAP = 20;
+    // remains after the joystick + arrows (with a responsive breathing gap).
+    const MIN_ILLO_GAP = Math.round(20 * ss);
     const cardRX = frameLL + cardW;
-    const illoSize = Math.max(60, Math.min(
+    const illoSize = Math.max(60 * ss, Math.min(
       ((contentW - frameMW) * 0.5) * 0.9 * 1.5,
-      300,
-      // Hard fit: illo width <= (cardRX - 4) - (arrRightEdge + gap)
-      (cardRX - 4) - arrRightEdge - MIN_ILLO_GAP
+      300 * ss,
+      // Hard fit: illo width <= (cardRX - 4*ss) - (arrRightEdge + gap)
+      (cardRX - 4 * ss) - arrRightEdge - MIN_ILLO_GAP
     ));
 
     // Push illustration as far LEFT as possible — sit just past the arrows
     // (gutter constraint removed so the illo can cross into / past the gutter).
     const rightX = Math.min(
-      cardRX - 4 - illoSize * 0.5,
+      cardRX - 4 * ss - illoSize * 0.5,
       arrRightEdge + MIN_ILLO_GAP + illoSize * 0.5
     );
     const rightY = contentCy;
@@ -2916,7 +2920,7 @@ export default class GameScene extends Phaser.Scene {
       if (knob) {
         this.time.delayedCall(900, () => {
           if (knob && knob.active) {
-            this.tweens.add({ targets: knob, x: leftX + 14, duration: 550, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            this.tweens.add({ targets: knob, x: leftX + Math.round(14 * ss), duration: 550, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
           }
         });
       }
@@ -2929,19 +2933,19 @@ export default class GameScene extends Phaser.Scene {
         const upArrow = this.add.image(leftX, upArrowY, 'tut_arrow')
           .setDisplaySize(arrSize, arrSize).setDepth(305).setScrollFactor(0);
         alphaIn(upArrow, 800, 380);
-        this.tweens.add({ targets: upArrow, y: upArrow.y - 10, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1300 });
+        this.tweens.add({ targets: upArrow, y: upArrow.y - Math.round(10 * ss), duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1300 });
         // DOWN arrow (flipped)
         const downArrowY = leftY + joySize * 0.5;
         const downArrow = this.add.image(leftX, downArrowY, 'tut_arrow')
           .setDisplaySize(arrSize, arrSize).setFlipY(true).setDepth(305).setScrollFactor(0);
         alphaIn(downArrow, 900, 380);
-        this.tweens.add({ targets: downArrow, y: downArrow.y + 10, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1400 });
+        this.tweens.add({ targets: downArrow, y: downArrow.y + Math.round(10 * ss), duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1400 });
       }
       // Knob wiggle UP/DOWN
       if (knob) {
         this.time.delayedCall(900, () => {
           if (knob && knob.active) {
-            this.tweens.add({ targets: knob, y: leftY - 16, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            this.tweens.add({ targets: knob, y: leftY - Math.round(16 * ss), duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
           }
         });
       }
@@ -2953,13 +2957,13 @@ export default class GameScene extends Phaser.Scene {
         const upArrow = this.add.image(leftX, upArrowY, 'tut_arrow')
           .setDisplaySize(arrSize, arrSize).setDepth(305).setScrollFactor(0);
         alphaIn(upArrow, 800, 380);
-        this.tweens.add({ targets: upArrow, y: upArrow.y - 10, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1300 });
+        this.tweens.add({ targets: upArrow, y: upArrow.y - Math.round(10 * ss), duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1300 });
       }
       // Knob wiggle UP
       if (knob) {
         this.time.delayedCall(900, () => {
           if (knob && knob.active) {
-            this.tweens.add({ targets: knob, y: leftY - 16, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            this.tweens.add({ targets: knob, y: leftY - Math.round(16 * ss), duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
           }
         });
       }
@@ -2980,7 +2984,7 @@ export default class GameScene extends Phaser.Scene {
         // Gentle pulse (shimmer) on the shoes illustration
         this.tweens.add({ targets: illo, alpha: { from: 1, to: 0.55 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 1200 });
       } else if (illoKey === 'tut_jump') {
-        this.tweens.add({ targets: illo, y: rightY - 14, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeOut', delay: 1200 });
+        this.tweens.add({ targets: illo, y: rightY - Math.round(14 * ss), duration: 380, yoyo: true, repeat: -1, ease: 'Sine.easeOut', delay: 1200 });
       }
     }
 

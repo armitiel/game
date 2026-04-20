@@ -153,15 +153,6 @@ export default class LevelSelectScene extends Phaser.Scene {
       this.scene.restart({ mode: null, showModes: true });
     });
 
-    // Tiny caption under the pill for affordance
-    this.add.text(cx, pillY + Math.round(42 * ss), t('playModesHint') || '', {
-      fontFamily: FONTS.body,
-      fontSize: `${Math.round(14 * ss)}px`,
-      color: '#bbccdd',
-      stroke: '#000000',
-      strokeThickness: Math.round(3 * ss),
-    }).setOrigin(0.5).setDepth(DEPTH.content).setAlpha(0.8);
-
     // Keyboard shortcuts
     this.input.keyboard.on('keydown-SPACE', () => this.scene.start('IntroScene', { levelIndex: tutIdx }));
     this.input.keyboard.on('keydown-ENTER', () => this.scene.start('IntroScene', { levelIndex: tutIdx }));
@@ -204,22 +195,6 @@ export default class LevelSelectScene extends Phaser.Scene {
       shadow: { offsetX: 1 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true },
     }).setOrigin(0.5);
     panel.add(titleLabel);
-
-    // Descriptor line
-    if (m.desc) {
-      const desc = this.add.text(0, h * 0.34, m.desc, {
-        fontFamily: FONTS.body,
-        fontSize: `${Math.round(17 * ss)}px`,
-        fontStyle: 'bold',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: Math.round(3 * ss),
-        align: 'center',
-        lineSpacing: Math.round(4 * ss),
-        wordWrap: { width: w - Math.round(40 * ss) },
-      }).setOrigin(0.5).setAlpha(0.95);
-      panel.add(desc);
-    }
 
     const card = panel.bake(x, y);
     card.setDepth(DEPTH.panel);
