@@ -35,8 +35,8 @@ const config = {
     // ratio. Letterbox bars appear on non-16:9 screens, but all game
     // systems (HUD, touch controls, cameras) work in stable design
     // coordinates — nothing gets cropped or mispositioned.
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.NO_CENTER,  // CSS flex centers the canvas
+    mode: Phaser.Scale.ENVELOP,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
     expandParent: false,
     parent: 'game-container',
     width: GAME.WIDTH,

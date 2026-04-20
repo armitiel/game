@@ -296,6 +296,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     // === Active painting mode — player frozen, hand moves ===
     if (this.isPainting) {
       this.setVelocity(0, 0);
+      this.body.allowGravity = false;
       this.updatePaintingOverlay();
       this.updateHiddenIcon();
       return;

@@ -4383,9 +4383,10 @@ export default class GameScene extends Phaser.Scene {
     if (this.player.isClimbing) {
       this.player.isClimbing = false;
       this.player.onLadder = false;
-      this.player.body.allowGravity = false; // keep floating while painting
-      this.player.setVelocity(0, 0);
     }
+    // Freeze player in place during painting — no gravity, no velocity
+    this.player.body.allowGravity = false;
+    this.player.setVelocity(0, 0);
 
     const spot = this.interactablePaintSpot;
     const paintingKey = spot.getData('paintingKey');
@@ -5824,7 +5825,7 @@ export default class GameScene extends Phaser.Scene {
       if (this.player.body && !this.player.body.moves) {
         this.player.body.moves = true;          // re-enable physics movement
       }
-      if (this.player.body && !this.player.body.allowGravity && !this.player.isOnLadder) {
+      if (this.player.body && !this.player.body.allowGravity && !this.player.isOnLadder && !this.player.isPainting) {
         this.player.body.allowGravity = true;
       }
       this.player.update(delta);
