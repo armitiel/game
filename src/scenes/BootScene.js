@@ -698,6 +698,9 @@ export default class BootScene extends Phaser.Scene {
 
     // === Set LINEAR filtering on UI textures so they don't look pixelated ===
     // (pixelArt: true sets NEAREST globally — great for game sprites, bad for UI)
+    // Use numeric 1 = LINEAR (Phaser.Textures.FilterMode may not exist in all versions)
+    const LINEAR = (Phaser.Textures.FilterMode && Phaser.Textures.FilterMode.LINEAR != null)
+      ? Phaser.Textures.FilterMode.LINEAR : 1;
     const uiKeys = [
       'logo', 'bckg', 'bg_menu', 'popup_panel',
       'icon_stealth', 'icon_puzzle', 'icon_tower', 'icon_tutorial',
@@ -709,8 +712,12 @@ export default class BootScene extends Phaser.Scene {
       'heart_icon', 'can_shell', 'can_fill', 'spray_can_base',
     ];
     for (const key of uiKeys) {
-      if (this.textures.exists(key)) {
-        this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+      try {
+        if (this.textures.exists(key)) {
+          this.textures.get(key).setFilter(LINEAR);
+        }
+      } catch (e) {
+        // Silently skip if setFilter not supported
       }
     }
 
