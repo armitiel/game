@@ -77,14 +77,12 @@ export default class MenuScene extends Phaser.Scene {
       }
     });
 
-    // Logo — snap scale to nearest 1/10 step so the 1200px-wide source samples
-    // cleanly (each step maps to exactly 120 source px). Target ~75% of screen
-    // width, capped at native size so 4K desktops don't over-upscale. Round
-    // (not floor) so mobile can reach 0.3× or 0.6× instead of being pinned to
-    // 0.25× — without the old `900 * ss` cap that shrunk mobile landscape.
+    // Logo — snap scale to nearest 1/20 step (each = 60 source px) so sampling
+    // stays clean but mobile can land on 0.25× (instead of being pushed up to
+    // 0.3× by a coarser step). Target ~75% of screen, capped at native size.
     const logo = this.add.image(cx, logoY, 'logo').setOrigin(0.5);
     const maxLogoW = Math.min(gw * 0.75, logo.width);
-    const SNAP = 0.1;
+    const SNAP = 0.05;
     const rawScale = maxLogoW / logo.width;
     const cleanScale = Math.max(SNAP, Math.min(1.0, Math.round(rawScale / SNAP) * SNAP));
     logo.setScale(cleanScale);
