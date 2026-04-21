@@ -1960,8 +1960,11 @@ export default class GameScene extends Phaser.Scene {
     this._updateTutorialHUD();
 
     // Advance the tutorial phase (phase param = phase BEFORE collection).
-    // The next phase number is phase + 1.
-    this._advanceTutorialPhase(phase + 1);
+    // Small delay so the player has time to land and the pickup feedback plays out.
+    this.time.delayedCall(500, () => {
+      if (!this.sys || !this.sys.isActive()) return;
+      this._advanceTutorialPhase(phase + 1);
+    });
   }
 
   /**
@@ -2470,12 +2473,13 @@ export default class GameScene extends Phaser.Scene {
     if (this._tutTransitioning) return;
     if (this._tutPhase >= newPhase) return;
 
-    // Wait until the player is on solid ground before freezing & showing popups.
+    // Wait until the player lands on solid ground before freezing & showing popups.
     // This prevents the character from being stuck mid-air when a popup appears.
+    // Also adds a small breathing delay after landing so the transition feels natural.
     const body = this.player && this.player.body;
     const isGrounded = body && (body.onFloor() || body.blocked.down || body.touching.down);
     if (!isGrounded) {
-      // Poll every frame until grounded
+      // Poll every frame until grounded, then add a short post-land delay
       const check = this.time.addEvent({
         delay: 16, loop: true,
         callback: () => {
@@ -2483,7 +2487,11 @@ export default class GameScene extends Phaser.Scene {
           const b = this.player && this.player.body;
           if (b && (b.onFloor() || b.blocked.down || b.touching.down)) {
             check.remove();
-            this._advanceTutorialPhase(newPhase);
+            // Short delay after landing so the player settles visually
+            this.time.delayedCall(350, () => {
+              if (!this.sys || !this.sys.isActive()) return;
+              this._advanceTutorialPhase(newPhase);
+            });
           }
         }
       });
@@ -2542,46 +2550,49 @@ export default class GameScene extends Phaser.Scene {
         duration: 1200, delay: 600, onComplete: () => bravoText.destroy()
       });
 
-      // Pan to hint location
+      // Pan to hint location — guard against Phaser firing progress>=1 twice.
+      let hintPanFired = false;
       cam.pan(hint.x, hint.y, 800, 'Sine.easeInOut', false, (c, progress) => {
-        if (progress >= 1) {
-          this._showTutorialHint(newPhase);
-          this.time.delayedCall(1200, () => {
-            // Phase 3 (collect paint): do a tour of each paint can before returning
-            if (newPhase === 3) {
-              this._tourPaintCans(() => {
-                cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
-                  if (p2 >= 1) {
-                    cam.startFollow(this.player, true, 0.1, 0.1);
-                    this._tutTransitioning = false;
-                    this._showTutorialOverlay(newPhase);
-                    this._showPaintCollectPopup();
-                  }
-                });
-              });
-            } else {
+        if (progress < 1 || hintPanFired) return;
+        hintPanFired = true;
+        this._showTutorialHint(newPhase);
+        this.time.delayedCall(1200, () => {
+          // Phase 3 (collect paint): do a tour of each paint can before returning
+          if (newPhase === 3) {
+            this._tourPaintCans(() => {
+              let backFired = false;
               cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
-                if (p2 >= 1) {
-                  cam.startFollow(this.player, true, 0.1, 0.1);
-                  this._tutTransitioning = false;
-                  // Freeze player, show overlay first, then popup after delay
-                  if (newPhase === 1 || newPhase === 2) {
-                    this._tutPopupActive = true;
-                    this._showTutorialOverlay(newPhase);
-                    const stepType = newPhase === 1 ? 'jump' : 'ladder';
-                    this.time.delayedCall(1800, () => {
-                      this._showTutStepPopup(stepType, () => {
-                        // Overlay already shown — just unfreeze
-                      });
-                    });
-                  } else {
-                    this._showTutorialOverlay(newPhase);
-                  }
-                }
+                if (p2 < 1 || backFired) return;
+                backFired = true;
+                cam.startFollow(this.player, true, 0.1, 0.1);
+                this._tutTransitioning = false;
+                this._showTutorialOverlay(newPhase);
+                this._showPaintCollectPopup();
               });
-            }
-          });
-        }
+            });
+          } else {
+            let backFired = false;
+            cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
+              if (p2 < 1 || backFired) return;
+              backFired = true;
+              cam.startFollow(this.player, true, 0.1, 0.1);
+              this._tutTransitioning = false;
+              // Freeze player, show overlay first, then popup after delay
+              if (newPhase === 1 || newPhase === 2) {
+                this._tutPopupActive = true;
+                this._showTutorialOverlay(newPhase);
+                const stepType = newPhase === 1 ? 'jump' : 'ladder';
+                this.time.delayedCall(1800, () => {
+                  this._showTutStepPopup(stepType, () => {
+                    // Overlay already shown — just unfreeze
+                  });
+                });
+              } else {
+                this._showTutorialOverlay(newPhase);
+              }
+            });
+          }
+        });
       });
     } else {
       this._tutTransitioning = false;
@@ -2609,8 +2620,12 @@ export default class GameScene extends Phaser.Scene {
       if (i >= cans.length) { this._tutPopupActive = false; onDone && onDone(); return; }
       const c = cans[i];
       const hex = colorMap[c.color] || 0xffffff;
+      // Phaser's pan callback can fire with progress===1 on multiple frames —
+      // guard so sparkles + next-visit only trigger once per can.
+      let fired = false;
       cam.pan(c.x, c.y - 20, 650, 'Sine.easeInOut', false, (_cam, p) => {
-        if (p < 1) return;
+        if (p < 1 || fired) return;
+        fired = true;
         // Star sparkle burst behind the can in the can's color
         for (let s = 0; s < 18; s++) {
           const innerR = Phaser.Math.Between(2, 5);
