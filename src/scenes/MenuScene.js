@@ -77,14 +77,15 @@ export default class MenuScene extends Phaser.Scene {
       }
     });
 
-    // Logo — scale to fit ~47% of screen width (max 600 design px)
+    // Logo — snap scale to nearest clean 1/4 step (0.25/0.5/0.75/1.0) so the
+    // 1200px-wide source samples without sub-pixel blur. Target ~75% of screen
+    // width → at design res (1280) picks 0.75× = 900 px wide logo.
     const logo = this.add.image(cx, logoY, 'logo').setOrigin(0.5);
-    const maxLogoW = Math.min(gw * 0.47, 600 * ss);
-    if (logo.width > maxLogoW) {
-      logo.setScale(maxLogoW / logo.width);
-    } else {
-      logo.setScale(ss);
-    }
+    const maxLogoW = Math.min(gw * 0.75, 900 * ss);
+    const SNAP = 0.25;
+    const rawScale = maxLogoW / logo.width;
+    const cleanScale = Math.max(SNAP, Math.floor(rawScale / SNAP) * SNAP);
+    logo.setScale(cleanScale);
 
     // Start button
     const isMobile = this.sys.game.device.input.touch;
