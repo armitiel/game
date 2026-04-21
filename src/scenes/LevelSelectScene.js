@@ -293,18 +293,18 @@ export default class LevelSelectScene extends Phaser.Scene {
     // Back button (top-left) — returns to tutorial hub (only if not yet completed)
     if (!this._tutorialDone) {
       const backPill = UIPill.create(this, {
-        x: Math.round(70 * ss), y: Math.round(60 * ss),
+        x: Math.round(80 * ss), y: Math.round(60 * ss),
         label: '< BACK',
-        labelSize: Math.round(18 * ss),
+        labelSize: Math.round(24 * ss),
         fill: COLORS.pillDark,
         textColor: '#ffffff',
         stroke: COLORS.border,
-        borderWidth: Math.round(4 * ss),
-        height: Math.round(44 * ss),
-        paddingX: Math.round(18 * ss),
+        borderWidth: Math.round(5 * ss),
+        height: Math.round(56 * ss),
+        paddingX: Math.round(26 * ss),
       });
       backPill.setDepth(DEPTH.content);
-      const backHit = this.add.rectangle(Math.round(70 * ss), Math.round(60 * ss), backPill._w + 20, backPill._h + 20, 0x000000, 0)
+      const backHit = this.add.rectangle(Math.round(80 * ss), Math.round(60 * ss), backPill._w + 20, backPill._h + 20, 0x000000, 0)
         .setDepth(DEPTH.content + 1);
       this.time.delayedCall(300, () => {
         if (backHit && backHit.scene) backHit.setInteractive({ useHandCursor: true });
@@ -323,7 +323,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     if (tutIdx >= 0) {
       // Tutorial shortcut at the bottom — only show once hub is retired
       if (this._tutorialDone) {
-        const tutY = H - Math.round(45 * ss);
+        const tutY = H - Math.round(90 * ss);
         const tutBtn = this.add.text(cx, tutY, t('tutorial'), {
           fontFamily: FONTS.display,
           fontSize: `${Math.round(34 * ss)}px`,
@@ -394,15 +394,15 @@ export default class LevelSelectScene extends Phaser.Scene {
     const countPill = UIPill.create(this, {
       x: pillsX, y: countY,
       label: countText,
-      labelSize: Math.round(18 * ss),
+      labelSize: Math.round(24 * ss),
       fill: m.pillFill,
       textColor: m.pillText,
       textStroke: '#000000',
-      textStrokeWidth: Math.round(4 * ss),
+      textStrokeWidth: Math.round(5 * ss),
       stroke: COLORS.border,
-      borderWidth: Math.round(4 * ss),
-      height: Math.round(42 * ss),
-      paddingX: Math.round(20 * ss),
+      borderWidth: Math.round(5 * ss),
+      height: Math.round(54 * ss),
+      paddingX: Math.round(28 * ss),
     });
     panel.add(countPill);
 
@@ -459,19 +459,19 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     // Home (back) button — top-left
     const homePill = UIPill.create(this, {
-      x: Math.round(70 * ss), y: Math.round(60 * ss),
+      x: Math.round(80 * ss), y: Math.round(60 * ss),
       label: '< BACK',
-      labelSize: Math.round(18 * ss),
+      labelSize: Math.round(24 * ss),
       fill: COLORS.pillDark,
       textColor: '#ffffff',
       stroke: COLORS.border,
-      borderWidth: Math.round(4 * ss),
-      height: Math.round(44 * ss),
-      paddingX: Math.round(18 * ss),
+      borderWidth: Math.round(5 * ss),
+      height: Math.round(56 * ss),
+      paddingX: Math.round(26 * ss),
     });
     homePill.setDepth(DEPTH.content);
 
-    const homeHit = this.add.rectangle(Math.round(70 * ss), Math.round(60 * ss), homePill._w + 20, homePill._h + 20, 0x000000, 0)
+    const homeHit = this.add.rectangle(Math.round(80 * ss), Math.round(60 * ss), homePill._w + 20, homePill._h + 20, 0x000000, 0)
       .setDepth(DEPTH.content);
     this.time.delayedCall(300, () => {
       if (homeHit && homeHit.scene) homeHit.setInteractive({ useHandCursor: true });
