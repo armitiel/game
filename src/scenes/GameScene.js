@@ -2469,6 +2469,27 @@ export default class GameScene extends Phaser.Scene {
   _advanceTutorialPhase(newPhase) {
     if (this._tutTransitioning) return;
     if (this._tutPhase >= newPhase) return;
+
+    // Wait until the player is on solid ground before freezing & showing popups.
+    // This prevents the character from being stuck mid-air when a popup appears.
+    const body = this.player && this.player.body;
+    const isGrounded = body && (body.onFloor() || body.blocked.down || body.touching.down);
+    if (!isGrounded) {
+      // Poll every frame until grounded
+      const check = this.time.addEvent({
+        delay: 16, loop: true,
+        callback: () => {
+          if (!this.sys || !this.sys.isActive()) { check.remove(); return; }
+          const b = this.player && this.player.body;
+          if (b && (b.onFloor() || b.blocked.down || b.touching.down)) {
+            check.remove();
+            this._advanceTutorialPhase(newPhase);
+          }
+        }
+      });
+      return;
+    }
+
     this._tutTransitioning = true;
     this._tutPhase = newPhase;
 

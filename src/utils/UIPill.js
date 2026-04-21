@@ -70,19 +70,24 @@ export default class UIPill {
     // Two-stop vertical gradient: light top, fill bottom
     const top  = _lighten(cfg.fill, 0.18);
     const bot  = cfg.fill;
-    const innerW = w - cfg.borderWidth * 2;
-    const innerH = h - cfg.borderWidth * 2;
-    const innerR = r - cfg.borderWidth;
+    // Inset fill by borderWidth + 1px so it never bleeds past the border
+    const inset = cfg.borderWidth + 1;
+    const innerW = w - inset * 2;
+    const innerH = h - inset * 2;
+    const innerR = Math.max(0, Math.min(innerH / 2, innerW / 2, r - inset));
     fillGfx.fillStyle(bot, 1);
-    fillGfx.fillRoundedRect(-w / 2 + cfg.borderWidth, -h / 2 + cfg.borderWidth, innerW, innerH, innerR);
+    fillGfx.fillRoundedRect(-w / 2 + inset, -h / 2 + inset, innerW, innerH, innerR);
+    // Top gradient — clamp radius to half the gradient rect height
+    const gradH = innerH * 0.55;
+    const gradR = Math.max(0, Math.min(gradH / 2, innerR));
     fillGfx.fillStyle(top, 1);
-    fillGfx.fillRoundedRect(-w / 2 + cfg.borderWidth, -h / 2 + cfg.borderWidth, innerW, innerH * 0.55, innerR);
+    fillGfx.fillRoundedRect(-w / 2 + inset, -h / 2 + inset, innerW, gradH, { tl: gradR, tr: gradR, bl: 0, br: 0 });
 
     // Top gloss line
     fillGfx.lineStyle(2, 0xffffff, 0.4);
     fillGfx.beginPath();
-    fillGfx.moveTo(-w / 2 + cfg.borderWidth + r * 0.6, -h / 2 + cfg.borderWidth + 3);
-    fillGfx.lineTo( w / 2 - cfg.borderWidth - r * 0.6, -h / 2 + cfg.borderWidth + 3);
+    fillGfx.moveTo(-w / 2 + inset + innerR * 0.5, -h / 2 + inset + 3);
+    fillGfx.lineTo( w / 2 - inset - innerR * 0.5, -h / 2 + inset + 3);
     fillGfx.strokePath();
 
     container.add(shadowGfx);
