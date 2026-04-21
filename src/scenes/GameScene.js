@@ -2185,13 +2185,13 @@ export default class GameScene extends Phaser.Scene {
     const eR = L.eR || Math.round(40 * ss);
 
     // Decide spotlight target per phase
-    let spotX, spotY, spotR, spotColor, instructionKey, showHand = true;
+    let spotX, spotY, spotR, spotColor, instructionKey;
     const pad = Math.round(28 * ss);
     switch (phase) {
       case 0: spotX = joyX;  spotY = joyY;  spotR = Math.round(90 * ss);  spotColor = 0xffdd33; instructionKey = 'tutMoveJoystick'; break;
       case 1: spotX = jumpX; spotY = jumpY; spotR = jumpR + pad; spotColor = 0x33ff88; instructionKey = 'tutJump'; break;
       case 2: spotX = eX;    spotY = eY;    spotR = eR + pad;    spotColor = 0xffaa33; instructionKey = 'tutLadderE'; break;
-      case 3: spotX = gw / 2; spotY = gh / 2; spotR = 0; spotColor = 0xffdd33; instructionKey = 'tutCollectPaint'; showHand = false; break;
+      case 3: spotX = gw / 2; spotY = gh / 2; spotR = 0; spotColor = 0xffdd33; instructionKey = 'tutCollectPaint'; break;
       case 4: spotX = actX;  spotY = actY;  spotR = actR + pad;  spotColor = 0x3388ff; instructionKey = 'tutPaintACT'; break;
     }
 
@@ -2234,20 +2234,6 @@ export default class GameScene extends Phaser.Scene {
       });
       els.push(ring);
 
-      // Animated hand/finger pointer
-      if (showHand) {
-        const handX = spotX + spotR + Math.round(30 * ss);
-        const handY = spotY + Math.round(6 * ss);
-        const hand = this.add.text(handX, handY, '👆', {
-          fontSize: `${Math.round(36 * ss)}px`
-        }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-        this.tweens.add({
-          targets: hand,
-          x: handX - Math.round(10 * ss), scaleX: 0.9, scaleY: 0.9,
-          duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-        });
-        els.push(hand);
-      }
     } else {
       // No spotlight — just dim the whole screen lightly
       const dimAll = this.add.rectangle(0, 0, gw, gh, 0x000000, 0.45)
