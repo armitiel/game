@@ -2295,25 +2295,28 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // --- Instruction card (big, centered, high-contrast) ---
+    // Dimensions used by the card AND the animated trail below.
     const cardW = Math.min(gw - Math.round(40 * ss), Math.round(420 * ss));
     const cardH = Math.round(80 * ss);
     const cardY = Math.min(gh * 0.35, Math.round(180 * ss));
-    const cardBg = this.add.rectangle(gw / 2, cardY, cardW, cardH, 0x0a0a1a, 0.92)
-      .setStrokeStyle(Math.round(3 * ss), spotColor, 1).setDepth(293).setScrollFactor(0);
-    const cardText = this.add.text(gw / 2, cardY, t(instructionKey), {
-      fontFamily: 'Bungee, monospace', fontSize: `${Math.round(20 * ss)}px`, fontStyle: 'bold',
-      color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(4 * ss),
-      align: 'center', wordWrap: { width: cardW - Math.round(30 * ss) }
-    }).setOrigin(0.5).setDepth(294).setScrollFactor(0).setResolution(2);
-    // Card entry animation
-    cardBg.setAlpha(0); cardText.setAlpha(0);
-    cardBg.y -= 20; cardText.y -= 20;
-    this.tweens.add({
-      targets: [cardBg, cardText],
-      alpha: { from: 0, to: 1 }, y: '+=20',
-      duration: 350, ease: 'Back.easeOut'
-    });
-    els.push(cardBg, cardText);
+    // Skip for phase 3 (paint collect) — the paint popup already shows what to do.
+    if (phase !== 3) {
+      const cardBg = this.add.rectangle(gw / 2, cardY, cardW, cardH, 0x0a0a1a, 0.92)
+        .setStrokeStyle(Math.round(3 * ss), spotColor, 1).setDepth(293).setScrollFactor(0);
+      const cardText = this.add.text(gw / 2, cardY, t(instructionKey), {
+        fontFamily: 'Bungee, monospace', fontSize: `${Math.round(20 * ss)}px`, fontStyle: 'bold',
+        color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(4 * ss),
+        align: 'center', wordWrap: { width: cardW - Math.round(30 * ss) }
+      }).setOrigin(0.5).setDepth(294).setScrollFactor(0).setResolution(2);
+      cardBg.setAlpha(0); cardText.setAlpha(0);
+      cardBg.y -= 20; cardText.y -= 20;
+      this.tweens.add({
+        targets: [cardBg, cardText],
+        alpha: { from: 0, to: 1 }, y: '+=20',
+        duration: 350, ease: 'Back.easeOut'
+      });
+      els.push(cardBg, cardText);
+    }
 
     // --- Animated trail of dots from the instruction card to the target control.
     // Strengthens the link between "what to press" (card) and "where it is" (spotlight).
@@ -2762,17 +2765,28 @@ export default class GameScene extends Phaser.Scene {
     els.forEach(el => this.cameras.main.ignore(el));
     this._addingHud = false;
 
-    // Auto-dismiss after delay
-    this.time.delayedCall(3500, () => {
+    // Dismiss on any player input (movement) or auto-dismiss as fallback
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
       this.tweens.add({
         targets: els.filter(e => e.active), alpha: 0,
-        duration: 500,
+        duration: 400,
         onComplete: () => {
           els.forEach(e => { if (e.active) e.destroy(); });
           this._tutPopupActive = false;
         }
       });
+    };
+    // After a short grace period, any touch or key dismisses
+    this.time.delayedCall(800, () => {
+      if (dismissed || !this.sys || !this.sys.isActive()) return;
+      this.input.once('pointerdown', dismiss);
+      this.input.keyboard.once('keydown', dismiss);
     });
+    // Fallback auto-dismiss
+    this.time.delayedCall(5000, dismiss);
   }
 
   /**

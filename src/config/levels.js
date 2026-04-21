@@ -18,9 +18,10 @@ export const LEVEL_TUTORIAL = {
   platforms: [
     { x: 1010, y: TH - 80, w: 400 },
     { x: 1560, y: TH - 280, w: 350 },
-    { x: 2390, y: TH - 340, w: 300 },
+    { x: 2470, y: TH - 480, w: 150 },
     { x: 1780, y: TH - 530, w: 350 },
-    { x: 2150, y: TH - 630, w: 350 },
+    { x: 2150, y: TH - 610, w: 350 },
+    { x: 2650, y: TH - 310, w: 300 },
   ],
   ground: [
     { x: 0, y: TH - 30, w: 1000 },
@@ -30,7 +31,7 @@ export const LEVEL_TUTORIAL = {
   ],
   ladders: [
     { x: 1603, topY: TH - 274, bottomY: TH - 26, minX: 1503, maxX: 1703 },
-    { x: 1760, topY: TH - 520, bottomY: TH - 272, minX: 1660, maxX: 1860 },
+    { x: 1800, topY: TH - 520, bottomY: TH - 272, minX: 1700, maxX: 1900 },
   ],
   shadows: [
   ],
@@ -38,12 +39,12 @@ export const LEVEL_TUTORIAL = {
     { x: 2390, y: TH - 330, w: 700, h: 300 },
   ],
   paintCans: [
-    { x: 2180, y: TH - 660, color: 'red' },
-    { x: 2080, y: TH - 560, color: 'yellow' },
-    { x: 2590, y: TH - 360, color: 'blue' },
+    { x: 2020, y: TH - 560, color: 'red' },
+    { x: 1860, y: TH - 560, color: 'yellow' },
+    { x: 2200, y: TH - 640, color: 'blue' },
   ],
   paintSpots: [
-    { x: 2690, y: TH - 107, w: 120, h: 120, paintingKey: 'painting_heart' },
+    { x: 2690, y: TH - 93, w: 120, h: 120, paintingKey: 'painting_heart' },
   ],
   trashCans: [
   ],
@@ -56,13 +57,13 @@ export const LEVEL_TUTORIAL = {
     { x: 1970, y: TH - 522, radius: 120, intensity: 0.6 },
   ],
   papers: [
-    { x: 630, y: TH - 20 },
+    { x: 810, y: TH - 20 },
   ],
   bottles: [
     { x: 1670, y: TH - 273 },
   ],
   cartons: [
-    { x: 1239, y: TH - 72 },
+    { x: 1940, y: TH - 524 },
   ],
   foregroundWires: [
     { x1: -10, y1: TH - 520, x2: 1810, y2: TH - 550 },
@@ -70,15 +71,15 @@ export const LEVEL_TUTORIAL = {
   tutorialGates: [
     { x: 930, phase: 1 },
     { x: 1460, phase: 2 },
-    { x: 1940, phase: 3 },
-    { x: 2500, phase: 4 },
+    { x: 2420, phase: 3 },
+    { x: 2670, phase: 4 },
   ],
   tutorialHints: [
-    { phase: 0, x: 390, y: TH - 74, desktop: 'tutSignMove', mobile: 'tutSignMove' },
-    { phase: 1, x: 1100, y: TH - 120, desktop: 'tutSignJump', mobile: 'tutSignJump' },
-    { phase: 2, x: 1580, y: TH - 180, desktop: 'tutSignLadder', mobile: 'tutSignLadder' },
-    { phase: 3, x: 2010, y: TH - 568, desktop: 'tutSignCollect', mobile: 'tutSignCollect' },
-    { phase: 4, x: 2800, y: TH - 70, desktop: 'tutSignPaint', mobile: 'tutSignPaint' },
+    { phase: 0, x: 510, y: TH - 90, desktop: 'tutSignMove', mobile: 'tutSignMove' },
+    { phase: 1, x: 1100, y: TH - 133, desktop: 'tutSignJump', mobile: 'tutSignJump' },
+    { phase: 2, x: 1603, y: TH - 331, desktop: 'tutSignLadder', mobile: 'tutSignLadder' },
+    { phase: 3, x: 2310, y: TH - 660, desktop: 'tutSignCollect', mobile: 'tutSignCollect' },
+    { phase: 4, x: 2520, y: TH - 80, desktop: 'tutSignPaint', mobile: 'tutSignPaint' },
   ],
   mapWidth: TW,
   mapHeight: TH,
