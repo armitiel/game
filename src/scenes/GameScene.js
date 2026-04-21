@@ -2536,27 +2536,33 @@ export default class GameScene extends Phaser.Scene {
         duration: 1200, delay: 600, onComplete: () => bravoText.destroy()
       });
 
-      // Pan to hint location — guard against Phaser firing progress>=1 twice.
-      let hintPanFired = false;
-      cam.pan(hint.x, hint.y, 800, 'Sine.easeInOut', false, (c, progress) => {
-        if (progress < 1 || hintPanFired) return;
-        hintPanFired = true;
+      // Phase 3 (collect paint): the tour itself pans to each can, so skip
+      // the generic hint pan — otherwise the camera shows the hint location
+      // (near the cans) + every can = one extra "visit" for the user.
+      if (newPhase === 3) {
         this._showTutorialHint(newPhase);
-        this.time.delayedCall(1200, () => {
-          // Phase 3 (collect paint): do a tour of each paint can before returning
-          if (newPhase === 3) {
-            this._tourPaintCans(() => {
-              let backFired = false;
-              cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
-                if (p2 < 1 || backFired) return;
-                backFired = true;
-                cam.startFollow(this.player, true, 0.1, 0.1);
-                this._tutTransitioning = false;
-                this._showTutorialOverlay(newPhase);
-                this._showPaintCollectPopup();
-              });
+        this.time.delayedCall(400, () => {
+          this._tourPaintCans(() => {
+            let backFired = false;
+            cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
+              if (p2 < 1 || backFired) return;
+              backFired = true;
+              cam.startFollow(this.player, true, 0.1, 0.1);
+              this._tutTransitioning = false;
+              this._showTutorialOverlay(newPhase);
+              this._showPaintCollectPopup();
             });
-          } else {
+          });
+        });
+      } else {
+        // Other phases: pan to the hint location first, then show the hint
+        // and transition. Guard against Phaser firing progress>=1 twice.
+        let hintPanFired = false;
+        cam.pan(hint.x, hint.y, 800, 'Sine.easeInOut', false, (c, progress) => {
+          if (progress < 1 || hintPanFired) return;
+          hintPanFired = true;
+          this._showTutorialHint(newPhase);
+          this.time.delayedCall(1200, () => {
             let backFired = false;
             cam.pan(this.player.x, this.player.y, 600, 'Sine.easeInOut', false, (c2, p2) => {
               if (p2 < 1 || backFired) return;
@@ -2577,9 +2583,9 @@ export default class GameScene extends Phaser.Scene {
                 this._showTutorialOverlay(newPhase);
               }
             });
-          }
+          });
         });
-      });
+      }
     } else {
       this._tutTransitioning = false;
     }
