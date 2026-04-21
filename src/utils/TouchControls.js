@@ -474,6 +474,7 @@ export default class TouchControls {
       }
     } else if (name === 'paint') {
       this._paintActive = on;
+      this._paintHighlight = false;
       this._stopPulseTween('paint');
       if (this._actGlow) { this._actGlow.setVisible(false).setAlpha(0).setScale(1); }
       if (on) {
