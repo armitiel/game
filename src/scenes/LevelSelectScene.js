@@ -185,7 +185,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     });
     panel.add(titlePill);
 
-    const titleLabel = this.add.text(0, h * 0.14, m.name, {
+    const titleLabel = this.add.text(0, h * 0.14 - Math.round(3 * ss), m.name, {
       fontFamily: FONTS.display,
       fontSize: `${Math.round(30 * ss)}px`,
       fontStyle: 'bold',
@@ -262,7 +262,9 @@ export default class LevelSelectScene extends Phaser.Scene {
     // Layout — scale card sizes with ss
     const gap = Math.round(SIZES.cardGap * ss);
     const tutH = Math.round(75 * ss);
-    const availH = H - titleY - tutH - Math.round(80 * ss);
+    // Extra bottom padding keeps clear breathing room between cards and the
+    // TUTORIAL shortcut (~55 px gap at design res).
+    const availH = H - titleY - tutH - Math.round(160 * ss);
     const availW = W - Math.round(40 * ss);
 
     let cardW, cardH, layout;
@@ -376,7 +378,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     panel.add(titlePill);
 
     const titleFontSize = Math.round((isRow ? 30 : 32) * ss);
-    const titleLabel = this.add.text(pillsX, titlePillY, m.name, {
+    const titleLabel = this.add.text(pillsX, titlePillY - Math.round(3 * ss), m.name, {
       fontFamily: FONTS.display,
       fontSize: `${titleFontSize}px`,
       fontStyle: 'bold',
