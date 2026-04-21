@@ -2616,17 +2616,20 @@ export default class GameScene extends Phaser.Scene {
       green: 0x33ff88, black: 0x1a1319,
     };
 
+    const PAN_MS = 650;
+    const DWELL_MS = 950;
+    const visited = new Set();
     const visit = (i) => {
       if (i >= cans.length) { this._tutPopupActive = false; onDone && onDone(); return; }
+      // Hard guard — never process the same index twice, whatever re-entry path.
+      if (visited.has(i)) return;
+      visited.add(i);
       const c = cans[i];
       const hex = colorMap[c.color] || 0xffffff;
-      // Phaser's pan callback can fire with progress===1 on multiple frames —
-      // guard so sparkles + next-visit only trigger once per can.
-      let fired = false;
-      cam.pan(c.x, c.y - 20, 650, 'Sine.easeInOut', false, (_cam, p) => {
-        if (p < 1 || fired) return;
-        fired = true;
-        // Star sparkle burst behind the can in the can's color
+      // Fire-and-forget pan (no completion callback — Phaser may invoke it on
+      // multiple frames). Deterministic timers drive the sparkles + next step.
+      cam.pan(c.x, c.y - 20, PAN_MS, 'Sine.easeInOut', false);
+      this.time.delayedCall(PAN_MS, () => {
         for (let s = 0; s < 18; s++) {
           const innerR = Phaser.Math.Between(2, 5);
           const outerR = Phaser.Math.Between(5, 10);
@@ -2645,7 +2648,7 @@ export default class GameScene extends Phaser.Scene {
             onComplete: () => star.destroy()
           });
         }
-        this.time.delayedCall(950, () => visit(i + 1));
+        this.time.delayedCall(DWELL_MS, () => visit(i + 1));
       });
     };
     visit(0);
