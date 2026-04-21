@@ -391,7 +391,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     const lvlCount = m.levels.length;
     const countText = `${lvlCount} ${lvlCount === 1 ? 'LEVEL' : 'LEVELS'}`;
-    const countY = isRow ? h * 0.30 : h * 0.20;
+    const countY = isRow ? h * 0.36 : h * 0.20;
 
     const countPill = UIPill.create(this, {
       x: pillsX, y: countY,
