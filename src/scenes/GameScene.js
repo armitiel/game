@@ -2275,12 +2275,7 @@ export default class GameScene extends Phaser.Scene {
         fontSize: `${Math.round(30 * ss)}px`, color: '#33ff88', stroke: '#000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
       this.tweens.add({ targets: jArrow, y: jArrowY + Math.round(8 * ss), duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      const jLabel = this.add.text(jArrowX, jArrowY - Math.round(28 * ss), 'JUMP', {
-        fontFamily: 'Bungee, monospace', fontSize: `${Math.round(16 * ss)}px`, fontStyle: 'bold',
-        color: '#33ff88', stroke: '#000000', strokeThickness: Math.round(3 * ss)
-      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-      this.tweens.add({ targets: jLabel, alpha: { from: 1, to: 0.5 }, duration: 600, yoyo: true, repeat: -1 });
-      els.push(jArrow, jLabel);
+      els.push(jArrow);
     }
     // Phase 2: bouncing arrow + label on the E/interact button, plus up/down on joystick
     if (phase === 2) {
@@ -2291,12 +2286,7 @@ export default class GameScene extends Phaser.Scene {
         fontSize: `${Math.round(30 * ss)}px`, color: '#ffaa33', stroke: '#000', strokeThickness: Math.round(3 * ss)
       }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
       this.tweens.add({ targets: eArrow, y: eArrowY + Math.round(8 * ss), duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      const eLabel = this.add.text(eArrowX, eArrowY - Math.round(28 * ss), 'E', {
-        fontFamily: 'Bungee, monospace', fontSize: `${Math.round(18 * ss)}px`, fontStyle: 'bold',
-        color: '#ffaa33', stroke: '#000000', strokeThickness: Math.round(3 * ss)
-      }).setOrigin(0.5).setDepth(293).setScrollFactor(0).setResolution(2);
-      this.tweens.add({ targets: eLabel, alpha: { from: 1, to: 0.5 }, duration: 600, yoyo: true, repeat: -1 });
-      els.push(eArrow, eLabel);
+      els.push(eArrow);
       const joyOff = Math.round(54 * ss);
       const arrowU = this.add.text(joyX, joyY - joyOff, '▲', {
         fontSize: `${Math.round(26 * ss)}px`, color: '#ffaa33', stroke: '#000', strokeThickness: Math.round(3 * ss)
@@ -2362,25 +2352,7 @@ export default class GameScene extends Phaser.Scene {
         });
       }
 
-      // Big bouncing "HERE" label just beside the spotlight
-      const herePad = Math.round(26 * ss);
-      const hereOffsetY = spotY > gh / 2 ? -(spotR + herePad) : (spotR + herePad);
-      const here = this.add.text(spotX, spotY + hereOffsetY, 'HERE', {
-        fontFamily: 'Bungee, monospace', fontSize: `${Math.round(13 * ss)}px`, fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(3 * ss),
-        backgroundColor: '#000000aa', padding: { x: Math.round(6 * ss), y: Math.round(2 * ss) }
-      }).setOrigin(0.5).setDepth(295).setScrollFactor(0).setResolution(2);
-      here.setAlpha(0);
-      this.tweens.add({
-        targets: here, alpha: 1,
-        duration: 300, delay: 700
-      });
-      this.tweens.add({
-        targets: here, y: here.y + (hereOffsetY > 0 ? 4 : -4),
-        duration: 500, yoyo: true, repeat: -1,
-        ease: 'Sine.easeInOut', delay: 1000
-      });
-      els.push(here);
+      // (HERE label removed — spot + popup are sufficient)
     }
 
     // Hide all overlay elements from main cam
@@ -2658,10 +2630,6 @@ export default class GameScene extends Phaser.Scene {
       red: 0xff3344, blue: 0x3388ff, yellow: 0xffdd33,
       green: 0x33ff88, black: 0x1a1319,
     };
-    const colorNames = {
-      red: 'RED', blue: 'BLUE', yellow: 'YELLOW',
-      green: 'GREEN', black: 'BLACK',
-    };
 
     const els = [];
     this._addingHud = true;
@@ -2685,7 +2653,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Single title line
     const title = this.add.text(cardX, cardY - cardH / 2 + 22,
-      'ZBIERZ WSZYSTKIE POTRZEBNE KOLORY', {
+      'ZBIERZ JE WSZYSTKIE', {
       fontFamily: 'Bungee, monospace', fontSize: '15px', fontStyle: 'bold',
       color: '#ffdd33', stroke: '#000000', strokeThickness: 3,
       align: 'center', wordWrap: { width: cardW - 30 }
@@ -2720,18 +2688,12 @@ export default class GameScene extends Phaser.Scene {
           .setStrokeStyle(3, 0xffffff, 1).setDepth(298).setScrollFactor(0);
       }
 
-      // Label below
-      const lbl = this.add.text(iconX, rowY + 36, colorNames[c.color] || c.color, {
-        fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 2
-      }).setOrigin(0.5).setDepth(299).setScrollFactor(0).setResolution(2);
-
       // Staggered bounce-in
-      [glow, canSprite, lbl].forEach(el => {
+      [glow, canSprite].forEach(el => {
         el.setScale(0);
         this.tweens.add({
           targets: el,
-          scaleX: el === canSprite ? 1 : 1, scaleY: el === canSprite ? 1 : 1,
+          scaleX: 1, scaleY: 1,
           duration: 350, delay: 200 + i * 120,
           ease: 'Back.easeOut'
         });
@@ -2745,7 +2707,7 @@ export default class GameScene extends Phaser.Scene {
         ease: 'Sine.easeInOut', delay: 600 + i * 120
       });
 
-      els.push(glow, canSprite, lbl);
+      els.push(glow, canSprite);
     });
 
     // Footer hint: "Approach the cans to collect"
@@ -3183,18 +3145,7 @@ export default class GameScene extends Phaser.Scene {
           ease: 'Sine.easeInOut', delay: 900 + delay
         });
 
-        // Small "HERE" label near the control
-        const labelOffsetY = ty > gh / 2 ? -(screenTarget.r + 18) : (screenTarget.r + 18);
-        const realLbl = this.add.text(tx, ty + labelOffsetY, label, {
-          fontFamily: 'Bungee, monospace', fontSize: '11px', fontStyle: 'bold',
-          color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-          backgroundColor: '#000000aa', padding: { x: 6, y: 2 }
-        }).setOrigin(0.5).setDepth(298).setScrollFactor(0).setResolution(2);
-        realLbl.setAlpha(0);
-        this.tweens.add({
-          targets: realLbl, alpha: 1,
-          duration: 350, delay: 600 + delay
-        });
+        // (label near control removed — spot + popup are sufficient)
 
         // Animated dots that travel from the popup icon to the real control — a
         // "trail" that makes the connection unmistakable.
@@ -3220,7 +3171,7 @@ export default class GameScene extends Phaser.Scene {
           });
         }
 
-        els.push(realRing, realLbl);
+        els.push(realRing);
       }
     };
 
