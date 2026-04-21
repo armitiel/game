@@ -104,7 +104,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       stroke: hex(COLORS.borderDeep),
       strokeThickness: Math.round(7 * ss),
       shadow: { offsetX: 3 * ss, offsetY: 4 * ss, color: '#000000', blur: 12 * ss, fill: true, stroke: true },
-    }).setOrigin(0.5).setDepth(DEPTH.content)
+    }).setOrigin(0.5).setDepth(DEPTH.content).setResolution(2)
       .setTint(0xffffff, 0xffffff, COLORS.accent, COLORS.accent);
 
     const tutIdx = LEVELS.indexOf(LEVEL_TUTORIAL);
@@ -193,7 +193,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       stroke: hex(COLORS.accentStroke),
       strokeThickness: Math.round(5 * ss),
       shadow: { offsetX: 1 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true },
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setResolution(2);
     panel.add(titleLabel);
 
     const card = panel.bake(x, y);
@@ -250,7 +250,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       stroke: hex(COLORS.borderDeep),
       strokeThickness: Math.round(7 * ss),
       shadow: { offsetX: 3 * ss, offsetY: 4 * ss, color: '#000000', blur: 12 * ss, fill: true, stroke: true },
-    }).setOrigin(0.5).setDepth(DEPTH.content)
+    }).setOrigin(0.5).setDepth(DEPTH.content).setResolution(2)
       .setTint(0xffffff, 0xffffff, COLORS.accent, COLORS.accent);
 
     const modes = [
@@ -332,7 +332,7 @@ export default class LevelSelectScene extends Phaser.Scene {
           stroke: '#000000',
           strokeThickness: Math.round(6 * ss),
           shadow: { offsetX: 2 * ss, offsetY: 2 * ss, color: '#000000', blur: 6 * ss, fill: true },
-        }).setOrigin(0.5).setDepth(DEPTH.content).setAlpha(0.85)
+        }).setOrigin(0.5).setDepth(DEPTH.content).setAlpha(0.85).setResolution(2)
           .setInteractive({ useHandCursor: true });
 
         tutBtn.on('pointerover', () => this.tweens.add({ targets: tutBtn, scale: 1.08, alpha: 1, duration: 120 }));
@@ -384,7 +384,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       stroke: hex(COLORS.accentStroke),
       strokeThickness: Math.round(5 * ss),
       shadow: { offsetX: 1 * ss, offsetY: 2 * ss, color: '#000000', blur: 4 * ss, fill: true },
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setResolution(2);
     panel.add(titleLabel);
 
     const lvlCount = m.levels.length;
@@ -495,7 +495,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       stroke: hex(COLORS.borderDeep),
       strokeThickness: Math.round(7 * ss),
       shadow: { offsetX: 3 * ss, offsetY: 4 * ss, color: '#000000', blur: 10 * ss, fill: true, stroke: true },
-    }).setOrigin(0.5).setDepth(DEPTH.content);
+    }).setOrigin(0.5).setDepth(DEPTH.content).setResolution(2);
 
     // Layout
     const availH = H - titleY - Math.round(120 * ss);
@@ -550,7 +550,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       shadow: { offsetX: 2 * ss, offsetY: 3 * ss, color: '#000000', blur: 6 * ss, fill: true },
       align: 'center',
       wordWrap: { width: w - Math.round(30 * ss) },
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setResolution(2);
     panel.add(name);
 
     const desc = this.add.text(0, h * 0.18, t(level.description), {
@@ -563,7 +563,7 @@ export default class LevelSelectScene extends Phaser.Scene {
       align: 'center',
       lineSpacing: Math.round(5 * ss),
       wordWrap: { width: w - Math.round(30 * ss) },
-    }).setOrigin(0.5).setAlpha(0.92);
+    }).setOrigin(0.5).setAlpha(0.92).setResolution(2);
     panel.add(desc);
 
     const card = panel.bake(x, y);

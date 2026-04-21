@@ -97,7 +97,7 @@ export default class MenuScene extends Phaser.Scene {
       fontStyle: 'bold',
       fill: '#00ff88',
       stroke: '#003322', strokeThickness: Math.round(4 * ss)
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setResolution(2);
 
     // Blink effect
     this.tweens.add({
@@ -123,7 +123,7 @@ export default class MenuScene extends Phaser.Scene {
       font: `bold ${smallFont}px Calibri, sans-serif`,
       fill: '#556677',
       stroke: '#000000', strokeThickness: Math.round(3 * ss)
-    }).setOrigin(1, 1);
+    }).setOrigin(1, 1).setResolution(2);
 
     // ?owner=SECRET sets localStorage flag to exclude self from counter
     const params = new URLSearchParams(window.location.search);

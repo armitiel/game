@@ -565,70 +565,124 @@ export default class TouchControls {
     const cam = scene.cameras.main;
     const isMobile = this.enabled;
 
-    // Responsive scale: color buttons don't need the big touch boost —
-    // use a gentler multiplier so they don't dominate the paint screen.
+    // Responsive scale (+20% boost on mobile per request)
     const rawSS = Math.min(cam.width / 1280, cam.height / 720);
-    const ss = isMobile ? Math.max(rawSS * 0.95, 0.45) : rawSS;
+    const ss = isMobile ? Math.max(rawSS * 1.15, 0.55) : rawSS;
     const scale = isMobile ? ss : ss * 0.85;
-    const ORBIT_R = Math.round(140 * scale);
     const BTN_R   = Math.round(56 * scale);
     const EXIT_R  = Math.round(44 * scale);
     const fontSize = Math.round(48 * scale);
     const exitFontSize = Math.round(56 * scale);
 
-    // Position: bottom-right corner with small margin from edges
-    const margin = Math.round(20 * scale);
-    const cx = cam.width - margin - ORBIT_R - BTN_R;
-    const cy = cam.height - margin - ORBIT_R - BTN_R;
+    if (isMobile) {
+      // === MOBILE: vertical column on right edge, centered on screen height ===
+      const gap = Math.round(14 * scale);
+      const totalItems = numColors + 1; // colors + exit
+      const totalH = totalItems * (BTN_R * 2) + (totalItems - 1) * gap;
+      const margin = Math.round(16 * scale);
+      const colX = cam.width - margin - BTN_R;
+      const startY = (cam.height - totalH) / 2 + BTN_R;
 
-    // Color buttons around the circle
-    for (let i = 0; i < numColors; i++) {
-      const angle = -Math.PI / 2 - i * (2 * Math.PI / numColors);
-      const x = cx + Math.cos(angle) * ORBIT_R;
-      const y = cy + Math.sin(angle) * ORBIT_R;
-      const color = colorHexes[i] || 0xffffff;
-      const has = hasColorArr ? hasColorArr[i] : true;
+      for (let i = 0; i < numColors; i++) {
+        const x = colX;
+        const y = startY + i * (BTN_R * 2 + gap);
+        const color = colorHexes[i] || 0xffffff;
+        const has = hasColorArr ? hasColorArr[i] : true;
 
-      const bg = scene.add.circle(x, y, BTN_R, color, has ? 0.65 : 0.12)
-        .setScrollFactor(0).setDepth(200)
-        .setStrokeStyle(2, 0xffffff, has ? 0.45 : 0.12)
-        .setInteractive();
+        const bg = scene.add.circle(x, y, BTN_R, color, has ? 0.65 : 0.12)
+          .setScrollFactor(0).setDepth(200)
+          .setStrokeStyle(2, 0xffffff, has ? 0.45 : 0.12)
+          .setInteractive();
 
-      const text = scene.add.text(x, y, String(i + 1), {
-        fontFamily: 'Bungee, monospace', fontSize: fontSize + 'px', fontStyle: 'bold',
-        color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(6 * scale),
-        padding: { x: 4, y: 4 }
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(has ? 0.95 : 0.2);
+        const text = scene.add.text(x, y, String(i + 1), {
+          fontFamily: 'Bungee, monospace', fontSize: fontSize + 'px', fontStyle: 'bold',
+          color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(6 * scale),
+          padding: { x: 4, y: 4 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(has ? 0.95 : 0.2);
 
-      bg.on('pointerdown', () => {
-        if (hasColorArr && !hasColorArr[i]) return; // can't select unavailable color
-        this.colorButtons.forEach((btn, idx) => {
-          if (idx >= numColors) return;
-          btn.bg.setStrokeStyle(idx === i ? 4 : 2, 0xffffff, idx === i ? 1 : 0.3);
-          btn.text.setAlpha(idx === i ? 1 : 0.7);
+        bg.on('pointerdown', () => {
+          if (hasColorArr && !hasColorArr[i]) return;
+          this.colorButtons.forEach((btn, idx) => {
+            if (idx >= numColors) return;
+            btn.bg.setStrokeStyle(idx === i ? 4 : 2, 0xffffff, idx === i ? 1 : 0.3);
+            btn.text.setAlpha(idx === i ? 1 : 0.7);
+          });
+          onSelect(i);
         });
-        onSelect(i);
-      });
 
-      this.colorButtons.push({ bg, text, hasColor: has });
+        this.colorButtons.push({ bg, text, hasColor: has });
+      }
+
+      // EXIT — "✕" at the bottom of the column
+      const exitY = startY + numColors * (BTN_R * 2 + gap);
+      const exitBg = scene.add.circle(colX, exitY, EXIT_R, 0x1a0000, 0.88)
+        .setScrollFactor(0).setDepth(202)
+        .setStrokeStyle(3, 0xff4444, 0.85)
+        .setInteractive();
+      const exitText = scene.add.text(colX, exitY, '✕', {
+        fontFamily: 'Bungee, monospace', fontSize: exitFontSize + 'px', fontStyle: 'bold',
+        color: '#ff4444', stroke: '#110000', strokeThickness: Math.round(7 * scale),
+        padding: { x: 4, y: 4 }
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setAlpha(1);
+
+      exitBg.on('pointerdown', () => { if (onExit) onExit(); });
+      this.colorButtons.push({ bg: exitBg, text: exitText });
+
+    } else {
+      // === DESKTOP: circular orbit layout (bottom-right corner) ===
+      const ORBIT_R = Math.round(140 * scale);
+      const margin = Math.round(20 * scale);
+      const cx = cam.width - margin - ORBIT_R - BTN_R;
+      const cy = cam.height - margin - ORBIT_R - BTN_R;
+
+      for (let i = 0; i < numColors; i++) {
+        const angle = -Math.PI / 2 - i * (2 * Math.PI / numColors);
+        const x = cx + Math.cos(angle) * ORBIT_R;
+        const y = cy + Math.sin(angle) * ORBIT_R;
+        const color = colorHexes[i] || 0xffffff;
+        const has = hasColorArr ? hasColorArr[i] : true;
+
+        const bg = scene.add.circle(x, y, BTN_R, color, has ? 0.65 : 0.12)
+          .setScrollFactor(0).setDepth(200)
+          .setStrokeStyle(2, 0xffffff, has ? 0.45 : 0.12)
+          .setInteractive();
+
+        const text = scene.add.text(x, y, String(i + 1), {
+          fontFamily: 'Bungee, monospace', fontSize: fontSize + 'px', fontStyle: 'bold',
+          color: '#ffffff', stroke: '#000000', strokeThickness: Math.round(6 * scale),
+          padding: { x: 4, y: 4 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setAlpha(has ? 0.95 : 0.2);
+
+        bg.on('pointerdown', () => {
+          if (hasColorArr && !hasColorArr[i]) return;
+          this.colorButtons.forEach((btn, idx) => {
+            if (idx >= numColors) return;
+            btn.bg.setStrokeStyle(idx === i ? 4 : 2, 0xffffff, idx === i ? 1 : 0.3);
+            btn.text.setAlpha(idx === i ? 1 : 0.7);
+          });
+          onSelect(i);
+        });
+
+        this.colorButtons.push({ bg, text, hasColor: has });
+      }
+
+      // EXIT — "✕" in the center of the circle
+      const exitBg = scene.add.circle(cx, cy, EXIT_R, 0x1a0000, 0.88)
+        .setScrollFactor(0).setDepth(202)
+        .setStrokeStyle(3, 0xff4444, 0.85)
+        .setInteractive();
+      const exitText = scene.add.text(cx, cy, '✕', {
+        fontFamily: 'Bungee, monospace', fontSize: exitFontSize + 'px', fontStyle: 'bold',
+        color: '#ff4444', stroke: '#110000', strokeThickness: Math.round(7 * scale),
+        padding: { x: 4, y: 4 }
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setAlpha(1);
+
+      exitBg.on('pointerdown', () => { if (onExit) onExit(); });
+      exitBg.on('pointerover', () => exitBg.setFillStyle(0x330000, 0.95));
+      exitBg.on('pointerout',  () => exitBg.setFillStyle(0x1a0000, 0.88));
+
+      this.colorButtons.push({ bg: exitBg, text: exitText });
     }
-
-    // EXIT — "✕" in the center of the circle
-    const exitBg = scene.add.circle(cx, cy, EXIT_R, 0x1a0000, 0.88)
-      .setScrollFactor(0).setDepth(202)
-      .setStrokeStyle(3, 0xff4444, 0.85)
-      .setInteractive();
-    const exitText = scene.add.text(cx, cy, '✕', {
-      fontFamily: 'Bungee, monospace', fontSize: exitFontSize + 'px', fontStyle: 'bold',
-      color: '#ff4444', stroke: '#110000', strokeThickness: Math.round(7 * scale),
-      padding: { x: 4, y: 4 }
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(203).setAlpha(1);
-
-    exitBg.on('pointerdown', () => { if (onExit) onExit(); });
-    exitBg.on('pointerover', () => exitBg.setFillStyle(0x330000, 0.95));
-    exitBg.on('pointerout',  () => exitBg.setFillStyle(0x1a0000, 0.88));
-
-    this.colorButtons.push({ bg: exitBg, text: exitText });
 
     // PAINT / FILL button removed — mobile now auto-paints when hand moves over
     // matching color regions. No manual fill button needed.

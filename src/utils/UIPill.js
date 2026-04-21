@@ -50,7 +50,7 @@ export default class UIPill {
       stroke: cfg.textStroke,
       strokeThickness: cfg.textStrokeWidth,
       shadow: { offsetX: 1, offsetY: 2, color: '#000000', blur: 4, fill: true },
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setResolution(2);
 
     const w = cfg.width || (text.width + cfg.paddingX * 2);
     const h = cfg.height;
