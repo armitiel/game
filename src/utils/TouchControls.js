@@ -357,34 +357,56 @@ export default class TouchControls {
    * @param {boolean} on
    */
   highlightButton(name, on) {
+    if (name !== 'paint' && name !== 'grab') return;
+    const stateKey = name === 'paint' ? '_paintHighlight' : '_grabHighlight';
+    const offTimerKey = name === 'paint' ? '_paintOffTimer' : '_grabOffTimer';
+    const active = name === 'paint' ? this._paintActive : this._grabActive;
+    if (active) { this[stateKey] = on; return; }
+
+    if (on) {
+      // Cancel any pending off-transition — proximity flicker shouldn't kill pulse.
+      if (this[offTimerKey]) { this[offTimerKey].remove(); this[offTimerKey] = null; }
+      if (this[stateKey]) return; // already highlighted, let the tween keep running
+      this[stateKey] = true;
+      this._applyHighlightOn(name);
+      return;
+    }
+
+    // Debounce off: wait ~250ms before actually stopping, so single-frame
+    // drops in proximity detection don't restart the pulse from scratch.
+    if (!this[stateKey]) return;
+    if (this[offTimerKey]) return;
+    if (!this.scene) return;
+    this[offTimerKey] = this.scene.time.delayedCall(250, () => {
+      this[offTimerKey] = null;
+      this[stateKey] = false;
+      this._applyHighlightOff(name);
+    });
+  }
+
+  _applyHighlightOn(name) {
     if (name === 'paint') {
-      this._paintHighlight = on;
-      if (this._paintActive) return; // active mode overrides highlight
-      if (on) {
-        if (this._actBg) this._actBg.setAlpha(0.45).setStrokeStyle(3.5, 0xffdd33, 1.0);
-        if (this._actOrigIcon) { this._actOrigIcon.setAlpha(1.0); this._actOrigIcon.setTint(0xffdd33); }
-        if (this._actGlow) this._actGlow.setVisible(true);
-        this._startPulseTween('paint');
-      } else {
-        this._stopPulseTween('paint');
-        if (this._actBg) this._actBg.setAlpha(0.15).setStrokeStyle(2, 0xffdd33, 0.4);
-        if (this._actOrigIcon) { this._actOrigIcon.setAlpha(0.5); this._actOrigIcon.clearTint(); }
-        if (this._actGlow) { this._actGlow.setVisible(false).setAlpha(0).setScale(1); }
-      }
-    } else if (name === 'grab') {
-      this._grabHighlight = on;
-      if (this._grabActive) return; // active mode overrides highlight
-      if (on) {
-        if (this._eBg) this._eBg.setAlpha(0.45).setStrokeStyle(3.5, 0xff8833, 1.0);
-        if (this._eOrigIcon) { this._eOrigIcon.setAlpha(1.0); this._eOrigIcon.setTint(0xffaa33); }
-        if (this._eGlow) this._eGlow.setVisible(true);
-        this._startPulseTween('grab');
-      } else {
-        this._stopPulseTween('grab');
-        if (this._eBg) this._eBg.setAlpha(0.15).setStrokeStyle(2, 0xff8833, 0.4);
-        if (this._eOrigIcon) { this._eOrigIcon.setAlpha(0.5); this._eOrigIcon.clearTint(); }
-        if (this._eGlow) { this._eGlow.setVisible(false).setAlpha(0).setScale(1); }
-      }
+      if (this._actBg) this._actBg.setAlpha(0.45).setStrokeStyle(3.5, 0xffdd33, 1.0);
+      if (this._actOrigIcon) { this._actOrigIcon.setAlpha(1.0); this._actOrigIcon.setTint(0xffdd33); }
+      if (this._actGlow) this._actGlow.setVisible(true);
+    } else {
+      if (this._eBg) this._eBg.setAlpha(0.45).setStrokeStyle(3.5, 0xff8833, 1.0);
+      if (this._eOrigIcon) { this._eOrigIcon.setAlpha(1.0); this._eOrigIcon.setTint(0xffaa33); }
+      if (this._eGlow) this._eGlow.setVisible(true);
+    }
+    this._startPulseTween(name);
+  }
+
+  _applyHighlightOff(name) {
+    this._stopPulseTween(name);
+    if (name === 'paint') {
+      if (this._actBg) this._actBg.setAlpha(0.15).setStrokeStyle(2, 0xffdd33, 0.4);
+      if (this._actOrigIcon) { this._actOrigIcon.setAlpha(0.5); this._actOrigIcon.clearTint(); }
+      if (this._actGlow) { this._actGlow.setVisible(false).setAlpha(0).setScale(1); }
+    } else {
+      if (this._eBg) this._eBg.setAlpha(0.15).setStrokeStyle(2, 0xff8833, 0.4);
+      if (this._eOrigIcon) { this._eOrigIcon.setAlpha(0.5); this._eOrigIcon.clearTint(); }
+      if (this._eGlow) { this._eGlow.setVisible(false).setAlpha(0).setScale(1); }
     }
   }
 
